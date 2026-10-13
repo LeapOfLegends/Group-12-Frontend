@@ -1,0 +1,157 @@
+<div class="page transfer-page">
+  <a class="back-link" routerLink="/dashboard">
+    <app-icon name="arrow-left" [size]="18" />
+    Back to Dashboard
+  </a>
+
+  <header class="page-header">
+    <div class="page-title">
+      <h1>Transfer Money</h1>
+      <p class="page-subtitle">Move cash into or out of your trading account.</p>
+    </div>
+  </header>
+
+  <section class="card balance-strip" aria-label="Account information">
+    @if (loading()) {
+      <app-loading-skeleton variant="text" [lines]="2" label="Loading account balance" />
+    } @else {
+      <div class="balance-item balance-main">
+        <span class="eyebrow">Available cash</span>
+        <span class="balance-value">{{ cash() | money }}</span>
+      </div>
+      <div class="balance-item">
+        <span class="eyebrow">Account holder</span>
+        <span class="balance-text">{{ auth.user()?.displayName }}</span>
+      </div>
+      <div class="balance-item">
+        <span class="eyebrow">Account</span>
+        <span class="balance-text">Cash account · ID {{ auth.user()?.id }}</span>
+      </div>
+      @if (reserved() > 0) {
+        <div class="balance-item">
+          <span class="eyebrow">Reserved for open orders</span>
+          <span class="balance-text">{{ reserved() | money }}</span>
+        </div>
+      }
+    }
+  </section>
+
+  @if (portfolio.error(); as error) {
+    <div class="alert alert-warning" role="alert">
+      <app-icon name="alert-triangle" />
+      <span>{{ error }} Transfers are paused until your balance can be loaded.</span>
+      <button type="button" class="btn btn-sm btn-secondary alert-action" (click)="portfolio.refresh()">Retry</button>
+    </div>
+  }
+
+  <div class="transfer-layout">
+    <section class="card transfer-card" aria-live="polite">
+      @switch (step()) {
+        @case ('form') {
+          <app-transfer-form
+            [initialMode]="initialMode()"
+            [withdrawable]="withdrawable()"
+            [reserved]="reserved()"
+            [disabled]="loading() || !!portfolio.error()"
+            (submitted)="review($event)"
+          />
+        }
+        @case ('review') {
+          @if (pending(); as request) {
+            <div class="review">
+              <div class="review-heading">
+                <span class="eyebrow">Step 2 of 3</span>
+                <h2>Review your {{ request.mode === 'deposit' ? 'deposit' : 'withdrawal' }}</h2>
+                <p class="text-secondary">Check the details below. Nothing moves until you confirm.</p>
+              </div>
+
+              <dl class="summary-list">
+                <div>
+                  <dt>Transfer type</dt>
+                  <dd>{{ request.mode === 'deposit' ? 'Deposit to cash account' : 'Withdrawal from cash account' }}</dd>
+                </div>
+                <div>
+                  <dt>Amount</dt>
+                  <dd>{{ request.amount | money }}</dd>
+                </div>
+                <div>
+                  <dt>Current cash balance</dt>
+                  <dd>{{ cash() | money }}</dd>
+                </div>
+                <div class="summary-total">
+                  <dt>Balance after transfer</dt>
+                  <dd>{{ balanceAfter() | money }}</dd>
+                </div>
+              </dl>
+
+              @if (submitError(); as error) {
+                <div class="alert alert-error" role="alert">
+                  <app-icon name="alert-circle" />
+                  <span>{{ error }}</span>
+                </div>
+              }
+
+              <div class="review-actions">
+                <button type="button" class="btn btn-secondary" (click)="edit()" [disabled]="submitting()">Edit amount</button>
+                <button type="button" class="btn btn-primary btn-lg" (click)="confirm()" [disabled]="submitting()" [attr.aria-busy]="submitting()">
+                  @if (submitting()) {
+                    <span class="spinner" aria-hidden="true"></span>
+                    Processing…
+                  } @else {
+                    Confirm {{ request.mode === 'deposit' ? 'deposit' : 'withdrawal' }}
+                  }
+                </button>
+              </div>
+            </div>
+          }
+        }
+        @case ('result') {
+          @if (result(); as done) {
+            <div class="result">
+              <span class="result-icon"><app-icon name="check-circle" [size]="32" /></span>
+              <span class="eyebrow">Step 3 of 3</span>
+              <h2>{{ done.mode === 'deposit' ? 'Deposit' : 'Withdrawal' }} completed</h2>
+              <app-status-badge tone="positive" icon="check" label="Completed" />
+              <p class="text-secondary">
+                The platform confirmed this transfer and updated your cash balance. There is no pending period for internal transfers.
+              </p>
+              <dl class="summary-list">
+                <div>
+                  <dt>Amount</dt>
+                  <dd>{{ done.amount | money }}</dd>
+                </div>
+                <div>
+                  <dt>Previous balance</dt>
+                  <dd>{{ done.balanceBefore | money }}</dd>
+                </div>
+                <div class="summary-total">
+                  <dt>New cash balance</dt>
+                  <dd>{{ done.balanceAfter | money }}</dd>
+                </div>
+                <div>
+                  <dt>Completed</dt>
+                  <dd>{{ done.completedAt | dateTime }}</dd>
+                </div>
+              </dl>
+              <div class="review-actions">
+                <button type="button" class="btn btn-secondary" (click)="startAnother()">Make another transfer</button>
+                <a class="btn btn-primary" routerLink="/dashboard">Back to Dashboard</a>
+              </div>
+            </div>
+          }
+        }
+      }
+    </section>
+
+    <aside class="transfer-aside">
+      <section class="card card-compact">
+        <h3>How transfers work</h3>
+        <ul class="help-list">
+          <li><app-icon name="check" [size]="16" /><span>Deposits are available for trading immediately after confirmation.</span></li>
+          <li><app-icon name="check" [size]="16" /><span>Withdrawals are limited to cash that is not reserved for executing buy orders.</span></li>
+          <li><app-icon name="check" [size]="16" /><span>Every transfer is confirmed by the platform before your balance changes.</span></li>
+        </ul>
+      </section>
+    </aside>
+  </div>
+</div>

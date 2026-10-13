@@ -1,0 +1,146 @@
+<div class="login-shell">
+  <section class="login-visual" aria-hidden="true">
+    <div class="visual-inner">
+      <app-brand-logo [onDark]="true" [markSize]="44" />
+      <div class="visual-copy">
+        <p class="visual-eyebrow">Direct trading platform</p>
+        <h2 class="visual-title">See your positions. Place a trade. Know the outcome.</h2>
+        <p class="visual-text">
+          Cash, holdings and every order you have ever placed, in one trustworthy view — no dealer in the loop.
+        </p>
+      </div>
+
+      <figure class="visual-chart">
+        <svg viewBox="0 0 520 220" preserveAspectRatio="none">
+          <defs>
+            <linearGradient id="login-area" x1="0" x2="0" y1="0" y2="1">
+              <stop offset="0%" stop-color="#C8A46B" stop-opacity="0.35" />
+              <stop offset="100%" stop-color="#C8A46B" stop-opacity="0" />
+            </linearGradient>
+          </defs>
+          <g stroke="rgba(255,255,255,0.08)" stroke-width="1">
+            <line x1="0" x2="520" y1="55" y2="55" />
+            <line x1="0" x2="520" y1="110" y2="110" />
+            <line x1="0" x2="520" y1="165" y2="165" />
+          </g>
+          <path
+            d="M0 170 C 40 160, 70 150, 100 140 S 160 150, 190 120 S 250 90, 290 100 S 350 70, 390 60 S 460 50, 520 28 L520 220 L0 220 Z"
+            fill="url(#login-area)"
+          />
+          <path
+            d="M0 170 C 40 160, 70 150, 100 140 S 160 150, 190 120 S 250 90, 290 100 S 350 70, 390 60 S 460 50, 520 28"
+            fill="none"
+            stroke="#C8A46B"
+            stroke-width="3"
+            stroke-linecap="round"
+          />
+          <circle cx="520" cy="28" r="6" fill="#C8A46B" stroke="#073B2A" stroke-width="3" />
+        </svg>
+        <figcaption class="visual-stats">
+          <div><span class="stat-label">Market quotes</span><span class="stat-value">Live, stored securely</span></div>
+          <div><span class="stat-label">Every order</span><span class="stat-value">Permanently recorded</span></div>
+          <div><span class="stat-label">Your balance</span><span class="stat-value">Always current</span></div>
+        </figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <main class="login-main">
+    <div class="login-top">
+      <span class="login-brand"><app-brand-logo [markSize]="34" /></span>
+      <button
+        type="button"
+        class="btn btn-ghost btn-icon"
+        (click)="theme.toggle()"
+        [attr.aria-label]="theme.isDark() ? 'Switch to light theme' : 'Switch to dark theme'"
+      >
+        <app-icon [name]="theme.isDark() ? 'sun' : 'moon'" [size]="20" />
+      </button>
+    </div>
+
+    <div class="login-card">
+      <h1>Sign in</h1>
+      <p class="login-lead">Welcome back. Use the email and password for your Leap Trading account.</p>
+
+      @if (sessionExpired() && !errorMessage()) {
+        <div class="alert alert-info" role="status">
+          <app-icon name="clock" />
+          <span>Your session has expired. Sign in again to continue.</span>
+        </div>
+      }
+
+      <form [formGroup]="form" (ngSubmit)="submit()" novalidate class="login-form">
+        <div class="field">
+          <label class="field-label" for="login-email">Email address</label>
+          <input
+            id="login-email"
+            class="input"
+            type="email"
+            formControlName="email"
+            autocomplete="username"
+            inputmode="email"
+            autocapitalize="off"
+            spellcheck="false"
+            placeholder="name@example.com"
+            [attr.aria-invalid]="fieldError('email') ? 'true' : null"
+            [attr.aria-describedby]="fieldError('email') ? 'login-email-error' : null"
+          />
+          @if (fieldError('email'); as error) {
+            <p id="login-email-error" class="field-error"><app-icon name="alert-circle" [size]="16" />{{ error }}</p>
+          }
+        </div>
+
+        <div class="field">
+          <label class="field-label" for="login-password">Password</label>
+          <div class="input-group input-group-password">
+            <input
+              id="login-password"
+              class="input"
+              [type]="showPassword() ? 'text' : 'password'"
+              formControlName="password"
+              autocomplete="current-password"
+              placeholder="Your password"
+              [attr.aria-invalid]="fieldError('password') ? 'true' : null"
+              [attr.aria-describedby]="fieldError('password') ? 'login-password-error' : null"
+            />
+            <button
+              type="button"
+              class="btn btn-ghost btn-icon input-suffix"
+              (click)="togglePassword()"
+              [attr.aria-label]="showPassword() ? 'Hide password' : 'Show password'"
+              [attr.aria-pressed]="showPassword()"
+            >
+              <app-icon [name]="showPassword() ? 'eye-off' : 'eye'" [size]="20" />
+            </button>
+          </div>
+          @if (fieldError('password'); as error) {
+            <p id="login-password-error" class="field-error"><app-icon name="alert-circle" [size]="16" />{{ error }}</p>
+          }
+        </div>
+
+        @if (errorMessage(); as message) {
+          <div class="alert alert-error" role="alert">
+            <app-icon name="alert-circle" />
+            <span>{{ message }}</span>
+          </div>
+        }
+
+        <button type="submit" class="btn btn-primary btn-lg btn-block" [disabled]="submitting()" [attr.aria-busy]="submitting()">
+          @if (submitting()) {
+            <span class="spinner" aria-hidden="true"></span>
+            Signing in…
+          } @else {
+            Sign in
+          }
+        </button>
+      </form>
+
+      <p class="login-help">
+        <app-icon name="lock" [size]="16" />
+        <span>Accounts are created by the platform team. Administrators sign in with their administrator email address.</span>
+      </p>
+    </div>
+
+    <p class="login-footer">© {{ year }} Leap Trading · For self-directed investors</p>
+  </main>
+</div>
