@@ -5,7 +5,7 @@ import { InstrumentsApiService } from '../api/instruments-api.service';
 import { CatalogInstrument, Instrument } from '../models/trading.models';
 import { describeHttpError } from '../utils/http-error';
 
-const ID_CACHE_KEY = 'leap.instrumentIds';
+const ID_CACHE_KEY = 'jetzy.instrumentIds';
 const PROBE_BATCH_SIZE = 16;
 const PROBE_MAX_ID = 400;
 
@@ -33,8 +33,12 @@ export class InstrumentCatalogService {
   readonly loading = this.loadingState.asReadonly();
   readonly error = this.errorState.asReadonly();
   readonly loadedAt = this.loadedAtState.asReadonly();
-  readonly tradable = computed(() => this.instrumentsState().filter((instrument) => instrument.tradable));
-  readonly bySymbol = computed(() => new Map(this.instrumentsState().map((instrument) => [instrument.symbol, instrument])));
+  readonly tradable = computed(() =>
+    this.instrumentsState().filter((instrument) => instrument.tradable),
+  );
+  readonly bySymbol = computed(
+    () => new Map(this.instrumentsState().map((instrument) => [instrument.symbol, instrument])),
+  );
 
   /** Loads the catalogue once per session unless `force` is set. */
   async load(force = false): Promise<CatalogInstrument[]> {
@@ -82,7 +86,9 @@ export class InstrumentCatalogService {
     if (unique.length === 0) {
       return of(new Map<number, Instrument>());
     }
-    return forkJoin(unique.map((id) => this.getById(id).pipe(map((instrument) => [id, instrument] as const)))).pipe(
+    return forkJoin(
+      unique.map((id) => this.getById(id).pipe(map((instrument) => [id, instrument] as const))),
+    ).pipe(
       map((entries) => {
         const result = new Map<number, Instrument>();
         for (const [id, instrument] of entries) {
@@ -103,8 +109,14 @@ export class InstrumentCatalogService {
         if (!existing) {
           return null;
         }
-        const updated: CatalogInstrument = { ...existing, ...fresh, instrumentId: existing.instrumentId };
-        this.instrumentsState.update((instruments) => instruments.map((item) => (item.symbol === updated.symbol ? updated : item)));
+        const updated: CatalogInstrument = {
+          ...existing,
+          ...fresh,
+          instrumentId: existing.instrumentId,
+        };
+        this.instrumentsState.update((instruments) =>
+          instruments.map((item) => (item.symbol === updated.symbol ? updated : item)),
+        );
         this.byIdCache.delete(updated.instrumentId);
         return updated;
       }),
@@ -114,7 +126,9 @@ export class InstrumentCatalogService {
 
   private async loadCatalog(): Promise<CatalogInstrument[]> {
     const listed = await firstValueFrom(this.api.list());
-    const withIds = listed.filter((instrument): instrument is CatalogInstrument => typeof instrument.instrumentId === 'number');
+    const withIds = listed.filter(
+      (instrument): instrument is CatalogInstrument => typeof instrument.instrumentId === 'number',
+    );
     if (withIds.length === listed.length) {
       return withIds;
     }
@@ -181,7 +195,9 @@ export class InstrumentCatalogService {
         return null;
       }
       const entries = JSON.parse(raw) as [string, number][];
-      return new Map(entries.filter(([symbol, id]) => typeof symbol === 'string' && typeof id === 'number'));
+      return new Map(
+        entries.filter(([symbol, id]) => typeof symbol === 'string' && typeof id === 'number'),
+      );
     } catch {
       return null;
     }

@@ -3,7 +3,15 @@ import { Injectable, computed, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { Observable, map, tap } from 'rxjs';
 import { environment } from '../../../environments/environment';
-import { AdminRole, AuthSession, LoginRequest, LoginResponse, SessionUser } from '../models/auth.models';
+import {
+  AdminRole,
+  AuthSession,
+  ClientProfile,
+  LoginRequest,
+  LoginResponse,
+  RegisterRequest,
+  SessionUser,
+} from '../models/auth.models';
 import { decodeJwt, isJwtExpired } from '../utils/jwt.util';
 
 export type LogoutReason = 'user' | 'expired';
@@ -11,7 +19,7 @@ export type LogoutReason = 'user' | 'expired';
 const MAX_TIMER_MS = 2_147_483_647;
 
 /**
- * Owns the signed-in session: logs in through Group-12-Auth, keeps the JWT in
+ * Owns the signed-in session: logs in (and registers clients) through Group-12-Auth, keeps the JWT in
  * local storage so a refresh does not sign the user out, and exposes role facts
  * derived from the token's claims (the same claims the Spring backend trusts).
  */
@@ -32,8 +40,12 @@ export class AuthService {
   readonly role = computed<AdminRole | null>(() => this.user()?.role ?? null);
   readonly isSuperAdmin = computed(() => this.role() === 'super_admin');
   /** Operations and super admins see trading operations; finance and super admins see financial operations. */
-  readonly canViewTradingOperations = computed(() => this.role() === 'super_admin' || this.role() === 'operations');
-  readonly canViewFinancialOperations = computed(() => this.role() === 'super_admin' || this.role() === 'finance');
+  readonly canViewTradingOperations = computed(
+    () => this.role() === 'super_admin' || this.role() === 'operations',
+  );
+  readonly canViewFinancialOperations = computed(
+    () => this.role() === 'super_admin' || this.role() === 'finance',
+  );
   /** Only the backend's super_admin role may call /admins. */
   readonly canManageAdmins = computed(() => this.role() === 'super_admin');
 
@@ -61,12 +73,24 @@ export class AuthService {
     );
   }
 
+  /**
+   * Creates a client account through Group-12-Auth (POST /auth/register). The service
+   * hashes the password and answers 201 with the public client record; no session is
+   * started, so the caller sends the new client to the login page.
+   */
+  register(request: RegisterRequest): Observable<ClientProfile> {
+    return this.http.post<ClientProfile>(`${environment.authApiUrl}/auth/register`, request);
+  }
+
   /** Clears the session and returns to the login page. */
   logout(reason: LogoutReason = 'user'): void {
     const hadSession = this.sessionState() !== null;
     this.clearSession();
     if (hadSession || reason === 'expired') {
-      void this.router.navigate(['/login'], reason === 'expired' ? { queryParams: { reason: 'expired' } } : {});
+      void this.router.navigate(
+        ['/login'],
+        reason === 'expired' ? { queryParams: { reason: 'expired' } } : {},
+      );
     }
   }
 
@@ -131,7 +155,12 @@ export class AuthService {
         return null;
       }
       const parsed = JSON.parse(raw) as Partial<AuthSession>;
-      if (!parsed || typeof parsed.accessToken !== 'string' || !parsed.user || typeof parsed.expiresAt !== 'number') {
+      if (
+        !parsed ||
+        typeof parsed.accessToken !== 'string' ||
+        !parsed.user ||
+        typeof parsed.expiresAt !== 'number'
+      ) {
         localStorage.removeItem(environment.sessionStorageKey);
         return null;
       }

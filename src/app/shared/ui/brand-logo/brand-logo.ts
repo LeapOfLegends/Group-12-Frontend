@@ -1,19 +1,73 @@
 import { ChangeDetectionStrategy, Component, input } from '@angular/core';
 
-/** Original Leap Trading mark: a rising path inside a rounded tile, with the wordmark beside it. */
+/**
+ * JetZy Trading mark: a paper airplane folded from a dollar bill, taking off across a
+ * deep-green tile, with the wordmark beside it. public/favicon.svg carries the same artwork.
+ */
 @Component({
   selector: 'app-brand-logo',
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <a class="brand" [class.brand-on-dark]="onDark()" [class.brand-compact]="compact()" href="/dashboard" aria-label="Leap Trading home">
-      <svg class="brand-mark" viewBox="0 0 64 64" [attr.width]="markSize()" [attr.height]="markSize()" aria-hidden="true" focusable="false">
+    <a
+      class="brand"
+      [class.brand-on-dark]="onDark()"
+      [class.brand-compact]="compact()"
+      href="/dashboard"
+      aria-label="JetZy Trading home"
+    >
+      <svg
+        class="brand-mark"
+        viewBox="0 0 64 64"
+        [attr.width]="markSize()"
+        [attr.height]="markSize()"
+        aria-hidden="true"
+        focusable="false"
+      >
         <rect width="64" height="64" rx="16" fill="#073B2A" />
-        <path d="M14 44 L28 30 L36 38 L50 20" fill="none" stroke="#C8A46B" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" />
-        <path d="M40 20 H50 V30" fill="none" stroke="#C8A46B" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" />
+        <!-- jet trail -->
+        <path
+          d="M6 50c5 0 9-2 13-6"
+          fill="none"
+          stroke="#C8A46B"
+          stroke-width="2.4"
+          stroke-linecap="round"
+          opacity="0.85"
+        />
+        <path
+          d="M10 57c4 0 7-1.5 10-4.5"
+          fill="none"
+          stroke="#C8A46B"
+          stroke-width="2.4"
+          stroke-linecap="round"
+          opacity="0.5"
+        />
+        <!-- lower wing: the shaded side of the fold -->
+        <path d="M57 9 29 36l-4 21z" fill="#2FB071" />
+        <!-- upper wing: the dollar bill -->
+        <path d="M57 9 7 29l22 7z" fill="#DDF3E6" />
+        <text
+          x="27.5"
+          y="31.5"
+          font-family="Inter, Arial, sans-serif"
+          font-size="14"
+          font-weight="800"
+          fill="#073B2A"
+          text-anchor="middle"
+        >
+          $
+        </text>
+        <!-- centre crease -->
+        <path
+          d="M57 9 29 36"
+          fill="none"
+          stroke="#C8A46B"
+          stroke-width="2"
+          stroke-linecap="round"
+        />
       </svg>
       @if (!compact()) {
         <span class="brand-text">
-          <span class="brand-name">Leap</span>
+          <span class="brand-name">JetZy</span>
           <span class="brand-suffix">Trading</span>
         </span>
       }

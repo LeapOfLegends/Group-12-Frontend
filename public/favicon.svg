@@ -1,5 +1,9 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Leap Trading">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="JetZy Trading">
   <rect width="64" height="64" rx="16" fill="#073B2A"/>
-  <path d="M14 44 L28 30 L36 38 L50 20" fill="none" stroke="#C8A46B" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
-  <path d="M40 20 H50 V30" fill="none" stroke="#C8A46B" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M6 50c5 0 9-2 13-6" fill="none" stroke="#C8A46B" stroke-width="2.4" stroke-linecap="round" opacity="0.85"/>
+  <path d="M10 57c4 0 7-1.5 10-4.5" fill="none" stroke="#C8A46B" stroke-width="2.4" stroke-linecap="round" opacity="0.5"/>
+  <path d="M57 9 29 36l-4 21z" fill="#2FB071"/>
+  <path d="M57 9 7 29l22 7z" fill="#DDF3E6"/>
+  <text x="27.5" y="31.5" font-family="Inter, Arial, sans-serif" font-size="14" font-weight="800" fill="#073B2A" text-anchor="middle">$</text>
+  <path d="M57 9 29 36" fill="none" stroke="#C8A46B" stroke-width="2" stroke-linecap="round"/>
 </svg>

@@ -1,6 +1,6 @@
 /**
- * Contracts of the Group-12-Auth login service (NestJS) and the session the
- * frontend derives from them.
+ * Contracts of the Group-12-Auth service (NestJS) and the session the frontend
+ * derives from them.
  */
 
 /** Administrator roles stored in `admins.roles` and carried in the JWT `role` claim. */
@@ -14,10 +14,31 @@ export const ADMIN_ROLE_LABELS: Record<AdminRole, string> = {
   finance: 'Finance Admin',
 };
 
+/** Body of POST /auth/login (LoginDto). The field is `email`, never `username`. */
 export interface LoginRequest {
   email: string;
   password: string;
 }
+
+/**
+ * Body of POST /auth/register (RegisterDto). Clients only; the service hashes the
+ * password itself and rejects any extra property (for example a confirmation field).
+ */
+export interface RegisterRequest {
+  firstName: string;
+  lastName: string;
+  email: string;
+  password: string;
+  /** Formatted as 123-45-6789. */
+  ssn: string;
+  /** A valid US number of at most 12 characters, for example 202-456-1111. */
+  phoneNumber: string;
+  /** ISO 8601 calendar date (YYYY-MM-DD); the `clients.date_of_birth` column is NOT NULL. */
+  dateOfBirth: string;
+}
+
+/** Password policy Group-12-Auth enforces for client registration (same as the backend's admin policy). */
+export const CLIENT_PASSWORD_PATTERN = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z\d]).{12,72}$/;
 
 /** `admin` object returned by POST /auth/login for an admin-domain email. */
 export interface AdminProfile {
@@ -29,7 +50,10 @@ export interface AdminProfile {
   createdAt: string;
 }
 
-/** `client` object returned by POST /auth/login for every other email (no SSN, no hash). */
+/**
+ * `client` object returned by POST /auth/login for every other email, and by
+ * POST /auth/register on success (no SSN, no hash).
+ */
 export interface ClientProfile {
   clientId: string;
   firstName: string;

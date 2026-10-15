@@ -5,10 +5,10 @@
  */
 export const environment = {
   production: false,
-  appName: 'Leap Trading',
+  appName: 'JetZy Trading',
   authApiUrl: '/auth-api',
   tradingApiUrl: '/trading-api',
-  sessionStorageKey: 'leap.session',
+  sessionStorageKey: 'jetzy.session',
   quoteMaxAgeSeconds: 30,
   orderPollIntervalMs: 1500,
   orderPollTimeoutMs: 150000,

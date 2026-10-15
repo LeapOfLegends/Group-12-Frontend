@@ -1,4 +1,4 @@
-// Local stand-in for Group-12-Auth (NestJS) and Group-12-Backend (Spring Boot).
+// Local stand-in for Group-12-Auth (NestJS: login + client registration) and Group-12-Backend (Spring Boot).
 // It mirrors the real contracts (paths, bodies, status codes, error shapes) so the
 // Angular app can be exercised end to end without touching the shared database.
 import http from 'node:http';
@@ -32,6 +32,7 @@ const admins = [
   { adminId: 62, firstName: 'Felix', lastName: 'Finance', email: 'finance@admin.com', password: 'Finance12345!', role: 'finance', createdAt: '2026-10-03T00:00:00' },
 ];
 let nextAdminId = 63;
+let nextClientId = 17;
 
 const clients = [
   { clientId: 12, firstName: 'Jane', lastName: 'Doe', email: 'jane@example.com', password: 'ClientPassword123!', ssn: '123-45-6789', phoneNumber: '202-456-1111', accountBalance: 24974.8995, createdAt: '2025-03-04T12:00:00', dateOfBirth: '1990-05-15' },
@@ -201,6 +202,41 @@ const server = http.createServer(async (req, res) => {
     if (!client || client.password !== body.password) return send(res, 401, { statusCode: 401, message: 'Invalid credentials', error: 'Unauthorized' });
     const { password, ssn, ...safe } = client;
     return send(res, 200, { accessToken: sign({ sub: String(client.clientId), email: client.email, roles: ['CLIENT'], iat, exp }), client: { ...safe, clientId: String(client.clientId), accountBalance: String(client.accountBalance) } });
+  }
+  if (path === '/auth/register' && method === 'POST') {
+    // Mirrors RegisterDto + ValidationPipe({ whitelist, forbidNonWhitelisted }) and AuthService.register.
+    const body = await readBody(req);
+    if (!body || typeof body !== 'object') return send(res, 400, { statusCode: 400, message: ['Malformed JSON body'], error: 'Bad Request' });
+    const errors = [];
+    const allowed = ['email', 'password', 'firstName', 'lastName', 'ssn', 'dateOfBirth', 'phoneNumber'];
+    for (const key of Object.keys(body)) if (!allowed.includes(key)) errors.push(`property ${key} should not exist`);
+    const email = typeof body.email === 'string' ? body.email.trim() : '';
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) errors.push('email must be an email');
+    if (email.length > 255) errors.push('email must be shorter than or equal to 255 characters');
+    const password = typeof body.password === 'string' ? body.password : '';
+    if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z\d]).{12,}$/.test(password)) errors.push('Password must be at least 12 characters and include uppercase, lowercase, number, and special character.');
+    if (password.length > 72) errors.push('password must be shorter than or equal to 72 characters');
+    for (const field of ['firstName', 'lastName']) {
+      const value = typeof body[field] === 'string' ? body[field] : '';
+      if (!value) errors.push(`${field} should not be empty`);
+      else if (value.length > 100) errors.push(`${field} must be shorter than or equal to 100 characters`);
+    }
+    if (!/^\d{3}-\d{2}-\d{4}$/.test(String(body.ssn ?? ''))) errors.push('SSN must use the format 123-45-6789.');
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(String(body.dateOfBirth ?? '')) || Number.isNaN(Date.parse(body.dateOfBirth))) errors.push('dateOfBirth must be a valid ISO 8601 date string');
+    const phone = String(body.phoneNumber ?? '');
+    if (phone.length > 12) errors.push('phoneNumber must be shorter than or equal to 12 characters');
+    if (!/^(\+1)?[2-9]\d{2}-?[2-9]\d{2}-?\d{4}$/.test(phone)) errors.push('Phone number must be a valid US phone number.');
+    if (errors.length) return send(res, 400, { message: errors, error: 'Bad Request', statusCode: 400 });
+    const domain = email.toLowerCase().split('@').pop();
+    if (['admin.com', 'fmr.com'].includes(domain)) {
+      return send(res, 400, { message: `Client registration does not accept emails ending in @${domain}; this domain is reserved for admins.`, error: 'Bad Request', statusCode: 400 });
+    }
+    if (clients.some((c) => c.email === email)) return send(res, 409, { message: 'Client with this email already exists', error: 'Conflict', statusCode: 409 });
+    if (clients.some((c) => c.ssn === body.ssn)) return send(res, 409, { message: 'Client with this SSN already exists', error: 'Conflict', statusCode: 409 });
+    const client = { clientId: nextClientId++, firstName: body.firstName, lastName: body.lastName, email, password, ssn: body.ssn, phoneNumber: phone, accountBalance: 0, createdAt: new Date().toISOString(), dateOfBirth: body.dateOfBirth };
+    clients.push(client);
+    const { password: _password, ssn: _ssn, ...safe } = client;
+    return send(res, 201, { ...safe, clientId: String(client.clientId), accountBalance: '0' });
   }
   if (path === '/users/health') return send(res, 200, { status: 'ok' });
 

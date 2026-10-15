@@ -6,7 +6,8 @@
         <p class="visual-eyebrow">Direct trading platform</p>
         <h2 class="visual-title">See your positions. Place a trade. Know the outcome.</h2>
         <p class="visual-text">
-          Cash, holdings and every order you have ever placed, in one trustworthy view — no dealer in the loop.
+          Cash, holdings and every order you have ever placed, in one trustworthy view — no dealer
+          in the loop.
         </p>
       </div>
 
@@ -37,9 +38,18 @@
           <circle cx="520" cy="28" r="6" fill="#C8A46B" stroke="#073B2A" stroke-width="3" />
         </svg>
         <figcaption class="visual-stats">
-          <div><span class="stat-label">Market quotes</span><span class="stat-value">Live, stored securely</span></div>
-          <div><span class="stat-label">Every order</span><span class="stat-value">Permanently recorded</span></div>
-          <div><span class="stat-label">Your balance</span><span class="stat-value">Always current</span></div>
+          <div>
+            <span class="stat-label">Market quotes</span
+            ><span class="stat-value">Live, stored securely</span>
+          </div>
+          <div>
+            <span class="stat-label">Every order</span
+            ><span class="stat-value">Permanently recorded</span>
+          </div>
+          <div>
+            <span class="stat-label">Your balance</span
+            ><span class="stat-value">Always current</span>
+          </div>
         </figcaption>
       </figure>
     </div>
@@ -60,7 +70,19 @@
 
     <div class="login-card">
       <h1>Sign in</h1>
-      <p class="login-lead">Welcome back. Use the email and password for your Leap Trading account.</p>
+      <p class="login-lead">
+        Welcome back. Use the email and password for your JetZy Trading account.
+      </p>
+
+      @if (justRegistered() && !errorMessage()) {
+        <div class="alert alert-success" role="status">
+          <app-icon name="check-circle" />
+          <span
+            >Your account has been created. Sign in with your email and password to get
+            started.</span
+          >
+        </div>
+      }
 
       @if (sessionExpired() && !errorMessage()) {
         <div class="alert alert-info" role="status">
@@ -86,7 +108,9 @@
             [attr.aria-describedby]="fieldError('email') ? 'login-email-error' : null"
           />
           @if (fieldError('email'); as error) {
-            <p id="login-email-error" class="field-error"><app-icon name="alert-circle" [size]="16" />{{ error }}</p>
+            <p id="login-email-error" class="field-error">
+              <app-icon name="alert-circle" [size]="16" />{{ error }}
+            </p>
           }
         </div>
 
@@ -114,7 +138,9 @@
             </button>
           </div>
           @if (fieldError('password'); as error) {
-            <p id="login-password-error" class="field-error"><app-icon name="alert-circle" [size]="16" />{{ error }}</p>
+            <p id="login-password-error" class="field-error">
+              <app-icon name="alert-circle" [size]="16" />{{ error }}
+            </p>
           }
         </div>
 
@@ -125,7 +151,12 @@
           </div>
         }
 
-        <button type="submit" class="btn btn-primary btn-lg btn-block" [disabled]="submitting()" [attr.aria-busy]="submitting()">
+        <button
+          type="submit"
+          class="btn btn-primary btn-lg btn-block"
+          [disabled]="submitting()"
+          [attr.aria-busy]="submitting()"
+        >
           @if (submitting()) {
             <span class="spinner" aria-hidden="true"></span>
             Signing in…
@@ -135,12 +166,22 @@
         </button>
       </form>
 
+      <div class="login-divider" aria-hidden="true"><span>New to JetZy Trading?</span></div>
+
+      <a class="btn btn-secondary btn-lg btn-block" routerLink="/register" id="create-account-link">
+        <app-icon name="user-plus" [size]="18" />
+        Create Account
+      </a>
+
       <p class="login-help">
         <app-icon name="lock" [size]="16" />
-        <span>Accounts are created by the platform team. Administrators sign in with their administrator email address.</span>
+        <span
+          >Registration is for clients. Administrator accounts are created by the platform team and
+          sign in here with their administrator email address.</span
+        >
       </p>
     </div>
 
-    <p class="login-footer">© {{ year }} Leap Trading · For self-directed investors</p>
+    <p class="login-footer">© {{ year }} JetZy Trading · For self-directed investors</p>
   </main>
 </div>

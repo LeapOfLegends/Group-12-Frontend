@@ -1,6 +1,14 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, OnInit, computed, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  DestroyRef,
+  OnInit,
+  computed,
+  inject,
+  signal,
+} from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { ActivatedRoute, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { interval } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { OrdersApiService } from '../../core/api/orders-api.service';
@@ -11,27 +19,47 @@ import { NotificationService } from '../../core/services/notification.service';
 import { PortfolioService } from '../../core/services/portfolio.service';
 import { ageInSeconds, formatRelativeAge } from '../../core/utils/dates';
 import { describeHttpError } from '../../core/utils/http-error';
-import { decimalPlaces, formatMoney, formatPrice, formatQuantity, parseAmount, roundTo } from '../../core/utils/money';
+import {
+  decimalPlaces,
+  formatMoney,
+  formatQuantity,
+  parseAmount,
+  roundTo,
+} from '../../core/utils/money';
 import { describeOrderOutcome, isSettled } from '../../core/utils/order-reasons';
 import { MoneyPipe, PricePipe, QuantityPipe } from '../../shared/pipes/format.pipes';
 import { IconComponent } from '../../shared/ui/icon/icon';
 import { LoadingSkeletonComponent } from '../../shared/ui/loading-skeleton/loading-skeleton';
 import { StatusBadgeComponent } from '../../shared/ui/status-badge/status-badge';
 import { OrderSummaryComponent, OrderSummaryModel, TradeStep } from './order-summary';
+import { TradeReceiptState } from './trade-confirmation';
 
 const MAX_RESULTS = 12;
 const MAX_QUANTITY_DECIMALS = 8;
 
-/** Place a buy or sell order against the platform's stored market quotes. */
+/**
+ * Place a buy or sell order against the platform's stored market quotes. Accepted orders
+ * continue on /trade/confirmation; rejected orders stay here so the client can fix and retry.
+ */
 @Component({
   selector: 'app-trade-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterLink, OrderSummaryComponent, IconComponent, LoadingSkeletonComponent, StatusBadgeComponent, MoneyPipe, PricePipe, QuantityPipe],
+  imports: [
+    RouterLink,
+    OrderSummaryComponent,
+    IconComponent,
+    LoadingSkeletonComponent,
+    StatusBadgeComponent,
+    MoneyPipe,
+    PricePipe,
+    QuantityPipe,
+  ],
   templateUrl: './trade.html',
   styleUrl: './trade.scss',
 })
 export class TradePage implements OnInit {
   private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
   private readonly ordersApi = inject(OrdersApiService);
   private readonly notifications = inject(NotificationService);
@@ -55,12 +83,13 @@ export class TradePage implements OnInit {
   // Submission state
   protected readonly step = signal<TradeStep>('entry');
   protected readonly submitting = signal(false);
-  protected readonly polling = signal(false);
   protected readonly submitError = signal<string | null>(null);
+  /** Only rejected orders are shown here; accepted ones move to the confirmation page. */
   protected readonly result = signal<Order | null>(null);
-  protected readonly pollTimedOut = signal(false);
 
-  protected readonly loadingCatalog = computed(() => this.catalog.loading() && this.catalog.instruments().length === 0);
+  protected readonly loadingCatalog = computed(
+    () => this.catalog.loading() && this.catalog.instruments().length === 0,
+  );
 
   protected readonly filtered = computed<CatalogInstrument[]>(() => {
     const term = this.query().trim().toUpperCase();
@@ -70,7 +99,10 @@ export class TradePage implements OnInit {
     }
     const starts = instruments.filter((item) => item.symbol.toUpperCase().startsWith(term));
     const contains = instruments.filter(
-      (item) => !starts.includes(item) && (item.symbol.toUpperCase().includes(term) || item.instrumentName.toUpperCase().includes(term)),
+      (item) =>
+        !starts.includes(item) &&
+        (item.symbol.toUpperCase().includes(term) ||
+          item.instrumentName.toUpperCase().includes(term)),
     );
     return [...starts, ...contains].slice(0, MAX_RESULTS);
   });
@@ -92,7 +124,9 @@ export class TradePage implements OnInit {
     return price !== null && price > 0 ? price : null;
   });
 
-  protected readonly quoteAge = computed(() => ageInSeconds(this.selected()?.quoteAsOf, this.now()));
+  protected readonly quoteAge = computed(() =>
+    ageInSeconds(this.selected()?.quoteAsOf, this.now()),
+  );
   protected readonly quoteStale = computed(() => {
     const age = this.quoteAge();
     return age === null || age > this.quoteMaxAge;
@@ -145,7 +179,9 @@ export class TradePage implements OnInit {
         if (this.side() === 'BUY') {
           const value = quantity * price;
           if (value > this.buyingPower()) {
-            errors.push(`Insufficient buying power: this order needs ${formatMoney(value)} but ${formatMoney(this.buyingPower())} is available.`);
+            errors.push(
+              `Insufficient buying power: this order needs ${formatMoney(value)} but ${formatMoney(this.buyingPower())} is available.`,
+            );
           }
         } else {
           const sellable = this.sellable();
@@ -197,7 +233,9 @@ export class TradePage implements OnInit {
       .load()
       .then((instruments) => {
         if (symbol) {
-          const match = instruments.find((item) => item.symbol.toUpperCase() === symbol.toUpperCase());
+          const match = instruments.find(
+            (item) => item.symbol.toUpperCase() === symbol.toUpperCase(),
+          );
           if (match) {
             this.choose(match);
           }
@@ -301,7 +339,9 @@ export class TradePage implements OnInit {
         return;
       }
       const raw = this.buyingPower() / price;
-      quantity = this.allowsFractions(instrument) ? roundTo(Math.floor(raw * 1e8) / 1e8, 8) : Math.floor(raw);
+      quantity = this.allowsFractions(instrument)
+        ? roundTo(Math.floor(raw * 1e8) / 1e8, 8)
+        : Math.floor(raw);
     } else {
       quantity = this.sellable();
     }
@@ -316,7 +356,9 @@ export class TradePage implements OnInit {
       return;
     }
     const raw = sellable * fraction;
-    const quantity = this.allowsFractions(instrument) ? roundTo(Math.floor(raw * 1e8) / 1e8, 8) : Math.floor(raw);
+    const quantity = this.allowsFractions(instrument)
+      ? roundTo(Math.floor(raw * 1e8) / 1e8, 8)
+      : Math.floor(raw);
     this.quantityText.set(quantity > 0 ? formatQuantityPlain(quantity) : '');
     this.quantityTouched.set(true);
   }
@@ -340,73 +382,60 @@ export class TradePage implements OnInit {
     this.step.set('entry');
   }
 
-  /** Submits once and shows exactly what the backend reports, then follows execution. */
+  /**
+   * Submits once and acts on exactly what the backend reports: a rejection is shown here
+   * with its reason, anything else is handed to /trade/confirmation, which follows execution.
+   */
   protected confirmOrder(): void {
     const instrument = this.selected();
     const quantity = this.quantity();
     const user = this.auth.user();
-    if (!instrument || quantity === null || !user || this.submitting() || !this.validation().valid) {
+    if (
+      !instrument ||
+      quantity === null ||
+      !user ||
+      this.submitting() ||
+      !this.validation().valid
+    ) {
       return;
     }
     this.submitting.set(true);
     this.submitError.set(null);
     this.ordersApi
-      .submit({ clientId: user.id, instrumentId: instrument.instrumentId, orderType: this.side(), quantity })
+      .submit({
+        clientId: user.id,
+        instrumentId: instrument.instrumentId,
+        orderType: this.side(),
+        quantity,
+      })
       .subscribe({
         next: (order) => {
           this.submitting.set(false);
-          this.result.set(order);
-          this.step.set('result');
           void this.portfolio.refresh();
-          if (order.status === 'ACCEPTED' || order.status === 'SUBMITTED') {
-            this.followExecution(order.orderId);
-          } else if (order.status === 'REJECTED') {
-            this.notifications.warning(describeOrderOutcome(order), `Order #${order.orderId} rejected`);
-          } else if (order.status === 'FILLED') {
-            this.notifications.success(describeOrderOutcome(order), `Order #${order.orderId} filled`);
+          if (order.status === 'REJECTED') {
+            this.result.set(order);
+            this.step.set('result');
+            this.notifications.warning(
+              describeOrderOutcome(order),
+              `Order #${order.orderId} rejected`,
+            );
+            return;
           }
+          const receipt: TradeReceiptState = {
+            order,
+            instrument,
+            estimatedPrice: this.estimatedPrice(),
+          };
+          void this.router.navigate(['/trade/confirmation'], {
+            queryParams: { orderId: order.orderId },
+            state: receipt,
+          });
         },
         error: (error: unknown) => {
           this.submitting.set(false);
-          this.submitError.set(describeHttpError(error, 'The order could not be submitted. Nothing was placed.'));
-        },
-      });
-  }
-
-  private followExecution(orderId: number): void {
-    this.polling.set(true);
-    this.pollTimedOut.set(false);
-    this.ordersApi
-      .pollUntilSettled(orderId)
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe({
-        next: (order) => {
-          this.result.set(order);
-          if (isSettled(order.status)) {
-            this.polling.set(false);
-            void this.portfolio.refresh();
-            if (order.status === 'FILLED') {
-              this.notifications.success(
-                `Executed at ${formatPrice(order.executionPrice)} for ${formatMoney(order.tradeValue)}.`,
-                `Order #${order.orderId} filled`,
-              );
-            } else {
-              this.notifications.error(describeOrderOutcome(order), `Order #${order.orderId} ${order.status === 'FAILED' ? 'failed' : 'rejected'}`);
-            }
-          }
-        },
-        error: (error: unknown) => {
-          this.polling.set(false);
-          this.notifications.warning(describeHttpError(error, 'We lost track of the order status. Check your recent orders on the dashboard.'));
-        },
-        complete: () => {
-          if (this.polling()) {
-            this.polling.set(false);
-            const current = this.result();
-            if (current && !isSettled(current.status)) {
-              this.pollTimedOut.set(true);
-            }
-          }
+          this.submitError.set(
+            describeHttpError(error, 'The order could not be submitted. Nothing was placed.'),
+          );
         },
       });
   }
@@ -414,7 +443,6 @@ export class TradePage implements OnInit {
   protected placeAnother(): void {
     this.result.set(null);
     this.submitError.set(null);
-    this.pollTimedOut.set(false);
     this.quantityText.set('');
     this.quantityTouched.set(false);
     this.step.set('entry');

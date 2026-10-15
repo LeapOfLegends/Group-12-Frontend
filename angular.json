@@ -7,7 +7,7 @@
   },
   "newProjectRoot": "projects",
   "projects": {
-    "leap-trading": {
+    "jetzy-trading": {
       "projectType": "application",
       "schematics": {
         "@schematics/angular:component": {
@@ -71,10 +71,10 @@
           },
           "configurations": {
             "production": {
-              "buildTarget": "leap-trading:build:production"
+              "buildTarget": "jetzy-trading:build:production"
             },
             "development": {
-              "buildTarget": "leap-trading:build:development"
+              "buildTarget": "jetzy-trading:build:development"
             }
           },
           "defaultConfiguration": "development"
@@ -83,7 +83,7 @@
           "builder": "@angular/build:unit-test",
           "options": {
             "tsConfig": "tsconfig.spec.json",
-            "buildTarget": "leap-trading:build:development"
+            "buildTarget": "jetzy-trading:build:development"
           }
         }
       }

@@ -6,7 +6,7 @@
     "pathRewrite": { "^/auth-api": "" }
   },
   "/trading-api": {
-    "target": "http://localhost:8081",
+    "target": "http://localhost:18081",
     "secure": false,
     "changeOrigin": true,
     "pathRewrite": { "^/trading-api": "" }

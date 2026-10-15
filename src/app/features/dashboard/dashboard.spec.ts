@@ -67,7 +67,18 @@ describe('DashboardPage', () => {
     await setup('client');
 
     http.expectOne(`${API}/api/clients/12/balance`).flush({ clientId: 12, accountBalance: 1000 });
-    http.expectOne(`${API}/api/client/12/holdings`).flush([{ holdingId: 1, clientId: 12, instrumentId: 2, quantity: 10, averageCost: 100, updatedAt: null }]);
+    http
+      .expectOne(`${API}/api/client/12/holdings`)
+      .flush([
+        {
+          holdingId: 1,
+          clientId: 12,
+          instrumentId: 2,
+          quantity: 10,
+          averageCost: 100,
+          updatedAt: null,
+        },
+      ]);
     http.expectOne(`${API}/api/orders/client/12`).flush([
       {
         orderId: 9,
@@ -114,5 +125,12 @@ describe('DashboardPage', () => {
     expect(text).toContain('$2,200.00'); // total account value
     expect(text).toContain('AAPL');
     expect(text).toContain('Filled');
+    expect(text).toContain('Buying Power & Asset Allocation');
+    expect(text).toContain('Buying power');
+    expect(text).toContain('Asset allocation');
+    expect(text).toContain('Equity'); // allocation by asset class
+    expect(text).not.toContain('Quick actions');
+    expect(text).toContain('Transfer Money');
+    expect(text).toContain('New Trade');
   });
 });

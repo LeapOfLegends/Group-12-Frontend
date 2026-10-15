@@ -21,7 +21,10 @@ describe('LoginPage', () => {
         provideRouter([]),
         provideHttpClient(),
         provideHttpClientTesting(),
-        { provide: ActivatedRoute, useValue: { snapshot: { queryParamMap: convertToParamMap(queryParams) } } },
+        {
+          provide: ActivatedRoute,
+          useValue: { snapshot: { queryParamMap: convertToParamMap(queryParams) } },
+        },
       ],
     }).compileComponents();
     fixture = TestBed.createComponent(LoginPage);
@@ -63,7 +66,12 @@ describe('LoginPage', () => {
     element<HTMLFormElement>('form').dispatchEvent(new Event('submit'));
     await fixture.whenStable();
 
-    http.expectOne(`${environment.authApiUrl}/auth/login`).flush({ statusCode: 401, message: 'Invalid credentials' }, { status: 401, statusText: 'Unauthorized' });
+    http
+      .expectOne(`${environment.authApiUrl}/auth/login`)
+      .flush(
+        { statusCode: 401, message: 'Invalid credentials' },
+        { status: 401, statusText: 'Unauthorized' },
+      );
     await fixture.whenStable();
     fixture.detectChanges();
 
@@ -80,8 +88,23 @@ describe('LoginPage', () => {
     await fixture.whenStable();
 
     http.expectOne(`${environment.authApiUrl}/auth/login`).flush({
-      accessToken: makeToken({ sub: '12', email: 'jane@example.com', roles: ['CLIENT'], iat: 0, exp: FUTURE }),
-      client: { clientId: '12', firstName: 'Jane', lastName: 'Doe', email: 'jane@example.com', phoneNumber: '', dateOfBirth: '', accountBalance: '0', createdAt: '' },
+      accessToken: makeToken({
+        sub: '12',
+        email: 'jane@example.com',
+        roles: ['CLIENT'],
+        iat: 0,
+        exp: FUTURE,
+      }),
+      client: {
+        clientId: '12',
+        firstName: 'Jane',
+        lastName: 'Doe',
+        email: 'jane@example.com',
+        phoneNumber: '',
+        dateOfBirth: '',
+        accountBalance: '0',
+        createdAt: '',
+      },
     });
     await fixture.whenStable();
 
@@ -96,8 +119,23 @@ describe('LoginPage', () => {
     element<HTMLFormElement>('form').dispatchEvent(new Event('submit'));
     await fixture.whenStable();
     http.expectOne(`${environment.authApiUrl}/auth/login`).flush({
-      accessToken: makeToken({ sub: '12', email: 'jane@example.com', roles: ['CLIENT'], iat: 0, exp: FUTURE }),
-      client: { clientId: '12', firstName: 'Jane', lastName: 'Doe', email: 'jane@example.com', phoneNumber: '', dateOfBirth: '', accountBalance: '0', createdAt: '' },
+      accessToken: makeToken({
+        sub: '12',
+        email: 'jane@example.com',
+        roles: ['CLIENT'],
+        iat: 0,
+        exp: FUTURE,
+      }),
+      client: {
+        clientId: '12',
+        firstName: 'Jane',
+        lastName: 'Doe',
+        email: 'jane@example.com',
+        phoneNumber: '',
+        dateOfBirth: '',
+        accountBalance: '0',
+        createdAt: '',
+      },
     });
     await fixture.whenStable();
     expect(navigate).toHaveBeenCalledWith('/dashboard');
@@ -107,5 +145,44 @@ describe('LoginPage', () => {
     await setup({ reason: 'expired' });
     fixture.detectChanges();
     expect(fixture.nativeElement.textContent).toContain('Your session has expired');
+  });
+  it('offers account creation for new clients', async () => {
+    await setup();
+    fixture.detectChanges();
+    const link = element<HTMLAnchorElement>('#create-account-link');
+    expect(link).not.toBeNull();
+    expect(link.getAttribute('href')).toBe('/register');
+    expect(link.textContent).toContain('Create Account');
+  });
+
+  it('welcomes a client who has just registered and prefills the email from navigation state', async () => {
+    window.history.replaceState({ registeredEmail: 'nia@example.com' }, '');
+    try {
+      await setup({ registered: '1' });
+      fixture.detectChanges();
+      expect(fixture.nativeElement.textContent).toContain('Your account has been created');
+      expect(element<HTMLInputElement>('#login-email').value).toBe('nia@example.com');
+    } finally {
+      window.history.replaceState(null, '');
+    }
+  });
+
+  it('explains when the sign-in service cannot be reached through the proxy', async () => {
+    await setup();
+    type('#login-email', 'jane@example.com');
+    type('#login-password', 'ClientPassword123!');
+    element<HTMLFormElement>('form').dispatchEvent(new Event('submit'));
+    await fixture.whenStable();
+    http
+      .expectOne(`${environment.authApiUrl}/auth/login`)
+      .flush('Error occurred while trying to proxy', {
+        status: 504,
+        statusText: 'Gateway Timeout',
+      });
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect(element('[role="alert"]').textContent).toContain(
+      'Group-12-Auth is running on port 3000',
+    );
   });
 });

@@ -30,7 +30,9 @@ describe('InstrumentCatalogService', () => {
 
   beforeEach(() => {
     sessionStorage.clear();
-    TestBed.configureTestingModule({ providers: [provideHttpClient(), provideHttpClientTesting()] });
+    TestBed.configureTestingModule({
+      providers: [provideHttpClient(), provideHttpClientTesting()],
+    });
     service = TestBed.inject(InstrumentCatalogService);
     http = TestBed.inject(HttpTestingController);
   });
@@ -43,7 +45,9 @@ describe('InstrumentCatalogService', () => {
   it('uses ids from the list endpoint directly when the DTO provides them', async () => {
     const loading = service.load();
     await tick();
-    http.expectOne(BASE).flush([dto('AAPL', { instrumentId: 2 }), dto('MSFT', { instrumentId: 3 })]);
+    http
+      .expectOne(BASE)
+      .flush([dto('AAPL', { instrumentId: 2 }), dto('MSFT', { instrumentId: 3 })]);
     const instruments = await loading;
     expect(instruments.map((instrument) => instrument.instrumentId)).toEqual([2, 3]);
     expect(service.tradable().length).toBe(2);
@@ -66,14 +70,21 @@ describe('InstrumentCatalogService', () => {
       } else if (id === 3) {
         request.flush(dto('MSFT'));
       } else {
-        request.flush({ status: 404, message: 'Instrument not found' }, { status: 404, statusText: 'Not Found' });
+        request.flush(
+          { status: 404, message: 'Instrument not found' },
+          { status: 404, statusText: 'Not Found' },
+        );
       }
     }
     await tick();
 
     const instruments = await loading;
-    expect(Object.fromEntries(instruments.map((instrument) => [instrument.symbol, instrument.instrumentId]))).toEqual({ AAPL: 2, MSFT: 3, NVDA: 1 });
-    expect(JSON.parse(sessionStorage.getItem('leap.instrumentIds') ?? '[]')).toEqual([
+    expect(
+      Object.fromEntries(
+        instruments.map((instrument) => [instrument.symbol, instrument.instrumentId]),
+      ),
+    ).toEqual({ AAPL: 2, MSFT: 3, NVDA: 1 });
+    expect(JSON.parse(sessionStorage.getItem('jetzy.instrumentIds') ?? '[]')).toEqual([
       ['NVDA', 1],
       ['AAPL', 2],
       ['MSFT', 3],
@@ -81,7 +92,7 @@ describe('InstrumentCatalogService', () => {
   });
 
   it('reuses the cached id map on later loads', async () => {
-    sessionStorage.setItem('leap.instrumentIds', JSON.stringify([['AAPL', 2]]));
+    sessionStorage.setItem('jetzy.instrumentIds', JSON.stringify([['AAPL', 2]]));
     const loading = service.load();
     await tick();
     http.expectOne(BASE).flush([dto('AAPL')]);

@@ -1,7 +1,7 @@
 {
-  "name": "leap-trading",
+  "name": "jetzy-trading",
   "version": "0.1.0",
-  "description": "Angular client for the LEAP direct trading platform (Group 12 capstone)",
+  "description": "JetZy Trading - Angular client for the Group 12 capstone direct trading platform",
   "scripts": {
     "ng": "ng",
     "start": "ng serve",

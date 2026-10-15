@@ -1,5 +1,5 @@
 /* =============================================================================
-   Leap Trading - global design system
+   JetZy Trading - global design system
    Fidelity-inspired palette (not official brand values), Inter typography,
    light theme by default with a selected dark theme.
    ========================================================================== */
@@ -79,7 +79,8 @@
   --transition-base: 180ms ease;
 
   /* Typography */
-  --font-sans: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-sans:
+    'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   --text-xs: 0.8125rem; /* 13px */
   --text-sm: 0.875rem; /* 14px */
   --text-base: 1rem; /* 16px */

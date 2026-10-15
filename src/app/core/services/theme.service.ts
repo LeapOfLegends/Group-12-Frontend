@@ -4,7 +4,7 @@ import { Injectable, computed, effect, inject, signal } from '@angular/core';
 export type ThemePreference = 'light' | 'dark' | 'system';
 export type ResolvedTheme = 'light' | 'dark';
 
-const STORAGE_KEY = 'leap.theme';
+const STORAGE_KEY = 'jetzy.theme';
 
 /**
  * Light theme by default; a saved preference wins over the OS setting. The
@@ -67,6 +67,8 @@ export class ThemeService {
   }
 
   private readSystemPreference(): boolean {
-    return this.document.defaultView?.matchMedia?.('(prefers-color-scheme: dark)')?.matches ?? false;
+    return (
+      this.document.defaultView?.matchMedia?.('(prefers-color-scheme: dark)')?.matches ?? false
+    );
   }
 }

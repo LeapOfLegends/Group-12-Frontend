@@ -14,8 +14,8 @@
       <div class="admin-landing-body">
         <h2 id="admin-landing-title">Administrator account</h2>
         <p class="text-secondary">
-          Administrator accounts do not hold a client portfolio, so there is no cash balance, holdings or orders to show here.
-          Transfers and trades are reserved for client accounts.
+          Administrator accounts do not hold a client portfolio, so there is no cash balance,
+          holdings or orders to show here. Transfers and trades are reserved for client accounts.
         </p>
         <div class="cluster">
           <a class="btn btn-primary" routerLink="/admin">
@@ -33,7 +33,13 @@
         <p class="page-subtitle">Here is where your money stands today.</p>
       </div>
       <div class="page-actions">
-        <button type="button" class="btn btn-ghost" (click)="refresh()" [disabled]="refreshing() || portfolio.loading()" aria-label="Refresh portfolio data">
+        <button
+          type="button"
+          class="btn btn-ghost"
+          (click)="refresh()"
+          [disabled]="refreshing() || portfolio.loading()"
+          aria-label="Refresh portfolio data"
+        >
           <app-icon name="refresh" [size]="18" />
           Refresh
         </button>
@@ -52,7 +58,9 @@
       <div class="alert alert-error" role="alert">
         <app-icon name="alert-circle" />
         <span>{{ error }}</span>
-        <button type="button" class="btn btn-sm btn-secondary alert-action" (click)="refresh()">Try again</button>
+        <button type="button" class="btn btn-sm btn-secondary alert-action" (click)="refresh()">
+          Try again
+        </button>
       </div>
     }
 
@@ -99,18 +107,43 @@
         ariaLabel="Net invested capital over time"
       />
 
-      <aside class="dashboard-side">
-        <section class="card" aria-labelledby="account-overview-title">
-          <div class="card-header">
-            <h2 id="account-overview-title">Account overview</h2>
+      <section class="card overview-card" aria-labelledby="overview-title">
+        <div class="card-header">
+          <div>
+            <h2 id="overview-title">Buying Power &amp; Asset Allocation</h2>
+            <p class="card-subtitle">What you can spend now, and how your holdings are spread.</p>
           </div>
-          @if (initialLoading()) {
-            <app-loading-skeleton variant="text" [lines]="5" label="Loading account overview" />
-          } @else {
-            <dl class="summary-list">
+        </div>
+        @if (initialLoading()) {
+          <app-loading-skeleton
+            variant="text"
+            [lines]="6"
+            label="Loading buying power and allocation"
+          />
+        } @else {
+          <div class="overview-section overview-power" aria-labelledby="buying-power-title">
+            <h3 id="buying-power-title" class="overview-section-title">
+              <app-icon name="wallet" [size]="16" />
+              Buying power
+            </h3>
+            <p
+              class="overview-figure"
+              [attr.aria-label]="'Buying power ' + (summary().buyingPower | money)"
+            >
+              {{ summary().buyingPower | money }}
+            </p>
+            <p class="overview-hint">
+              @if (summary().reservedCash > 0) {
+                Cash minus {{ summary().reservedCash | money }} reserved for buy orders still
+                executing.
+              } @else {
+                Cash available for new buy orders.
+              }
+            </p>
+            <dl class="summary-list overview-list">
               <div>
-                <dt>Buying power</dt>
-                <dd>{{ summary().buyingPower | money }}</dd>
+                <dt>Cash</dt>
+                <dd>{{ summary().cash | money }}</dd>
               </div>
               @if (summary().reservedCash > 0) {
                 <div>
@@ -118,10 +151,6 @@
                   <dd class="text-secondary">{{ summary().reservedCash | money }}</dd>
                 </div>
               }
-              <div>
-                <dt>Cash</dt>
-                <dd>{{ summary().cash | money }}</dd>
-              </div>
               <div>
                 <dt>Holdings value</dt>
                 <dd>{{ summary().holdingsValue | money }}</dd>
@@ -131,46 +160,37 @@
                 <dd>{{ summary().totalAccountValue | money }}</dd>
               </div>
             </dl>
-            @if (allocation().length > 0) {
-              <div class="allocation">
-                <h3 class="allocation-title">Allocation by asset class</h3>
-                <app-bar-list [items]="allocation()" [formatter]="formatMoneyValue" ariaLabel="Allocation by asset class" />
-              </div>
-            }
-          }
-        </section>
+          </div>
 
-        <section class="card" aria-labelledby="quick-actions-title">
-          <div class="card-header">
-            <h2 id="quick-actions-title">Quick actions</h2>
+          <div class="overview-section overview-allocation" aria-labelledby="allocation-title">
+            <h3 id="allocation-title" class="overview-section-title">
+              <app-icon name="layers" [size]="16" />
+              Asset allocation
+            </h3>
+            @if (allocation().length > 0) {
+              <app-bar-list
+                [items]="allocation()"
+                [formatter]="formatMoneyValue"
+                ariaLabel="Allocation by asset class"
+              />
+            } @else {
+              <p class="overview-empty text-secondary">
+                No holdings yet. Your allocation by asset class appears here after your first buy
+                order is filled.
+              </p>
+            }
           </div>
-          <div class="quick-actions">
-            <a class="quick-action" routerLink="/transfer" [queryParams]="{ mode: 'deposit' }">
-              <span class="quick-icon"><app-icon name="arrow-down" [size]="20" /></span>
-              <span>Deposit money</span>
-            </a>
-            <a class="quick-action" routerLink="/transfer" [queryParams]="{ mode: 'withdraw' }">
-              <span class="quick-icon"><app-icon name="arrow-up" [size]="20" /></span>
-              <span>Withdraw money</span>
-            </a>
-            <a class="quick-action" routerLink="/trade" [queryParams]="{ side: 'BUY' }">
-              <span class="quick-icon"><app-icon name="plus" [size]="20" /></span>
-              <span>Buy stock</span>
-            </a>
-            <a class="quick-action" routerLink="/trade" [queryParams]="{ side: 'SELL' }">
-              <span class="quick-icon"><app-icon name="minus" [size]="20" /></span>
-              <span>Sell stock</span>
-            </a>
-          </div>
-        </section>
-      </aside>
+        }
+      </section>
     </div>
 
     <section class="card" aria-labelledby="holdings-title">
       <div class="card-header">
         <div>
           <h2 id="holdings-title">Current holdings</h2>
-          <p class="card-subtitle">Valued at the latest price the platform holds for each instrument.</p>
+          <p class="card-subtitle">
+            Valued at the latest price the platform holds for each instrument.
+          </p>
         </div>
         <a class="btn btn-soft btn-sm" routerLink="/trade">Place trade</a>
       </div>
@@ -185,11 +205,16 @@
             @if (pendingCount() > 0) {
               {{ pendingCount() }} order{{ pendingCount() === 1 ? '' : 's' }} still executing ·
             }
-            Showing your latest {{ recentOrders().length }} of {{ portfolio.orders().length }} orders.
+            Showing your latest {{ recentOrders().length }} of
+            {{ portfolio.orders().length }} orders.
           </p>
         </div>
       </div>
-      <app-orders-table [rows]="recentOrders()" [loading]="initialLoading()" caption="Recent orders" />
+      <app-orders-table
+        [rows]="recentOrders()"
+        [loading]="initialLoading()"
+        caption="Recent orders"
+      />
     </section>
   }
 </div>
