@@ -33,8 +33,7 @@ would fail the pre-flight request.
   the email or SSN already exists. The frontend maps each message back onto its field.
   `date_of_birth` is `NOT NULL` in the `clients` table, which is why the form asks for it
   even though the brief did not list it.
-- One login endpoint for everyone. The email domain picks the table: domains in
-  `ADMIN_EMAIL_DOMAINS` (default `admin.com,fmr.com`) are admins, everything else is a client.
+- One login endpoint for everyone. The email domain picks the table: `admin.com` is an admin domain, everything else is a client.
 - Admin tokens carry `role: super_admin | operations | finance`; client tokens carry
   `roles: ['CLIENT']`. The frontend derives the account kind and role from these claims
   (`AuthService`), which is exactly what the Spring backend trusts.

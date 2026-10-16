@@ -192,7 +192,7 @@ const server = http.createServer(async (req, res) => {
     const domain = email.toLowerCase().split('@')[1];
     const iat = Math.floor(Date.now() / 1000);
     const exp = iat + 3600;
-    if (['admin.com', 'fmr.com'].includes(domain)) {
+    if (domain === 'admin.com') {
       const admin = admins.find((a) => a.email === email.toLowerCase());
       if (!admin || admin.password !== body.password) return send(res, 401, { statusCode: 401, message: 'Invalid credentials', error: 'Unauthorized' });
       const { password, ...safe } = admin;
@@ -228,7 +228,7 @@ const server = http.createServer(async (req, res) => {
     if (!/^(\+1)?[2-9]\d{2}-?[2-9]\d{2}-?\d{4}$/.test(phone)) errors.push('Phone number must be a valid US phone number.');
     if (errors.length) return send(res, 400, { message: errors, error: 'Bad Request', statusCode: 400 });
     const domain = email.toLowerCase().split('@').pop();
-    if (['admin.com', 'fmr.com'].includes(domain)) {
+    if (domain === 'admin.com') {
       return send(res, 400, { message: `Client registration does not accept emails ending in @${domain}; this domain is reserved for admins.`, error: 'Bad Request', statusCode: 400 });
     }
     if (clients.some((c) => c.email === email)) return send(res, 409, { message: 'Client with this email already exists', error: 'Conflict', statusCode: 409 });
@@ -356,7 +356,7 @@ const server = http.createServer(async (req, res) => {
     if (!body?.firstName || !body?.lastName || !body?.email || !body?.password || !body?.role) return apiError(res, 400, 'Bad Request', 'must not be blank', path);
     if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z\d]).{12,}$/.test(body.password)) return apiError(res, 400, 'Bad Request', 'Password must be at least 12 characters and include uppercase, lowercase, number, and special character.', path);
     const email = String(body.email).trim().toLowerCase();
-    if (!['admin.com', 'fmr.com'].includes(email.split('@')[1])) return apiError(res, 400, 'Bad Request', 'Admin email must use one of these domains: admin.com, fmr.com', path);
+    if (email.split('@')[1] !== 'admin.com') return apiError(res, 400, 'Bad Request', 'Admin email must use the admin.com domain', path);
     if (admins.some((a) => a.email === email)) return apiError(res, 409, 'Conflict', `An admin already exists with email: ${email}`, path);
     const admin = { adminId: nextAdminId++, firstName: body.firstName, lastName: body.lastName, email, password: body.password, role: body.role, createdAt: new Date().toISOString().slice(0, 19) };
     admins.push(admin);
