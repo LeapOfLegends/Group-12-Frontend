@@ -1,0 +1,201 @@
+<div class="page confirmation-page">
+  <a class="back-link" routerLink="/dashboard">
+    <app-icon name="arrow-left" [size]="18" />
+    Back to Dashboard
+  </a>
+
+  @if (loading()) {
+    <section class="card">
+      <app-loading-skeleton variant="card" [height]="260" label="Loading your order" />
+    </section>
+  } @else if (error(); as error) {
+    <section class="card">
+      <app-empty-state icon="alert-circle" tone="error" title="Order unavailable" [message]="error">
+        <div class="cluster">
+          <a class="btn btn-primary" routerLink="/trade">Place a trade</a>
+          <a class="btn btn-secondary" routerLink="/dashboard">Return to Dashboard</a>
+        </div>
+      </app-empty-state>
+    </section>
+  } @else if (order(); as order) {
+    <section class="card receipt" aria-labelledby="trade-confirmation-title" aria-live="polite">
+      <header class="receipt-head">
+        <span
+          class="receipt-icon"
+          [class.receipt-icon-pending]="tone() === 'pending'"
+          [class.receipt-icon-bad]="tone() === 'negative'"
+        >
+          @switch (tone()) {
+            @case ('positive') {
+              <app-icon name="check-circle" [size]="32" />
+            }
+            @case ('negative') {
+              <app-icon name="alert-circle" [size]="32" />
+            }
+            @default {
+              <span class="spinner spinner-lg" aria-hidden="true"></span>
+            }
+          }
+        </span>
+        <div class="receipt-heading">
+          <span class="eyebrow">Trade confirmation</span>
+          <h1 id="trade-confirmation-title">{{ heading() }}</h1>
+          <p class="text-secondary receipt-message">{{ message() }}</p>
+        </div>
+        <app-status-badge class="receipt-badge" [status]="order.status" />
+      </header>
+
+      @if (polling()) {
+        <p class="text-secondary text-sm receipt-progress">
+          <span class="spinner" aria-hidden="true"></span>
+          Watching for the execution result… this usually takes a few seconds.
+        </p>
+      }
+      @if (pollTimedOut()) {
+        <div class="alert alert-warning" role="status">
+          <app-icon name="alert-triangle" />
+          <span
+            >The order is still executing. Its final status will appear under recent orders on your
+            dashboard.</span
+          >
+        </div>
+      }
+
+      <dl class="summary-list receipt-list">
+        <div>
+          <dt>Stock</dt>
+          <dd>
+            @if (instrument(); as instrument) {
+              {{ instrument.instrumentName }}
+              <span class="text-secondary font-medium">· {{ instrument.symbol }}</span>
+            } @else {
+              <span class="text-secondary font-medium">Instrument #{{ order.instrumentId }}</span>
+            }
+          </dd>
+        </div>
+        <div>
+          <dt>Order type</dt>
+          <dd>
+            <span [class.text-positive]="isBuy()" [class.text-negative]="!isBuy()">{{
+              isBuy() ? 'Buy' : 'Sell'
+            }}</span>
+            <span class="text-secondary font-medium"> · Market order</span>
+          </dd>
+        </div>
+        <div>
+          <dt>Quantity</dt>
+          <dd>{{ order.quantity | quantity }}</dd>
+        </div>
+        <div>
+          <dt>{{ priceLabel() }}</dt>
+          <dd>
+            @switch (order.status) {
+              @case ('FILLED') {
+                {{ order.executionPrice | price: instrument()?.currency ?? 'USD' }}
+              }
+              @case ('ACCEPTED') {
+                <span class="text-secondary font-medium">Pending execution</span>
+                @if (estimatedPrice() !== null) {
+                  <span class="receipt-note"
+                    >Estimated at
+                    {{ estimatedPrice() | price: instrument()?.currency ?? 'USD' }} when
+                    placed</span
+                  >
+                }
+              }
+              @case ('SUBMITTED') {
+                <span class="text-secondary font-medium">Pending execution</span>
+                @if (estimatedPrice() !== null) {
+                  <span class="receipt-note"
+                    >Estimated at
+                    {{ estimatedPrice() | price: instrument()?.currency ?? 'USD' }} when
+                    placed</span
+                  >
+                }
+              }
+              @default {
+                <span class="text-secondary font-medium">Not executed</span>
+              }
+            }
+          </dd>
+        </div>
+        <div class="summary-total">
+          <dt>{{ totalLabel() }}</dt>
+          <dd>
+            @switch (order.status) {
+              @case ('FILLED') {
+                {{ order.tradeValue | money: instrument()?.currency ?? 'USD' }}
+              }
+              @case ('ACCEPTED') {
+                @if (isBuy() && order.reservedCash !== null) {
+                  {{ order.reservedCash | money }}
+                } @else if (estimatedTotal() !== null) {
+                  {{ estimatedTotal() | money: instrument()?.currency ?? 'USD' }}
+                } @else {
+                  <span class="text-secondary">Pending</span>
+                }
+              }
+              @case ('SUBMITTED') {
+                @if (estimatedTotal() !== null) {
+                  {{ estimatedTotal() | money: instrument()?.currency ?? 'USD' }}
+                } @else {
+                  <span class="text-secondary">Pending</span>
+                }
+              }
+              @default {
+                <span class="text-secondary">No money moved</span>
+              }
+            }
+          </dd>
+        </div>
+        <div>
+          <dt>Fees</dt>
+          <dd><span class="text-secondary font-medium">No commission</span></dd>
+        </div>
+        <div>
+          <dt>Order ID</dt>
+          <dd>#{{ order.orderId }}</dd>
+        </div>
+        <div>
+          <dt>Submitted</dt>
+          <dd>{{ order.submittedAt | dateTime }}</dd>
+        </div>
+        @if (order.filledAt) {
+          <div>
+            <dt>Executed</dt>
+            <dd>{{ order.filledAt | dateTime }}</dd>
+          </div>
+        }
+        @if (order.rejectedAt) {
+          <div>
+            <dt>Rejected</dt>
+            <dd>{{ order.rejectedAt | dateTime }}</dd>
+          </div>
+        }
+        @if (order.failedAt) {
+          <div>
+            <dt>Failed</dt>
+            <dd>{{ order.failedAt | dateTime }}</dd>
+          </div>
+        }
+        <div>
+          <dt>Status</dt>
+          <dd><app-status-badge [status]="order.status" /></dd>
+        </div>
+      </dl>
+
+      <div class="receipt-actions">
+        <a
+          class="btn btn-secondary btn-lg"
+          routerLink="/trade"
+          [queryParams]="placeAnotherParams()"
+          id="trade-place-another"
+          >Place Another Trade</a
+        >
+        <a class="btn btn-primary btn-lg" routerLink="/dashboard" id="trade-return-dashboard"
+          >Return to Dashboard</a
+        >
+      </div>
+    </section>
+  }
+</div>

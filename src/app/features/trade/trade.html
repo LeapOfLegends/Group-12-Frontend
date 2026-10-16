@@ -1,0 +1,388 @@
+<div class="page trade-page">
+  <a class="back-link" routerLink="/dashboard">
+    <app-icon name="arrow-left" [size]="18" />
+    Back to Dashboard
+  </a>
+
+  <header class="page-header">
+    <div class="page-title">
+      <h1>Place Trade</h1>
+      <p class="page-subtitle">Buy or sell a supported instrument at the current market quote.</p>
+    </div>
+    <div class="page-actions">
+      <span class="power-chip">
+        <app-icon name="wallet" [size]="16" />
+        Buying power <strong>{{ buyingPower() | money }}</strong>
+      </span>
+    </div>
+  </header>
+
+  @if (catalog.error(); as error) {
+    <div class="alert alert-error" role="alert">
+      <app-icon name="alert-circle" />
+      <span>{{ error }}</span>
+      <button
+        type="button"
+        class="btn btn-sm btn-secondary alert-action"
+        (click)="catalog.load(true)"
+      >
+        Retry
+      </button>
+    </div>
+  }
+
+  <div class="trade-layout">
+    <!-- Left: order entry -->
+    <section class="card trade-entry" aria-labelledby="order-entry-title">
+      @switch (step()) {
+        @case ('result') {
+          @if (result(); as order) {
+            <div class="result" aria-live="polite">
+              <span
+                class="result-icon"
+                [class.result-icon-pending]="!isFinal(order.status)"
+                [class.result-icon-bad]="order.status === 'REJECTED' || order.status === 'FAILED'"
+              >
+                @if (order.status === 'FILLED') {
+                  <app-icon name="check-circle" [size]="32" />
+                } @else if (order.status === 'REJECTED' || order.status === 'FAILED') {
+                  <app-icon name="alert-circle" [size]="32" />
+                } @else {
+                  <span class="spinner spinner-lg" aria-hidden="true"></span>
+                }
+              </span>
+              <div class="result-heading">
+                <h2 id="order-entry-title">Order #{{ order.orderId }}</h2>
+                <app-status-badge [status]="order.status" />
+              </div>
+              <p class="text-secondary result-description">{{ resultDescription() }}</p>
+
+              <dl class="summary-list">
+                <div>
+                  <dt>Instrument</dt>
+                  <dd>
+                    {{ selected()?.symbol }}
+                    <span class="text-secondary font-medium"
+                      >· {{ selected()?.instrumentName }}</span
+                    >
+                  </dd>
+                </div>
+                <div>
+                  <dt>Order</dt>
+                  <dd>
+                    {{ order.orderType === 'BUY' ? 'Buy' : 'Sell' }} {{ order.quantity | quantity }}
+                  </dd>
+                </div>
+                @if (order.status === 'ACCEPTED' && order.reservedCash !== null) {
+                  <div>
+                    <dt>Cash reserved</dt>
+                    <dd>{{ order.reservedCash | money }}</dd>
+                  </div>
+                }
+                @if (order.executionPrice !== null) {
+                  <div>
+                    <dt>Execution price</dt>
+                    <dd>{{ order.executionPrice | price }}</dd>
+                  </div>
+                }
+                @if (order.tradeValue !== null) {
+                  <div class="summary-total">
+                    <dt>Trade value</dt>
+                    <dd>{{ order.tradeValue | money }}</dd>
+                  </div>
+                }
+              </dl>
+
+              <div class="result-actions">
+                <button type="button" class="btn btn-secondary" (click)="editOrder()">
+                  Edit order
+                </button>
+                <button type="button" class="btn btn-primary" (click)="placeAnother()">
+                  Place another order
+                </button>
+                <a class="btn btn-ghost" routerLink="/dashboard">Back to Dashboard</a>
+              </div>
+            </div>
+          }
+        }
+        @default {
+          <div class="card-header">
+            <div>
+              <h2 id="order-entry-title">Order entry</h2>
+              <p class="card-subtitle">
+                Select Stock → Buy/Sell → Enter Quantity → Review → Confirm
+              </p>
+            </div>
+          </div>
+
+          <fieldset class="entry-fieldset" [disabled]="step() === 'review'">
+            <!-- Instrument picker -->
+            <div class="field">
+              <label class="field-label" for="instrument-search">Instrument</label>
+              @if (loadingCatalog()) {
+                <app-loading-skeleton variant="text" [lines]="1" label="Loading instruments" />
+              } @else {
+                <div class="combobox">
+                  <app-icon name="search" [size]="18" />
+                  <input
+                    id="instrument-search"
+                    class="input"
+                    type="text"
+                    role="combobox"
+                    aria-autocomplete="list"
+                    aria-haspopup="listbox"
+                    [attr.aria-expanded]="listOpen() && filtered().length > 0"
+                    aria-controls="instrument-listbox"
+                    [attr.aria-activedescendant]="activeOptionId()"
+                    [value]="query()"
+                    (input)="onQuery($event)"
+                    (keydown)="onSearchKeydown($event)"
+                    (focus)="listOpen.set(true)"
+                    (blur)="closeList()"
+                    placeholder="Search by symbol or company name"
+                    autocomplete="off"
+                    spellcheck="false"
+                  />
+                  @if (selected()) {
+                    <button
+                      type="button"
+                      class="btn btn-ghost btn-icon combobox-clear"
+                      (click)="clearInstrument()"
+                      aria-label="Clear instrument"
+                    >
+                      <app-icon name="close" [size]="18" />
+                    </button>
+                  }
+                  @if (listOpen() && filtered().length > 0) {
+                    <ul
+                      id="instrument-listbox"
+                      class="listbox"
+                      role="listbox"
+                      aria-label="Matching instruments"
+                    >
+                      @for (item of filtered(); track item.instrumentId; let index = $index) {
+                        <li
+                          role="option"
+                          [id]="'instrument-option-' + item.instrumentId"
+                          [attr.aria-selected]="index === activeIndex()"
+                          [class.option-active]="index === activeIndex()"
+                          (mousedown)="$event.preventDefault()"
+                          (click)="choose(item)"
+                        >
+                          <span class="option-symbol">{{ item.symbol }}</span>
+                          <span class="option-name truncate">{{ item.instrumentName }}</span>
+                          <span class="option-class pill">{{ item.assetClass }}</span>
+                          <span class="option-price tabular">{{
+                            item.lastPrice ?? item.askPrice | price: item.currency
+                          }}</span>
+                        </li>
+                      }
+                    </ul>
+                  }
+                </div>
+                @if (listOpen() && query().trim() && filtered().length === 0) {
+                  <p class="field-hint">No instruments match “{{ query() }}”.</p>
+                }
+              }
+            </div>
+
+            @if (selected(); as instrument) {
+              <div class="instrument-card">
+                <div class="instrument-head">
+                  <div>
+                    <span class="instrument-symbol">{{ instrument.symbol }}</span>
+                    <span class="instrument-name">{{ instrument.instrumentName }}</span>
+                  </div>
+                  <div class="cluster">
+                    <span class="pill"
+                      >{{ instrument.assetClass }} · {{ instrument.currency }}</span
+                    >
+                    @if (instrument.tradable) {
+                      <app-status-badge tone="positive" icon="check" label="Tradable" />
+                    } @else {
+                      <app-status-badge tone="negative" icon="alert-circle" label="Not tradable" />
+                    }
+                  </div>
+                </div>
+                <div class="quote-grid">
+                  <div>
+                    <span class="quote-label">Bid</span
+                    ><span class="quote-value">{{
+                      instrument.bidPrice | price: instrument.currency
+                    }}</span>
+                  </div>
+                  <div>
+                    <span class="quote-label">Ask</span
+                    ><span class="quote-value">{{
+                      instrument.askPrice | price: instrument.currency
+                    }}</span>
+                  </div>
+                  <div>
+                    <span class="quote-label">Last trade</span
+                    ><span class="quote-value">{{
+                      instrument.lastPrice | price: instrument.currency
+                    }}</span>
+                  </div>
+                  <div>
+                    <span class="quote-label">Quote age</span>
+                    <span
+                      class="quote-value quote-age"
+                      [class.text-negative]="quoteStale()"
+                      [class.text-positive]="!quoteStale()"
+                    >
+                      {{ quoteAgeLabel() }}
+                    </span>
+                  </div>
+                </div>
+                <div class="instrument-actions">
+                  <button
+                    type="button"
+                    class="btn btn-ghost btn-sm"
+                    (click)="refreshQuote()"
+                    [disabled]="refreshingQuote()"
+                  >
+                    <app-icon name="refresh" [size]="16" />
+                    {{ refreshingQuote() ? 'Refreshing…' : 'Refresh quote' }}
+                  </button>
+                </div>
+              </div>
+            }
+
+            <!-- Side -->
+            <div class="field">
+              <span class="field-label" id="side-label">Order side</span>
+              <div
+                class="segmented segmented-block side-control"
+                role="group"
+                aria-labelledby="side-label"
+              >
+                <button
+                  type="button"
+                  class="side-buy"
+                  [attr.aria-pressed]="side() === 'BUY'"
+                  (click)="setSide('BUY')"
+                >
+                  <app-icon name="plus" [size]="16" />
+                  Buy
+                </button>
+                <button
+                  type="button"
+                  class="side-sell"
+                  [attr.aria-pressed]="side() === 'SELL'"
+                  (click)="setSide('SELL')"
+                >
+                  <app-icon name="minus" [size]="16" />
+                  Sell
+                </button>
+              </div>
+            </div>
+
+            <!-- Quantity -->
+            <div class="field">
+              <div class="spread">
+                <label class="field-label" for="order-quantity">Quantity</label>
+                @if (selected(); as instrument) {
+                  <span class="field-hint">
+                    @if (side() === 'BUY') {
+                      Buying power {{ buyingPower() | money }}
+                    } @else {
+                      You hold {{ sellable() | quantity }} {{ instrument.symbol }} available to sell
+                    }
+                  </span>
+                }
+              </div>
+              <input
+                id="order-quantity"
+                class="input input-money"
+                type="text"
+                inputmode="decimal"
+                autocomplete="off"
+                placeholder="0"
+                [value]="quantityText()"
+                (input)="onQuantityInput($event)"
+                (blur)="onQuantityBlur()"
+                [attr.aria-invalid]="quantityTouched() && !validation().valid ? 'true' : null"
+                aria-describedby="order-quantity-hint"
+              />
+              <p id="order-quantity-hint" class="field-hint">
+                @if (selected(); as instrument) {
+                  {{
+                    allowsFractions(instrument)
+                      ? 'Fractional quantities up to 8 decimals are supported for this asset class.'
+                      : 'Enter the number of shares.'
+                  }}
+                } @else {
+                  Choose an instrument first.
+                }
+              </p>
+              <div class="chip-row" role="group" aria-label="Quick quantities">
+                @if (side() === 'SELL') {
+                  <button
+                    type="button"
+                    class="chip"
+                    (click)="useFraction(0.25)"
+                    [disabled]="!selected() || sellable() <= 0"
+                  >
+                    25%
+                  </button>
+                  <button
+                    type="button"
+                    class="chip"
+                    (click)="useFraction(0.5)"
+                    [disabled]="!selected() || sellable() <= 0"
+                  >
+                    50%
+                  </button>
+                }
+                <button
+                  type="button"
+                  class="chip"
+                  (click)="useMaxQuantity()"
+                  [disabled]="!selected() || estimatedPrice() === null"
+                >
+                  {{ side() === 'BUY' ? 'Max affordable' : 'Sell all' }}
+                </button>
+              </div>
+            </div>
+
+            @if (estimatedPrice() !== null && selected(); as instrument) {
+              <p class="price-note text-secondary text-sm">
+                Estimated at the current {{ side() === 'BUY' ? 'ask' : 'bid' }} of
+                {{ estimatedPrice() | price: instrument.currency }}. The platform prices the order
+                again at execution.
+              </p>
+            }
+          </fieldset>
+
+          @if (step() === 'review') {
+            <div class="alert alert-info" role="status">
+              <app-icon name="info" />
+              <span
+                >Order details are locked while you review. Use “Edit order” in the summary to
+                change them.</span
+              >
+            </div>
+          }
+        }
+      }
+    </section>
+
+    <!-- Right: order summary -->
+    @if (step() !== 'result') {
+      <app-order-summary
+        class="trade-summary"
+        [model]="summaryModel()"
+        [step]="step()"
+        [errors]="validation().errors"
+        [warnings]="validation().warnings"
+        [showErrors]="quantityTouched() || quantityText().trim() !== ''"
+        [canReview]="validation().valid"
+        [submitting]="submitting()"
+        [submitError]="submitError()"
+        (review)="reviewOrder()"
+        (confirm)="confirmOrder()"
+        (edit)="editOrder()"
+      />
+    }
+  </div>
+</div>

@@ -1,0 +1,93 @@
+/* Shared look of the trade and transfer confirmation pages. */
+.confirmation-page {
+  max-width: 820px;
+}
+
+.receipt {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.receipt-head {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+}
+
+.receipt-heading {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+  min-width: 240px;
+
+  h1 {
+    font-size: var(--text-2xl);
+  }
+}
+
+.receipt-message {
+  max-width: 60ch;
+}
+
+.receipt-badge {
+  align-self: center;
+}
+
+.receipt-icon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: var(--color-positive-soft);
+  color: var(--color-positive);
+
+  &.receipt-icon-pending {
+    background: var(--color-warning-soft);
+    color: var(--color-warning);
+  }
+
+  &.receipt-icon-bad {
+    background: var(--color-negative-soft);
+    color: var(--color-negative);
+  }
+}
+
+.receipt-progress {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.receipt-list dd app-icon {
+  vertical-align: -3px;
+}
+
+.receipt-note {
+  display: block;
+  font-size: var(--text-xs);
+  font-weight: 400;
+  color: var(--color-text-secondary);
+}
+
+.receipt-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  padding-top: var(--space-2);
+}
+
+@media (max-width: 640px) {
+  .receipt-actions {
+    flex-direction: column-reverse;
+
+    .btn {
+      width: 100%;
+    }
+  }
+}

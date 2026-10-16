@@ -1,0 +1,271 @@
+<div class="auth-shell">
+  <section class="auth-visual" aria-hidden="true">
+    <div class="visual-inner">
+      <app-brand-logo [onDark]="true" [markSize]="44" />
+      <div class="visual-copy">
+        <p class="visual-eyebrow">Client registration</p>
+        <h2 class="visual-title">Open your JetZy Trading account in minutes.</h2>
+        <p class="visual-text">One secure form, then you are ready to fund your cash account and place your first trade.</p>
+        <ul class="visual-points">
+          <li><span class="visual-point-icon"><app-icon name="wallet" [size]="18" /></span><span>Deposit into your cash account as soon as you sign in.</span></li>
+          <li><span class="visual-point-icon"><app-icon name="trade" [size]="18" /></span><span>Buy and sell supported instruments at the platform's market quotes.</span></li>
+          <li><span class="visual-point-icon"><app-icon name="shield" [size]="18" /></span><span>Every order and transfer is confirmed by the platform before your balance changes.</span></li>
+        </ul>
+      </div>
+      <p class="visual-foot">Already registered? Sign in with your email and password.</p>
+    </div>
+  </section>
+
+  <main class="auth-main">
+    <div class="auth-top">
+      <span class="auth-brand"><app-brand-logo [markSize]="34" /></span>
+      <button
+        type="button"
+        class="btn btn-ghost btn-icon"
+        (click)="theme.toggle()"
+        [attr.aria-label]="theme.isDark() ? 'Switch to light theme' : 'Switch to dark theme'"
+      >
+        <app-icon [name]="theme.isDark() ? 'sun' : 'moon'" [size]="20" />
+      </button>
+    </div>
+
+    <div class="auth-card">
+      <div class="auth-heading">
+        <span class="eyebrow">Client registration</span>
+        <h1>Create your account</h1>
+        <p class="auth-lead">Clients register here. Administrator accounts are created by the platform team.</p>
+      </div>
+
+      <form [formGroup]="form" (ngSubmit)="submit()" novalidate class="register-form" aria-describedby="register-intro">
+        <p id="register-intro" class="visually-hidden">All fields are required.</p>
+
+        <fieldset class="form-section">
+          <legend>About you</legend>
+
+          <div class="form-grid">
+            <div class="field">
+              <label class="field-label" for="register-first-name">First name</label>
+              <input
+                id="register-first-name"
+                class="input"
+                type="text"
+                formControlName="firstName"
+                autocomplete="given-name"
+                maxlength="100"
+                [attr.aria-invalid]="fieldError('firstName') ? 'true' : null"
+                [attr.aria-describedby]="fieldError('firstName') ? 'register-first-name-error' : null"
+              />
+              @if (fieldError('firstName'); as error) {
+                <p id="register-first-name-error" class="field-error"><app-icon name="alert-circle" [size]="16" />{{ error }}</p>
+              }
+            </div>
+
+            <div class="field">
+              <label class="field-label" for="register-last-name">Last name</label>
+              <input
+                id="register-last-name"
+                class="input"
+                type="text"
+                formControlName="lastName"
+                autocomplete="family-name"
+                maxlength="100"
+                [attr.aria-invalid]="fieldError('lastName') ? 'true' : null"
+                [attr.aria-describedby]="fieldError('lastName') ? 'register-last-name-error' : null"
+              />
+              @if (fieldError('lastName'); as error) {
+                <p id="register-last-name-error" class="field-error"><app-icon name="alert-circle" [size]="16" />{{ error }}</p>
+              }
+            </div>
+          </div>
+
+          <div class="field">
+            <label class="field-label" for="register-email">Email address</label>
+            <input
+              id="register-email"
+              class="input"
+              type="email"
+              formControlName="email"
+              autocomplete="email"
+              inputmode="email"
+              autocapitalize="off"
+              spellcheck="false"
+              maxlength="255"
+              placeholder="name@example.com"
+              [attr.aria-invalid]="fieldError('email') ? 'true' : null"
+              [attr.aria-describedby]="fieldError('email') ? 'register-email-error' : 'register-email-hint'"
+            />
+            @if (fieldError('email'); as error) {
+              <p id="register-email-error" class="field-error"><app-icon name="alert-circle" [size]="16" />{{ error }}</p>
+            } @else {
+              <p id="register-email-hint" class="field-hint">You will sign in with this address. It must be unique on the platform.</p>
+            }
+          </div>
+
+          <div class="form-grid">
+            <div class="field">
+              <label class="field-label" for="register-phone">Phone number</label>
+              <input
+                id="register-phone"
+                class="input"
+                type="tel"
+                formControlName="phoneNumber"
+                autocomplete="tel-national"
+                inputmode="tel"
+                maxlength="12"
+                placeholder="202-456-1111"
+                (input)="onPhoneInput($event)"
+                [attr.aria-invalid]="fieldError('phoneNumber') ? 'true' : null"
+                [attr.aria-describedby]="fieldError('phoneNumber') ? 'register-phone-error' : 'register-phone-hint'"
+              />
+              @if (fieldError('phoneNumber'); as error) {
+                <p id="register-phone-error" class="field-error"><app-icon name="alert-circle" [size]="16" />{{ error }}</p>
+              } @else {
+                <p id="register-phone-hint" class="field-hint">US number, 10 digits.</p>
+              }
+            </div>
+
+            <div class="field">
+              <label class="field-label" for="register-dob">Date of birth</label>
+              <input
+                id="register-dob"
+                class="input"
+                type="date"
+                formControlName="dateOfBirth"
+                autocomplete="bday"
+                [attr.min]="minDateOfBirth"
+                [attr.max]="maxDateOfBirth"
+                [attr.aria-invalid]="fieldError('dateOfBirth') ? 'true' : null"
+                [attr.aria-describedby]="fieldError('dateOfBirth') ? 'register-dob-error' : 'register-dob-hint'"
+              />
+              @if (fieldError('dateOfBirth'); as error) {
+                <p id="register-dob-error" class="field-error"><app-icon name="alert-circle" [size]="16" />{{ error }}</p>
+              } @else {
+                <p id="register-dob-hint" class="field-hint">You must be at least {{ minAge }} years old.</p>
+              }
+            </div>
+          </div>
+        </fieldset>
+
+        <fieldset class="form-section">
+          <legend>Identity verification</legend>
+
+          <div class="field">
+            <label class="field-label" for="register-ssn">Social Security number</label>
+            <div class="input-group input-group-secret">
+              <input
+                id="register-ssn"
+                class="input"
+                [type]="showSsn() ? 'text' : 'password'"
+                formControlName="ssn"
+                autocomplete="off"
+                inputmode="numeric"
+                maxlength="11"
+                placeholder="123-45-6789"
+                (input)="onSsnInput($event)"
+                [attr.aria-invalid]="fieldError('ssn') ? 'true' : null"
+                [attr.aria-describedby]="fieldError('ssn') ? 'register-ssn-error' : 'register-ssn-hint'"
+              />
+              <button
+                type="button"
+                class="btn btn-ghost btn-icon input-suffix"
+                (click)="toggleSsn()"
+                [attr.aria-label]="showSsn() ? 'Hide Social Security number' : 'Show Social Security number'"
+                [attr.aria-pressed]="showSsn()"
+              >
+                <app-icon [name]="showSsn() ? 'eye-off' : 'eye'" [size]="20" />
+              </button>
+            </div>
+            @if (fieldError('ssn'); as error) {
+              <p id="register-ssn-error" class="field-error"><app-icon name="alert-circle" [size]="16" />{{ error }}</p>
+            } @else {
+              <p id="register-ssn-hint" class="field-hint">
+                <app-icon name="lock" [size]="14" />
+                Required by the platform to open an account. It is masked here, sent securely and never shown in the app.
+              </p>
+            }
+          </div>
+        </fieldset>
+
+        <fieldset class="form-section">
+          <legend>Password</legend>
+
+          <div class="field">
+            <label class="field-label" for="register-password">Password</label>
+            <div class="input-group input-group-secret">
+              <input
+                id="register-password"
+                class="input"
+                [type]="showPassword() ? 'text' : 'password'"
+                formControlName="password"
+                autocomplete="new-password"
+                maxlength="72"
+                [attr.aria-invalid]="fieldError('password') ? 'true' : null"
+                [attr.aria-describedby]="(fieldError('password') ? 'register-password-error ' : '') + 'register-password-checks'"
+              />
+              <button
+                type="button"
+                class="btn btn-ghost btn-icon input-suffix"
+                (click)="togglePassword()"
+                [attr.aria-label]="showPassword() ? 'Hide password' : 'Show password'"
+                [attr.aria-pressed]="showPassword()"
+              >
+                <app-icon [name]="showPassword() ? 'eye-off' : 'eye'" [size]="20" />
+              </button>
+            </div>
+            @if (fieldError('password'); as error) {
+              <p id="register-password-error" class="field-error"><app-icon name="alert-circle" [size]="16" />{{ error }}</p>
+            }
+            <ul id="register-password-checks" class="password-checks" aria-label="Password requirements">
+              @for (check of passwordChecks(); track check.label) {
+                <li [class.check-ok]="check.ok">
+                  <app-icon [name]="check.ok ? 'check-circle' : 'circle-dot'" [size]="16" />
+                  <span>{{ check.label }}</span>
+                  <span class="visually-hidden">{{ check.ok ? ' (met)' : ' (not met)' }}</span>
+                </li>
+              }
+            </ul>
+          </div>
+
+          <div class="field">
+            <label class="field-label" for="register-confirm-password">Confirm password</label>
+            <div class="input-group input-group-secret">
+              <input
+                id="register-confirm-password"
+                class="input"
+                [type]="showPassword() ? 'text' : 'password'"
+                formControlName="confirmPassword"
+                autocomplete="new-password"
+                maxlength="72"
+                [attr.aria-invalid]="fieldError('confirmPassword') ? 'true' : null"
+                [attr.aria-describedby]="fieldError('confirmPassword') ? 'register-confirm-password-error' : null"
+              />
+            </div>
+            @if (fieldError('confirmPassword'); as error) {
+              <p id="register-confirm-password-error" class="field-error"><app-icon name="alert-circle" [size]="16" />{{ error }}</p>
+            }
+          </div>
+        </fieldset>
+
+        @if (formError(); as message) {
+          <div class="alert alert-error" role="alert">
+            <app-icon name="alert-circle" />
+            <span>{{ message }}</span>
+          </div>
+        }
+
+        <button type="submit" class="btn btn-primary btn-lg btn-block" [disabled]="submitting()" [attr.aria-busy]="submitting()">
+          @if (submitting()) {
+            <span class="spinner" aria-hidden="true"></span>
+            Creating your account…
+          } @else {
+            Create account
+          }
+        </button>
+      </form>
+
+      <p class="auth-switch">Already have an account? <a routerLink="/login">Sign in</a></p>
+    </div>
+
+    <p class="auth-footer">© {{ year }} JetZy Trading · For self-directed investors</p>
+  </main>
+</div>
