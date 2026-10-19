@@ -60,6 +60,26 @@ forwards `/auth-api/*` to Group-12-Auth and `/trading-api/*` to Group-12-Backend
 the prefix). The Spring backend has no CORS configuration, so calling it from another
 origin fails at the pre-flight.
 
+### Jenkins and Docker
+
+Jenkins installs dependencies, runs the existing unit tests, and builds the production
+bundle. On `main`, it packages that bundle in Nginx and replaces `capstone-frontend`,
+published on port 4200. The Unix Jenkins agent needs Node.js 24.15 or later in the 24.x
+release line, npm 11, and access to the target VM's Docker daemon; deployment runs
+against that daemon directly.
+
+Use a Multibranch Pipeline so the `branch 'main'` conditions receive the required
+branch metadata.
+
+The deployment creates `capstone-net` if needed. Both `capstone-auth` (port 3000) and
+`capstone-backend` (port 8081) must run on that network for API requests to work. Start
+the auth container separately; its Jenkins pipeline only creates an image. Nginx can
+start before either API, but proxied requests fail until those services are available.
+
+For a local image build, first run `npm ci` and `npm run build`, then
+`docker build -t capstone-frontend:local .`. The Dockerfile packages the existing
+`dist/jetzy-trading/browser` output without rebuilding it.
+
 ### Configuration
 
 [src/environments/environment.ts](src/environments/environment.ts) (production) and
