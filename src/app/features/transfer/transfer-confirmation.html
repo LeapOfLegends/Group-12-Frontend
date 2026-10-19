@@ -1,0 +1,115 @@
+<div class="page confirmation-page">
+  <a class="back-link" routerLink="/dashboard">
+    <app-icon name="arrow-left" [size]="18" />
+    Back to Dashboard
+  </a>
+
+  @if (receipt(); as receipt) {
+    <section class="card receipt" aria-labelledby="transfer-confirmation-title" aria-live="polite">
+      <header class="receipt-head">
+        <span class="receipt-icon" [class.receipt-icon-pending]="!completed()">
+          @if (completed()) {
+            <app-icon name="check-circle" [size]="32" />
+          } @else {
+            <app-icon name="clock" [size]="32" />
+          }
+        </span>
+        <div class="receipt-heading">
+          <span class="eyebrow">Transfer confirmation</span>
+          <h1 id="transfer-confirmation-title">{{ heading() }}</h1>
+          <p class="text-secondary receipt-message">{{ message() }}</p>
+        </div>
+        @if (completed()) {
+          <app-status-badge class="receipt-badge" tone="positive" icon="check" label="Completed" />
+        } @else {
+          <app-status-badge class="receipt-badge" tone="warning" icon="clock" label="Pending" />
+        }
+      </header>
+
+      <dl class="summary-list receipt-list">
+        <div>
+          <dt>Transfer type</dt>
+          <dd>
+            @if (isDeposit()) {
+              <span class="text-positive"><app-icon name="arrow-down" [size]="16" /> Deposit</span>
+              <span class="text-secondary font-medium"> · to cash account</span>
+            } @else {
+              <span class="text-negative"><app-icon name="arrow-up" [size]="16" /> Withdrawal</span>
+              <span class="text-secondary font-medium"> · from cash account</span>
+            }
+          </dd>
+        </div>
+        <div>
+          <dt>Transfer amount</dt>
+          <dd>{{ receipt.amount | money }}</dd>
+        </div>
+        <div>
+          <dt>Transaction ID</dt>
+          <dd>
+            @if (receipt.transactionId) {
+              {{ receipt.transactionId }}
+            } @else {
+              <span class="text-secondary font-medium">Not provided</span>
+              <span class="receipt-note">The platform does not issue transfer IDs yet.</span>
+            }
+          </dd>
+        </div>
+        <div>
+          <dt>{{ completed() ? 'Confirmed' : 'Submitted' }}</dt>
+          <dd>{{ receipt.confirmedAt | dateTime }}</dd>
+        </div>
+        <div>
+          <dt>Status</dt>
+          <dd>
+            @if (completed()) {
+              <app-status-badge tone="positive" icon="check" label="Completed" />
+            } @else {
+              <app-status-badge tone="warning" icon="clock" label="Pending" />
+            }
+          </dd>
+        </div>
+        <div>
+          <dt>Previous balance</dt>
+          <dd>{{ receipt.balanceBefore | money }}</dd>
+        </div>
+        <div class="summary-total">
+          <dt>
+            {{ completed() ? 'Updated cash balance' : 'Cash balance (unchanged until confirmed)' }}
+          </dt>
+          <dd>
+            @if (receipt.balanceAfter !== null) {
+              {{ receipt.balanceAfter | money }}
+            } @else {
+              {{ receipt.balanceBefore | money }}
+            }
+          </dd>
+        </div>
+      </dl>
+
+      <div class="receipt-actions">
+        <a
+          class="btn btn-secondary btn-lg"
+          routerLink="/transfer"
+          [queryParams]="{ mode: receipt.mode }"
+          >Make another transfer</a
+        >
+        <a class="btn btn-primary btn-lg" routerLink="/dashboard" id="transfer-return-dashboard"
+          >Return to Dashboard</a
+        >
+      </div>
+    </section>
+  } @else {
+    <section class="card">
+      <app-empty-state
+        icon="transfer"
+        title="No transfer to show"
+        message="This page shows the confirmation of a transfer you have just completed. Start a deposit or withdrawal to see one here."
+      >
+        <div class="cluster">
+          <a class="btn btn-primary" routerLink="/transfer">Start a transfer</a>
+          <a class="btn btn-secondary" routerLink="/dashboard">Return to Dashboard</a>
+        </div>
+      </app-empty-state>
+    </section>
+  }
+</div>
