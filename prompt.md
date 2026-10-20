@@ -32,3 +32,4 @@ queries and information needed for admin's dashboard:
 
 
 -----------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Add a deafult landing page with the new nav bar at the top, instead of the user in the top right corner, have the login and the sign up buttom so for the users. When sign up is clicked the user will go to registeration page, when login is clicked the user woll go to login page. THe landing page should display our logo and have a description  of our trading polatform with snippets of the actions that can be done via our app. THe landing page should be an informative overview inviting users to use oit tradig platform.
