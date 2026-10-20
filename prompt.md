@@ -27,3 +27,8 @@ queries and information needed for admin's dashboard:
 	- can search up based on name or email
 	- can filter based on role
 	- there should be the ability to add a new administrator (needs first name, last name, email address, temp password, and assigned role)
+
+
+
+
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------
