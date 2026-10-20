@@ -9,20 +9,20 @@ queries and information neede for a specific client's home page (uses the capsto
 - current holdings (valued at the latest price the platform holds for each instrument)
 - recent orders placed 
 
-queries and information needed for admin's dashboard:
+queries and information needed for admin's dashboard (some information will be shown or hidden based on which role has access):
 - platform over (use data_warehouse as the database for this):
 	- number of registered clients (client records on the platform)
 	- number of accounts with cash (clients with a positive cash balance)
 	- total client cash (sum of all client cash balances)
 	- number of tradable instruments
 	number of all total admins (separately, include how many admins there are based on each role)
-- trading operations (use the capstone2026 database for this)
+- trading operations (use the capstone2026 database for this) (roles: super_admin, operations)
 	- client activity lookup (search a client based on id or email)
 	- order lookup (trace an order using order id)
 	- list of market data health based on all, fresh, stale, no quote , and not tradable status (orders that are priced only against quotes under 30s old; shows number of fresh, stale, and without a quote states)
-- financial operations (use capstone2026 database for this):
+- financial operations (use capstone2026 database for this) (roles: super_admin, finance):
 	- client cash positions (should be able to search up a name or email or filter based on highest balance, name from A-Z, and newest clients)
-- administrative management
+- administrative management (roles: super_admin)
 	- shows list of administrators and their role
 	- can search up based on name or email
 	- can filter based on role
