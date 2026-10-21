@@ -21,7 +21,7 @@ describe('describeHttpError', () => {
         status: 409,
         error: 'Conflict',
         message: 'Insufficient funds',
-        path: '/api/clients/1/withdraw',
+        path: '/api/clients/me/balance/transactions',
       },
     });
     expect(describeHttpError(error)).toBe('Insufficient funds');

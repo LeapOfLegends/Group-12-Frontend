@@ -19,8 +19,9 @@ export interface AccountBalance {
   accountBalance: number;
 }
 
-/** MoneyMovementDTO - request body for deposits and withdrawals. */
+/** Request body for POST /api/clients/me/balance/transactions. */
 export interface MoneyMovementRequest {
+  type: 'DEPOSIT' | 'WITHDRAWAL';
   amount: number;
 }
 
@@ -73,7 +74,13 @@ export type OrderType = 'BUY' | 'SELL';
 
 export type OrderStatus = 'SUBMITTED' | 'ACCEPTED' | 'REJECTED' | 'FILLED' | 'FAILED';
 
-export const ORDER_STATUSES: readonly OrderStatus[] = ['SUBMITTED', 'ACCEPTED', 'REJECTED', 'FILLED', 'FAILED'];
+export const ORDER_STATUSES: readonly OrderStatus[] = [
+  'SUBMITTED',
+  'ACCEPTED',
+  'REJECTED',
+  'FILLED',
+  'FAILED',
+];
 
 /** Reasons the backend records when it rejects a SUBMITTED order (OrderRejectionReason). */
 export type OrderRejectionReason =
@@ -116,9 +123,8 @@ export interface Order {
   failureReason: OrderFailureReason | string | null;
 }
 
-/** CreateOrderRequest - POST /api/orders. */
+/** CreateOrderRequest - POST /api/clients/me/orders. The authenticated client comes from the JWT. */
 export interface CreateOrderRequest {
-  clientId: number;
   instrumentId: number;
   orderType: OrderType;
   quantity: number;

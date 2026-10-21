@@ -403,7 +403,6 @@ export class TradePage implements OnInit {
     this.submitError.set(null);
     this.ordersApi
       .submit({
-        clientId: user.id,
         instrumentId: instrument.instrumentId,
         orderType: this.side(),
         quantity,

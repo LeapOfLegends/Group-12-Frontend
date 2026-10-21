@@ -58,8 +58,8 @@ would fail the pre-flight request.
 | | `GET /api/client/{id}/holdings` | **404 when the client has no holdings** - treated as empty |
 | | `GET /api/orders/client/{id}` | full order history, newest first |
 | | `GET /instruments/{id}` | names, prices and quote timestamps for holdings/orders |
-| Transfer | `POST /api/clients/{id}/deposit` | body `{ amount }`, returns the confirmed balance |
-| | `POST /api/clients/{id}/withdraw` | 409 `Insufficient funds` |
+| Transfer | `POST /api/clients/me/balance/transactions` | body `{ amount, type: "DEPOSIT" | "WITHDRAWAL" }`, returns the confirmed balance; the JWT identifies the client |
+| | `POST /api/clients/me/balance/transactions` | `409 Insufficient funds` for an overdrawn withdrawal |
 | Transfer confirmation | (none) | Receipt built from the backend's `AccountBalanceDTO`; no endpoint reads a transfer back and no transaction id is issued, so the page says so |
 | Trade | `GET /instruments` | catalogue with stored bid/ask/last and `quoteAsOf` |
 | | `GET /instruments/symbol/{symbol}` | quote refresh |

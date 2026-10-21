@@ -89,8 +89,8 @@ export class TransferPage implements OnInit {
     const balanceBefore = this.cash();
     const call =
       request.mode === 'deposit'
-        ? this.clientApi.deposit(user.id, request.amount)
-        : this.clientApi.withdraw(user.id, request.amount);
+        ? this.clientApi.deposit(request.amount)
+        : this.clientApi.withdraw(request.amount);
     call.subscribe({
       next: (balance) => {
         this.portfolio.applyBalance(balance.accountBalance);

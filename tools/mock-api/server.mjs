@@ -266,6 +266,25 @@ const server = http.createServer(async (req, res) => {
     const client = clients.find((c) => c.email === decodeURIComponent(match[1]));
     return client ? send(res, 200, publicClient(client)) : apiError(res, 404, 'Not Found', 'Client not found with email', path);
   }
+  if (path === '/api/clients/me/balance' && method === 'GET') {
+    if (!claims) return apiError(res, 401, 'Unauthorized', 'Bearer token required', path);
+    if (!Array.isArray(claims.roles) || !claims.roles.includes('CLIENT')) return apiError(res, 403, 'Forbidden', 'Your role does not allow this action', path);
+    const client = clients.find((candidate) => candidate.clientId === Number(claims?.sub));
+    return client ? send(res, 200, { clientId: client.clientId, accountBalance: client.accountBalance }) : apiError(res, 404, 'Not Found', 'Client not found', path);
+  }
+  if (path === '/api/clients/me/balance/transactions' && method === 'POST') {
+    if (!claims) return apiError(res, 401, 'Unauthorized', 'Bearer token required', path);
+    if (!Array.isArray(claims.roles) || !claims.roles.includes('CLIENT')) return apiError(res, 403, 'Forbidden', 'Your role does not allow this action', path);
+    const client = clients.find((candidate) => candidate.clientId === Number(claims?.sub));
+    if (!client) return apiError(res, 404, 'Not Found', 'Client not found', path);
+    const body = await readBody(req);
+    const amount = Number(body?.amount);
+    if (!(amount > 0) || !Number.isFinite(amount)) return apiError(res, 400, 'Bad Request', 'Amount must be greater than zero', path);
+    if (!['DEPOSIT', 'WITHDRAWAL'].includes(body?.type)) return apiError(res, 400, 'Bad Request', 'Transaction type must be DEPOSIT or WITHDRAWAL', path);
+    if (body.type === 'WITHDRAWAL' && client.accountBalance < amount) return apiError(res, 409, 'Conflict', 'Insufficient funds', path);
+    client.accountBalance += body.type === 'DEPOSIT' ? amount : -amount;
+    return send(res, 200, { clientId: client.clientId, accountBalance: client.accountBalance });
+  }
   if ((match = path.match(/^\/api\/clients\/(\d+)\/balance$/)) && method === 'GET') {
     const client = clients.find((c) => c.clientId === Number(match[1]));
     return client ? send(res, 200, { clientId: client.clientId, accountBalance: client.accountBalance }) : apiError(res, 404, 'Not Found', `Client not found with id: ${match[1]}`, path);

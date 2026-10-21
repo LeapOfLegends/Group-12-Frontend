@@ -11,24 +11,24 @@ export class ClientApiService {
   private readonly http = inject(HttpClient);
   private readonly baseUrl = `${environment.tradingApiUrl}/api/clients`;
 
-  getBalance(clientId: number): Observable<AccountBalance> {
-    return this.http.get<AccountBalance>(`${this.baseUrl}/${clientId}/balance`).pipe(map(normalizeBalance));
+  getBalance(_clientId: number): Observable<AccountBalance> {
+    return this.http.get<AccountBalance>(`${this.baseUrl}/me/balance`).pipe(map(normalizeBalance));
   }
 
-  /** POST /api/clients/{id}/deposit - the response carries the backend-confirmed balance. */
-  deposit(clientId: number, amount: number): Observable<AccountBalance> {
-    const body: MoneyMovementRequest = { amount };
-    return this.http.post<AccountBalance>(`${this.baseUrl}/${clientId}/deposit`, body).pipe(map(normalizeBalance));
+  /** POST /api/clients/me/balance/transactions with a deposit discriminator. */
+  deposit(amount: number): Observable<AccountBalance> {
+    const body: MoneyMovementRequest = { amount, type: 'DEPOSIT' };
+    return this.http.post<AccountBalance>(`${this.baseUrl}/me/balance/transactions`, body).pipe(map(normalizeBalance));
   }
 
-  /** POST /api/clients/{id}/withdraw - answers 409 "Insufficient funds" when the balance is too low. */
-  withdraw(clientId: number, amount: number): Observable<AccountBalance> {
-    const body: MoneyMovementRequest = { amount };
-    return this.http.post<AccountBalance>(`${this.baseUrl}/${clientId}/withdraw`, body).pipe(map(normalizeBalance));
+  /** POST /api/clients/me/balance/transactions; answers 409 when funds are insufficient. */
+  withdraw(amount: number): Observable<AccountBalance> {
+    const body: MoneyMovementRequest = { amount, type: 'WITHDRAWAL' };
+    return this.http.post<AccountBalance>(`${this.baseUrl}/me/balance/transactions`, body).pipe(map(normalizeBalance));
   }
 
   getClient(clientId: number): Observable<ClientRecord> {
-    return this.http.get<Record<string, unknown>>(`${this.baseUrl}/${clientId}`).pipe(map(toClientRecord));
+    return this.http.get<Record<string, unknown>>(`${this.baseUrl}/me`).pipe(map(toClientRecord));
   }
 
   getClientByEmail(email: string): Observable<ClientRecord> {
