@@ -25,19 +25,32 @@ talks to PostgreSQL.
 
 | Route | Page | Access |
 | --- | --- | --- |
+| `/` | Landing page: what the platform does, with Log in / Sign up in the navbar | Public (signed-in users continue to `/dashboard`) |
 | `/login` | Sign in (clients and administrators) | Public |
 | `/register` | Create a client account | Public |
-| `/dashboard` | Client home: cash, portfolio value, return, chart, buying power & allocation, holdings, orders | Authenticated |
+| `/dashboard` | Client home: price search, cash, portfolio value, return, chart, buying power & allocation, holdings, orders | Authenticated |
 | `/transfer` | Deposit or withdraw cash | Clients |
 | `/transfer/confirmation` | Receipt of the transfer the backend just confirmed | Clients |
 | `/trade` | Buy or sell an instrument | Clients |
 | `/trade/confirmation` | Order receipt that follows execution (`?orderId=` reloads it) | Clients |
-| `/admin` | Operations, financial and administrative views by role | Administrators |
+| `/admin` | Operations, financial and administrative views by role, with the same price search | Administrators |
+
+Every signed-in page shares one top navigation bar: the brand and the navigation links on
+the left (Dashboard, Transfer Money and Place Trade for clients; Dashboard and Admin
+Dashboard for administrators), the theme toggle and the profile card on the right. The
+profile card opens the **Profile** panel (session details, appearance, log out); on
+narrow screens the links fold into a menu. The landing page uses the same bar with Log in
+and Sign up in place of the profile card.
 
 Administrators land on `/dashboard` with an administrator state (they have no client
-portfolio) and get an **Admin Dashboard** link; clients never see it and are redirected if
+portfolio) and get the **Admin Dashboard** link; clients never see it and are redirected if
 they try `/admin`. Route guards enforce this in the browser; the backend remains the
 security boundary.
+
+Both dashboards carry an instrument price search above the date: type a symbol (or pick
+a suggestion from the instrument list) and the app calls `GET /instruments/symbol/{symbol}`
+and shows the platform's stored bid, ask, last trade and quote age. Clients can jump from
+a quote straight to the trade page.
 
 ### Prerequisites
 
@@ -146,12 +159,14 @@ src/app/
     services/   PortfolioService facade, InstrumentCatalogService, theme, notifications
     utils/      money/date formatting, portfolio maths, JWT decoding, error mapping
   shared/
-    charts/     LineChart (SVG, crosshair, keyboard), PortfolioChart (ranges + table), BarList
+    charts/     LineChart (SVG, crosshair, keyboard, fills its card), PortfolioChart (ranges + table), BarList
     pipes/      money, price, pct, quantity, dateTime, relativeAge
-    ui/         AppLayout, Sidebar, Navbar, AccountPanel, BrandLogo, FinancialSummaryCard,
-                StatusBadge, LoadingSkeleton, EmptyState, ConfirmationDialog, NotificationToast, tables
+    ui/         AppLayout, Navbar (top bar: role-aware links, theme toggle, profile card or Log in / Sign up),
+                AccountPanel (Profile), BrandLogo, InstrumentSearch (price lookup by symbol),
+                FinancialSummaryCard, StatusBadge, LoadingSkeleton, EmptyState, ConfirmationDialog,
+                NotificationToast, tables
   features/
-    login/ register/ dashboard/ transfer/ (+ confirmation) trade/ (+ confirmation) admin/
+    landing/ login/ register/ dashboard/ transfer/ (+ confirmation) trade/ (+ confirmation) admin/
 ```
 
 Conventions: standalone components, signals for state, `OnPush` change detection,

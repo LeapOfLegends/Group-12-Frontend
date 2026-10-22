@@ -3,6 +3,7 @@
     <!-- Administrators have no client account, so there is no portfolio to fabricate. -->
     <header class="page-header">
       <div class="page-title">
+        <app-instrument-search class="page-search" />
         <span class="eyebrow">{{ today }}</span>
         <h1>{{ greeting() }}</h1>
         <p class="page-subtitle">You are signed in as {{ roleLabel() }}.</p>
@@ -28,6 +29,7 @@
   } @else {
     <header class="page-header">
       <div class="page-title">
+        <app-instrument-search class="page-search" />
         <span class="eyebrow">{{ today }}</span>
         <h1>{{ greeting() }}</h1>
         <p class="page-subtitle">Here is where your money stands today.</p>
@@ -49,7 +51,7 @@
         </a>
         <a class="btn btn-primary" routerLink="/trade">
           <app-icon name="trade" [size]="18" />
-          New Trade
+          Place Trade
         </a>
       </div>
     </header>
@@ -99,6 +101,7 @@
         title="Portfolio performance"
         [subtitle]="chartSubtitle"
         [series]="investedSeries()"
+        [height]="300"
         [loading]="initialLoading()"
         [deltaColoring]="false"
         [caption]="chartCaption"

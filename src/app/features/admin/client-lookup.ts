@@ -84,6 +84,17 @@ interface LookupResult {
     </section>
   `,
   styles: `
+    :host {
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+    }
+
+    /* Fills the grid cell so the lookup cards in one row share a height. */
+    .card {
+      flex: 1;
+    }
+
     .lookup-form {
       display: flex;
       gap: 10px;

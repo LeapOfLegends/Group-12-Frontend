@@ -5,7 +5,7 @@ import { ThemePreference, ThemeService } from '../../../core/services/theme.serv
 import { DateTimePipe, ShortDatePipe } from '../../pipes/format.pipes';
 import { IconComponent } from '../icon/icon';
 
-/** Profile / Account: who is signed in, session expiry, theme preference and log out. */
+/** Profile: who is signed in, session expiry, theme preference and log out. */
 @Component({
   selector: 'app-account-panel',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -14,8 +14,8 @@ import { IconComponent } from '../icon/icon';
     <dialog #dialog class="dialog" aria-labelledby="account-panel-title">
       <div class="dialog-body">
         <div class="spread">
-          <h2 id="account-panel-title">Profile &amp; account</h2>
-          <button type="button" class="btn btn-ghost btn-icon" (click)="close()" aria-label="Close account panel">
+          <h2 id="account-panel-title">Profile</h2>
+          <button type="button" class="btn btn-ghost btn-icon" (click)="close()" aria-label="Close profile">
             <app-icon name="close" [size]="20" />
           </button>
         </div>

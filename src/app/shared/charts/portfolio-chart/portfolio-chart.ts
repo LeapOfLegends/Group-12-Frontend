@@ -11,7 +11,8 @@ import { ChartTone, LineChartComponent } from '../line-chart/line-chart';
 /**
  * Dashboard chart card: time-range presets (only ranges that contain real data are
  * enabled), the line chart, and a table view so every value is readable without
- * hovering.
+ * hovering. The card fills the height its grid cell gives it (so it matches the card
+ * beside it) and the plot grows into that space; `height` is the plot's minimum.
  */
 @Component({
   selector: 'app-portfolio-chart',
@@ -46,9 +47,13 @@ import { ChartTone, LineChartComponent } from '../line-chart/line-chart';
       </div>
 
       @if (loading()) {
-        <app-loading-skeleton variant="chart" [height]="280" label="Loading chart" />
+        <div class="chart-fill" [style.min-height.px]="height()">
+          <app-loading-skeleton variant="chart" [height]="height()" label="Loading chart" />
+        </div>
       } @else if (series().length === 0) {
-        <app-empty-state icon="chart-line" [title]="emptyTitle()" [message]="emptyMessage()" />
+        <div class="chart-fill chart-fill-center" [style.min-height.px]="height()">
+          <app-empty-state icon="chart-line" [title]="emptyTitle()" [message]="emptyMessage()" />
+        </div>
       } @else {
         @if (visible().length >= 2) {
           <div class="chart-summary">
@@ -75,9 +80,12 @@ import { ChartTone, LineChartComponent } from '../line-chart/line-chart';
           </div>
         }
         <app-line-chart
+          class="chart-plot"
+          [style.min-height.px]="height()"
           [points]="visible()"
           [tone]="tone()"
-          [height]="280"
+          [height]="height()"
+          [fill]="true"
           [valueFormatter]="format"
           [compactFormatter]="compact"
           [ariaLabel]="ariaLabel()"
@@ -112,10 +120,28 @@ import { ChartTone, LineChartComponent } from '../line-chart/line-chart';
     </section>
   `,
   styles: `
+    :host {
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+    }
+
+    /* The card takes the whole grid cell; the plot takes whatever the header, summary and caption leave. */
     .chart-card {
+      flex: 1;
       display: flex;
       flex-direction: column;
       gap: 8px;
+    }
+
+    .chart-plot,
+    .chart-fill {
+      flex: 1 1 0;
+    }
+
+    .chart-fill-center {
+      display: grid;
+      place-items: center;
     }
 
     .chart-controls {
@@ -156,6 +182,8 @@ export class PortfolioChartComponent {
   readonly subtitle = input<string>('');
   readonly series = input<SeriesPoint[]>([]);
   readonly loading = input<boolean>(false);
+  /** Minimum plot height in pixels; the plot grows when the card is stretched taller. */
+  readonly height = input<number>(280);
   readonly caption = input<string>('');
   readonly emptyTitle = input<string>('No history yet');
   readonly emptyMessage = input<string>('');

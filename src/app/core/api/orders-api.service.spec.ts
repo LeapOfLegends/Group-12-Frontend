@@ -68,6 +68,24 @@ describe('OrdersApiService', () => {
     });
   });
 
+  it('reads the signed-in client’s own orders through /api/clients/me', () => {
+    service.listMine().subscribe();
+    service.getMine(5).subscribe();
+    http.expectOne(BASE).flush([]);
+    http.expectOne(`${BASE}/5`).flush(record('FILLED'));
+  });
+
+  it('reads other clients’ orders through the administrator endpoints', () => {
+    let listed: unknown[] = [];
+    let found: unknown = null;
+    service.listForClient(12).subscribe((orders) => (listed = orders));
+    service.getOrder(5).subscribe((order) => (found = order));
+    http.expectOne(`${environment.tradingApiUrl}/api/orders/client/12`).flush([record('FILLED')]);
+    http.expectOne(`${environment.tradingApiUrl}/api/orders/5`).flush(record('ACCEPTED'));
+    expect(listed).toHaveLength(1);
+    expect(found).toMatchObject({ orderId: 5, status: 'ACCEPTED' });
+  });
+
   it('polls the order until it reaches a final state', () => {
     vi.useFakeTimers();
     const seen: OrderStatus[] = [];

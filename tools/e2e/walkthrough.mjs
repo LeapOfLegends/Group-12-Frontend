@@ -42,8 +42,36 @@ async function login(page, email, password) {
 }
 
 async function logout(page) {
-  await page.click('button:has-text("Log out") >> nth=0');
+  // Log out lives in the profile panel, opened from the navbar's profile card.
+  await page.click('button[aria-label="Open profile"]');
+  await page.click('app-account-panel button:has-text("Log out")');
   await page.waitForURL(/\/login$/);
+}
+
+/** Rounded heights of every element matching the selector (to compare cards in one row). */
+async function heightsOf(page, selector) {
+  return page.$$eval(selector, (elements) => elements.map((element) => Math.round(element.getBoundingClientRect().height)));
+}
+
+const sameHeight = (heights) => heights.length > 1 && heights.every((height) => Math.abs(height - heights[0]) <= 1);
+
+/** Polls a page-side predicate: zoneless Angular renders a tick after the event, so instant reads can race it. */
+async function eventually(page, predicate, timeout = 2000) {
+  try {
+    await page.waitForFunction(predicate, null, { timeout });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** Looks a symbol up through the dashboard search bar and returns the quote panel's text. */
+async function lookUp(page, symbol) {
+  const input = page.locator('app-instrument-search input');
+  await input.fill(symbol);
+  await input.press('Enter');
+  await page.waitForSelector('app-instrument-search .search-result, app-instrument-search [role="alert"]');
+  return (await page.textContent('app-instrument-search .search-panel')).replace(/\s+/g, ' ');
 }
 
 const browser = await chromium.launch();
@@ -62,14 +90,29 @@ const newClient = {
 };
 
 try {
-  // --- Startup, branding, guards and login -------------------------------------
+  // --- Landing page, branding, guards and login ---------------------------------
   await page.goto(`${BASE}/`);
-  await page.waitForURL(/\/login/);
-  check('startup redirects to /login', page.url().includes('/login'));
-  await page.waitForSelector('#login-email');
+  await page.waitForSelector('#landing-login');
+  const landingText = await page.textContent('body');
+  check('landing page introduces the platform', landingText.includes('Direct trading platform') && landingText.includes('What you can do') && landingText.includes('How it works'));
+  check('public navbar offers Log in and Sign up instead of a profile card', !!(await page.$('app-navbar a[href="/login"]')) && !!(await page.$('app-navbar a[href="/register"]')) && !(await page.$('app-navbar .navbar-account')));
+  check('landing page invents no statistics', !/\d+(\.\d+)?\s?%|\$\s?[\d,]+/.test(landingText));
   check('browser title carries the JetZy Trading brand', (await page.title()).includes('JetZy Trading'));
-  check('login page shows the JetZy wordmark', (await page.textContent('body')).includes('JetZy'));
   check('favicon is the JetZy mark', (await page.getAttribute('link[rel="icon"]', 'href')) === 'favicon.svg');
+  await shot(page, '00-landing');
+
+  await page.click('app-navbar a[href="/register"]');
+  await page.waitForURL(/\/register$/);
+  await page.waitForSelector('#register-first-name');
+  check('navbar Sign up opens the registration page', page.url().endsWith('/register'));
+  await page.goto(`${BASE}/does-not-exist`);
+  await page.waitForSelector('#landing-login');
+  check('unknown URLs show the landing page to visitors', new URL(page.url()).pathname === '/');
+  await page.click('app-navbar a[href="/login"]');
+  await page.waitForURL(/\/login$/);
+  await page.waitForSelector('#login-email');
+  check('navbar Log in opens the login page', page.url().endsWith('/login'));
+  check('login page shows the JetZy wordmark', (await page.textContent('body')).includes('JetZy'));
   check('login offers a Create Account button', !!(await page.$('#create-account-link')));
   await shot(page, '01-login-desktop');
 
@@ -129,6 +172,10 @@ try {
   check('dashboard shows the combined Buying Power & Asset Allocation card', newClientDashboard.includes('Buying Power & Asset Allocation'));
   check('dashboard no longer shows Quick actions', !newClientDashboard.includes('Quick actions'));
   check('empty allocation is explained instead of invented', newClientDashboard.includes('No holdings yet'));
+  check('dashboard header offers Place Trade, not New Trade', newClientDashboard.includes('Place Trade') && !newClientDashboard.includes('New Trade'));
+  check('the sidebar is gone and the navbar carries the navigation', !(await page.$('app-sidebar')) && !!(await page.$('app-navbar nav.navbar-links a[href="/trade"]')));
+  const emptyRow = await heightsOf(page, '.dashboard-grid > *');
+  check('empty chart card still matches the card beside it', sameHeight(emptyRow), emptyRow.join(' vs '));
   await shot(page, '05-dashboard-new-client');
 
   await page.click('a[href="/transfer"] >> nth=0');
@@ -166,10 +213,40 @@ try {
   check('dashboard shows filled order status', dashboardText.includes('Filled'));
   check('dashboard shows total return card', /Total return/.test(dashboardText));
   check('combined card shows buying power and allocation sections', dashboardText.includes('Buying power') && dashboardText.includes('Asset allocation') && dashboardText.includes('Equity'));
-  check('sidebar hides admin link for clients', !(await page.$('a[href="/admin"]')));
+  check('navbar hides the admin link for clients', !(await page.$('a[href="/admin"]')));
+  check('navbar keeps the theme toggle and profile card on the right', !!(await page.$('app-navbar .navbar-right button[aria-label="Switch to dark theme"]')) && (await page.textContent('app-navbar .navbar-account')).includes('Jane Doe'));
   const aaplRow = page.locator('app-holdings-table tbody tr', { hasText: 'AAPL' }).first();
   const startingAapl = Number((await aaplRow.locator('td').nth(1).textContent()).replace(/,/g, ''));
+  const summaryRow = await heightsOf(page, '.grid-3 > *');
+  check('summary cards in the same row share one height', sameHeight(summaryRow), summaryRow.join(', '));
+  const chartRow = await heightsOf(page, '.dashboard-grid > *');
+  check('portfolio performance card matches the height of the card beside it', sameHeight(chartRow), chartRow.join(' vs '));
+  const searchBox = await (await page.$('app-instrument-search')).boundingBox();
+  const dateBox = await (await page.$('.page-title .eyebrow')).boundingBox();
+  check('search bar sits above the date, sharing its left edge', searchBox.y + searchBox.height <= dateBox.y && Math.abs(searchBox.x - dateBox.x) <= 1, `${searchBox.x},${searchBox.y} vs ${dateBox.x},${dateBox.y}`);
   await shot(page, '07-dashboard-desktop');
+
+  // --- Instrument price search --------------------------------------------------
+  const searchInput = page.locator('app-instrument-search input');
+  await searchInput.fill('AAP');
+  await page.waitForSelector('app-instrument-search [role="listbox"] [role="option"]');
+  check('search bar suggests matching instruments while typing', (await page.textContent('app-instrument-search [role="listbox"]')).includes('Apple'));
+  const aaplQuote = await lookUp(page, 'AAPL');
+  check('search bar looks AAPL up by symbol and shows bid, ask and last trade', aaplQuote.includes('Apple') && aaplQuote.includes('$339.94') && aaplQuote.includes('$340.00') && aaplQuote.includes('fresh'));
+  check('quote offers to trade the instrument', !!(await page.$('app-instrument-search a[href="/trade?symbol=AAPL"]')));
+  await shot(page, '07a-dashboard-search');
+  const haltQuote = await lookUp(page, 'halt');
+  check('search handles instruments without a quote honestly', haltQuote.includes('Not tradable') && haltQuote.includes('No quote'));
+  const unknownQuote = await lookUp(page, 'ZZZZ');
+  check('unknown symbol explains the 404', unknownQuote.includes('No instrument with the symbol “ZZZZ”'));
+  const fxQuote = await lookUp(page, 'EUR/USD');
+  check('symbols with a slash resolve to a quote', fxQuote.includes('Euro / US Dollar'));
+  await searchInput.press('Escape');
+  check('Escape closes the search panel', await eventually(page, () => !document.querySelector('app-instrument-search .search-panel')));
+  await page.click('app-instrument-search button[aria-label="Clear search"]');
+  check('clearing the search empties the field', await eventually(page, () => document.querySelector('app-instrument-search input').value === ''));
+  await page.keyboard.press('Escape');
+  check('the cleared field keeps focus and closes its panel on Escape', await eventually(page, () => document.activeElement === document.querySelector('app-instrument-search input') && !document.querySelector('app-instrument-search .search-panel')));
 
   const svg = await page.$('app-line-chart svg');
   const box = await svg.boundingBox();
@@ -179,6 +256,14 @@ try {
   await page.click('button:has-text("Show table")');
   await page.waitForSelector('app-portfolio-chart table');
   check('chart table view renders', !!(await page.$('app-portfolio-chart table')));
+  await page.click('button:has-text("Hide table")');
+
+  // --- Profile panel --------------------------------------------------------------
+  await page.click('button[aria-label="Open profile"]');
+  await page.waitForSelector('#account-panel-title');
+  check('profile panel is titled "Profile"', (await page.textContent('#account-panel-title')).trim() === 'Profile');
+  check('profile panel still offers Log out', !!(await page.$('app-account-panel button:has-text("Log out")')));
+  await page.click('app-account-panel button[aria-label="Close profile"]');
 
   await page.click('button[aria-label="Switch to dark theme"]');
   await page.waitForTimeout(200);
@@ -190,10 +275,17 @@ try {
   await page.waitForTimeout(300);
   const hasHorizontalScroll = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth + 1);
   check('no horizontal scroll on mobile dashboard', !hasHorizontalScroll);
+  check('navbar links fold away on mobile', !(await page.isVisible('app-navbar nav.navbar-links')));
   await page.click('button[aria-label="Open navigation"]');
-  await page.waitForTimeout(300);
-  await shot(page, '09-dashboard-mobile-drawer');
+  await page.waitForSelector('#navbar-drawer a[href="/trade"]');
+  await page.waitForTimeout(400); // let the menu finish expanding
+  const openDrawer = await page.$eval('#navbar-drawer', (drawer) => ({ height: drawer.getBoundingClientRect().height, expanded: drawer.getAttribute('aria-hidden') === 'false' }));
+  check('mobile menu expands with the navigation links, Profile and Log out', openDrawer.expanded && openDrawer.height > 200 && (await page.isVisible('#navbar-drawer a[href="/trade"]')) && (await page.isVisible('#navbar-drawer button:has-text("Log out")')), JSON.stringify(openDrawer));
+  await shot(page, '09-dashboard-mobile-menu');
   await page.click('button[aria-label="Close navigation"]');
+  await page.waitForTimeout(400);
+  const closedDrawer = await page.$eval('#navbar-drawer', (drawer) => ({ height: drawer.getBoundingClientRect().height, hidden: drawer.getAttribute('aria-hidden'), inert: drawer.hasAttribute('inert') }));
+  check('mobile menu collapses again and is hidden from assistive tech', closedDrawer.height === 0 && closedDrawer.hidden === 'true' && closedDrawer.inert, JSON.stringify(closedDrawer));
   await page.setViewportSize({ width: 1440, height: 900 });
 
   await page.reload();
@@ -201,9 +293,10 @@ try {
   check('refresh keeps the session on /dashboard', page.url().endsWith('/dashboard'));
 
   // --- Transfer -----------------------------------------------------------------
-  await page.click('a[href="/transfer"] >> nth=0');
+  await page.click('app-navbar nav.navbar-links a[href="/transfer"]');
   await page.waitForURL(/\/transfer$/);
   await page.waitForSelector('#transfer-amount');
+  check('navbar link opens the transfer page and is marked active', (await page.getAttribute('app-navbar nav.navbar-links a[href="/transfer"]', 'aria-current')) === 'page');
   await page.fill('#transfer-amount', '500');
   await page.click('button:has-text("Review deposit")');
   await page.waitForSelector('button:has-text("Confirm deposit")');
@@ -279,6 +372,9 @@ try {
   await page.goto(`${BASE}/admin`);
   await page.waitForURL(/\/dashboard$/);
   check('client visiting /admin is redirected to /dashboard', page.url().endsWith('/dashboard'));
+  await page.goto(`${BASE}/`);
+  await page.waitForURL(/\/dashboard$/);
+  check('signed-in users visiting the landing page continue to the dashboard', page.url().endsWith('/dashboard'));
 
   await logout(page);
   check('logout returns to /login', page.url().endsWith('/login'));
@@ -297,13 +393,14 @@ try {
   await page.waitForURL(/\/dashboard$/);
   await page.waitForSelector('text=Administrator account');
   check('admin lands on dashboard with administrator state', true);
-  check('sidebar shows admin link for admins', !!(await page.$('a[href="/admin"]')));
-  check('sidebar hides transfer/trade for admins', !(await page.$('a[href="/transfer"]')));
+  check('navbar shows the Admin Dashboard link for admins', !!(await page.$('app-navbar nav.navbar-links a[href="/admin"]')));
+  check('navbar hides transfer/trade for admins', !(await page.$('a[href="/transfer"]')));
+  check('administrator state keeps the price search above the date', !!(await page.$('app-dashboard-page app-instrument-search')));
   await page.goto(`${BASE}/register`);
   await page.waitForURL(/\/dashboard$/);
   check('signed-in users are kept away from /register', page.url().endsWith('/dashboard'));
   await shot(page, '17-admin-landing');
-  await page.click('a[href="/admin"] >> nth=0');
+  await page.click('app-navbar nav.navbar-links a[href="/admin"]');
   await page.waitForURL(/\/admin$/);
   await page.waitForSelector('app-admin-management table');
   await page.waitForSelector('app-market-data-health table');
@@ -311,6 +408,12 @@ try {
   check('admin KPIs show registered clients', /Registered clients\s*\d+/.test(adminText));
   check('admin shows administrators count', /Administrators\s*\d+/.test(adminText));
   check('admin lists unavailable metrics honestly', adminText.includes('not available yet'));
+  check('admin dashboard has the price search above the date', !!(await page.$('app-admin-dashboard-page .page-title > app-instrument-search:first-child')));
+  const kpiRow = await heightsOf(page, '.kpi-grid > *');
+  check('admin KPI cards in the same row share one height', sameHeight(kpiRow), kpiRow.join(', '));
+  const koQuote = await lookUp(page, 'KO');
+  check('admin search looks KO up and shows the stored quote without a trade link', koQuote.includes('Coca-Cola') && koQuote.includes('$71.20') && !(await page.$('app-instrument-search a[href^="/trade"]')));
+  await page.locator('app-instrument-search input').press('Escape');
   await shot(page, '18-admin-dashboard');
 
   await page.fill('#client-lookup-input', 'jane@example.com');
@@ -322,6 +425,8 @@ try {
   await page.click('button:has-text("Trace")');
   await page.waitForSelector('app-order-lookup >> text=Order #47');
   check('order lookup traces an order', true);
+  const opsRow = await heightsOf(page, '.ops-grid > *');
+  check('client lookup and order lookup cards share one height after results load', sameHeight(opsRow), opsRow.join(' vs '));
 
   const newAdminEmail = `nia${Date.now()}@admin.com`;
   await page.click('button:has-text("New administrator")');
@@ -379,7 +484,7 @@ try {
   await browser.close();
 }
 
-// Browser-level resource logs (expected 401 on a wrong password, 404 on instrument-id probes, 409 on a duplicate email) are not app errors.
+// Browser-level resource logs (expected 401 on a wrong password, 404 on instrument-id probes and unknown symbols, 409 on a duplicate email) are not app errors.
 const appErrors = consoleErrors.filter((text) => !/favicon|ERR_CONNECTION|net::ERR|Failed to load resource/.test(text));
 check('no console errors during walkthrough', appErrors.length === 0, appErrors.slice(0, 5).join(' | '));
 

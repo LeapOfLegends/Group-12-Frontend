@@ -6,22 +6,37 @@ import { CreateOrderRequest, Order, OrderStatus, OrderType } from '../models/tra
 import { toNumber, toNumberOrZero } from '../utils/money';
 import { isSettled } from '../utils/order-reasons';
 
-/** Group-12-Backend `/api/clients/me/orders` - submission and the current client's orders. */
+/**
+ * Group-12-Backend orders. Clients read and submit their own orders through
+ * `/api/clients/me/orders` (the client id comes from the JWT); administrators read any
+ * client's orders through `/api/orders/client/{clientId}` and `/api/orders/{orderId}`.
+ */
 @Injectable({ providedIn: 'root' })
 export class OrdersApiService {
   private readonly http = inject(HttpClient);
-  private readonly baseUrl = `${environment.tradingApiUrl}/api/clients`;
+  private readonly mineUrl = `${environment.tradingApiUrl}/api/clients/me/orders`;
+  private readonly adminUrl = `${environment.tradingApiUrl}/api/orders`;
 
+  /** GET /api/clients/me/orders - the signed-in client's full order history. */
+  listMine(): Observable<Order[]> {
+    return this.http.get<Record<string, unknown>[]>(this.mineUrl).pipe(map((rows) => rows.map(toOrder)));
+  }
+
+  /** GET /api/orders/client/{clientId} - any client's orders (super admin, operations, finance). */
   listForClient(clientId: number): Observable<Order[]> {
     return this.http
-      .get<Record<string, unknown>[]>(`${this.baseUrl}/me/orders`)
+      .get<Record<string, unknown>[]>(`${this.adminUrl}/client/${clientId}`)
       .pipe(map((rows) => rows.map(toOrder)));
   }
 
+  /** GET /api/clients/me/orders/{orderId} - one of the signed-in client's own orders. */
+  getMine(orderId: number): Observable<Order> {
+    return this.http.get<Record<string, unknown>>(`${this.mineUrl}/${orderId}`).pipe(map(toOrder));
+  }
+
+  /** GET /api/orders/{orderId} - any order, for administrators tracing its lifecycle. */
   getOrder(orderId: number): Observable<Order> {
-    return this.http
-      .get<Record<string, unknown>>(`${this.baseUrl}/me/orders/${orderId}`)
-      .pipe(map(toOrder));
+    return this.http.get<Record<string, unknown>>(`${this.adminUrl}/${orderId}`).pipe(map(toOrder));
   }
 
   /**
@@ -30,15 +45,13 @@ export class OrdersApiService {
    * about execution until the order record says FILLED.
    */
   submit(request: CreateOrderRequest): Observable<Order> {
-    return this.http
-      .post<Record<string, unknown>>(`${this.baseUrl}/me/orders`, request)
-      .pipe(map(toOrder));
+    return this.http.post<Record<string, unknown>>(this.mineUrl, request).pipe(map(toOrder));
   }
 
   /**
-   * Re-reads an order until it reaches a final state (FILLED, REJECTED or FAILED) or
-   * the polling window closes. Emits every intermediate record so the UI can show
-   * progress.
+   * Re-reads one of the client's own orders until it reaches a final state (FILLED, REJECTED
+   * or FAILED) or the polling window closes. Emits every intermediate record so the UI can
+   * show progress.
    */
   pollUntilSettled(orderId: number): Observable<Order> {
     const attempts = Math.max(
@@ -46,7 +59,7 @@ export class OrdersApiService {
       Math.ceil(environment.orderPollTimeoutMs / environment.orderPollIntervalMs),
     );
     return timer(environment.orderPollIntervalMs, environment.orderPollIntervalMs).pipe(
-      switchMap(() => this.getOrder(orderId)),
+      switchMap(() => this.getMine(orderId)),
       takeWhile((order, index) => !isSettled(order.status) && index < attempts - 1, true),
     );
   }

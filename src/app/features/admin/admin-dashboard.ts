@@ -13,6 +13,7 @@ import { describeHttpError } from '../../core/utils/http-error';
 import { formatCompactMoney, formatInteger } from '../../core/utils/money';
 import { FinancialSummaryCardComponent } from '../../shared/ui/financial-summary-card/financial-summary-card';
 import { IconComponent } from '../../shared/ui/icon/icon';
+import { InstrumentSearchComponent } from '../../shared/ui/instrument-search/instrument-search';
 import { AdminManagementComponent } from './admin-management';
 import { CashPositionsComponent } from './cash-positions';
 import { ClientLookupComponent } from './client-lookup';
@@ -34,6 +35,7 @@ interface UnavailableMetric {
   imports: [
     FinancialSummaryCardComponent,
     IconComponent,
+    InstrumentSearchComponent,
     ClientLookupComponent,
     OrderLookupComponent,
     CashPositionsComponent,

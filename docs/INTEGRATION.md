@@ -54,19 +54,23 @@ would fail the pre-flight request.
 | --- | --- | --- |
 | Login | `POST /auth/login` | 400 validation, 401 invalid credentials |
 | Register | `POST /auth/register` | 201 created client, 400 validation / reserved domain, 409 duplicate email or SSN |
-| Dashboard | `GET /api/clients/{id}/balance` | cash balance |
-| | `GET /api/client/{id}/holdings` | **404 when the client has no holdings** - treated as empty |
-| | `GET /api/orders/client/{id}` | full order history, newest first |
+| Dashboard | `GET /api/clients/me/balance` | cash balance (the client id comes from the JWT) |
+| | `GET /api/clients/me/holdings` | **404 when the client has no holdings** - treated as empty |
+| | `GET /api/clients/me/orders` | full order history, newest first |
 | | `GET /instruments/{id}` | names, prices and quote timestamps for holdings/orders |
+| Dashboard and Admin (price search) | `GET /instruments/symbol/{symbol}` | the stored quote (bid, ask, last trade, `quoteAsOf`) for the symbol typed in the header search; 404 is shown as "no instrument with that symbol" |
+| | `GET /instruments` | read once when the search is first used, for suggestions while typing; also the fallback for symbols containing `/` (`EUR/USD`), which servlet containers reject even when encoded as `%2F` |
 | Transfer | `POST /api/clients/me/balance/transactions` | body `{ amount, type: "DEPOSIT" | "WITHDRAWAL" }`, returns the confirmed balance; the JWT identifies the client |
 | | `POST /api/clients/me/balance/transactions` | `409 Insufficient funds` for an overdrawn withdrawal |
 | Transfer confirmation | (none) | Receipt built from the backend's `AccountBalanceDTO`; no endpoint reads a transfer back and no transaction id is issued, so the page says so |
 | Trade | `GET /instruments` | catalogue with stored bid/ask/last and `quoteAsOf` |
 | | `GET /instruments/symbol/{symbol}` | quote refresh |
-| | `POST /api/orders` | returns the order record: `ACCEPTED` or `REJECTED` (+ reason) |
-| Trade confirmation | `GET /api/orders/{id}` | polled every 1.5s (max 150s) until `FILLED`, `FAILED` or `REJECTED`; also used to reload `/trade/confirmation?orderId=` after a refresh |
-| Admin | `GET /api/clients` | client list (all roles) |
+| | `POST /api/clients/me/orders` | returns the order record: `ACCEPTED` or `REJECTED` (+ reason) |
+| Trade confirmation | `GET /api/clients/me/orders/{id}` | polled every 1.5s (max 150s) until `FILLED`, `FAILED` or `REJECTED`; also used to reload `/trade/confirmation?orderId=` after a refresh |
+| Admin | `GET /api/clients` | client list (super admin, operations) |
 | | `GET /api/clients/{id}` / `GET /api/clients/email/{email}` | client lookup |
+| | `GET /api/clients/{id}/holdings`, `GET /api/orders/client/{id}` | the looked-up client's positions and order history (the `/me` routes are client-only, so administrators use these) |
+| | `GET /api/orders/{id}` | order tracing |
 | | `GET /admins`, `POST /admins`, `PUT /admins/{id}`, `DELETE /admins/{id}` | super admin only |
 
 ## Order lifecycle as the UI presents it
@@ -91,7 +95,8 @@ executing" and points to the dashboard. Buying power already subtracts the reser
 
 ### Fully supported
 
-- Shared login, role-aware navigation, route guards, session persistence and expiry.
+- Shared login, role-aware navigation (top navbar), route guards, session persistence and expiry.
+- Instrument price search on both dashboards through `GET /instruments/symbol/{symbol}`.
 - Cash balance, holdings valued at the latest stored price, total return vs. cost basis,
   buying power (cash minus reserved cash), total account value (cash + holdings).
 - Client self-registration through Group-12-Auth, including duplicate-email handling.

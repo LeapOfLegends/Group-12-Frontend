@@ -2,7 +2,7 @@
   display: grid;
   grid-template-columns: minmax(0, 2fr) minmax(300px, 1fr);
   gap: var(--space-4);
-  /* The combined card stretches to the chart's height, so the column has no dead space. */
+  /* Both cards share the row's height: the chart card grows its plot into the extra space. */
   align-items: stretch;
 }
 

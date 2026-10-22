@@ -30,18 +30,20 @@ const PADDING = { top: 18, right: 18, bottom: 32, left: 64 };
 /**
  * Single-series SVG line chart: 2px line, 10% area wash, hairline grid, snapping
  * crosshair with a tooltip, keyboard navigation and a live-region readout.
+ * With `fill` the plot grows to whatever height the parent layout gives the host.
  */
 @Component({
   selector: 'app-line-chart',
   changeDetection: ChangeDetectionStrategy.OnPush,
+  host: { '[class.chart-fill]': 'fill()' },
   template: `
-    <div class="chart-host" [style.height.px]="height()">
+    <div class="chart-host" [style.height.px]="plotHeight()">
       @if (plotted().length >= 2) {
         <svg
           class="chart"
-          [attr.viewBox]="'0 0 ' + width() + ' ' + height()"
+          [attr.viewBox]="'0 0 ' + width() + ' ' + plotHeight()"
           [attr.width]="width()"
-          [attr.height]="height()"
+          [attr.height]="plotHeight()"
           role="img"
           [attr.aria-label]="ariaLabel()"
           tabindex="0"
@@ -67,7 +69,7 @@ const PADDING = { top: 18, right: 18, bottom: 32, left: 64 };
           <!-- baseline + x labels -->
           <line class="axis" [attr.x1]="padding.left" [attr.x2]="width() - padding.right" [attr.y1]="plotBottom()" [attr.y2]="plotBottom()" />
           @for (tick of xTicks(); track tick.position) {
-            <text class="axis-label" [attr.x]="tick.position" [attr.y]="height() - 10" [attr.text-anchor]="tick.anchor ?? 'middle'">{{ tick.label }}</text>
+            <text class="axis-label" [attr.x]="tick.position" [attr.y]="plotHeight() - 10" [attr.text-anchor]="tick.anchor ?? 'middle'">{{ tick.label }}</text>
           }
 
           <path class="area" [attr.d]="areaPath()" [attr.fill]="'url(#' + gradientId + ')'" />
@@ -108,6 +110,10 @@ const PADDING = { top: 18, right: 18, bottom: 32, left: 64 };
     :host {
       display: block;
       width: 100%;
+    }
+
+    :host(.chart-fill) {
+      overflow: hidden;
     }
 
     .chart-host {
@@ -203,7 +209,10 @@ export class LineChartComponent {
   private readonly destroyRef = inject(DestroyRef);
 
   readonly points = input<SeriesPoint[]>([]);
+  /** Plot height in pixels; with `fill` it is the minimum. */
   readonly height = input<number>(280);
+  /** Grow the plot to the host's own height (the parent sizes the host, e.g. with flex). */
+  readonly fill = input<boolean>(false);
   readonly tone = input<ChartTone>('neutral');
   readonly valueFormatter = input<(value: number) => string>((value) => String(value));
   readonly compactFormatter = input<(value: number) => string>((value) => String(value));
@@ -214,8 +223,16 @@ export class LineChartComponent {
   protected readonly width = signal(720);
   protected readonly activeIndex = signal<number | null>(null);
   private readonly focused = signal(false);
+  /** Measured host height, only tracked in `fill` mode. */
+  private readonly hostHeight = signal<number | null>(null);
 
-  protected readonly plotBottom = computed(() => this.height() - PADDING.bottom);
+  /** Effective plot height: the measured host height when filling, otherwise the `height` input. */
+  protected readonly plotHeight = computed(() => {
+    const measured = this.hostHeight();
+    return this.fill() && measured !== null ? Math.max(this.height(), measured) : this.height();
+  });
+
+  protected readonly plotBottom = computed(() => this.plotHeight() - PADDING.bottom);
 
   protected readonly lineColor = computed(() => {
     switch (this.tone()) {
@@ -263,7 +280,7 @@ export class LineChartComponent {
     }
     const width = this.width();
     const innerWidth = Math.max(1, width - PADDING.left - PADDING.right);
-    const innerHeight = Math.max(1, this.height() - PADDING.top - PADDING.bottom);
+    const innerHeight = Math.max(1, this.plotHeight() - PADDING.top - PADDING.bottom);
     return this.points().map((point) => ({
       ...point,
       x: PADDING.left + ((point.time - domain.minTime) / (domain.maxTime - domain.minTime)) * innerWidth,
@@ -298,7 +315,7 @@ export class LineChartComponent {
       return [];
     }
     const steps = niceTicks(domain.minValue, domain.maxValue, 4);
-    const innerHeight = Math.max(1, this.height() - PADDING.top - PADDING.bottom);
+    const innerHeight = Math.max(1, this.plotHeight() - PADDING.top - PADDING.bottom);
     return steps
       .filter((value) => value >= domain.minValue && value <= domain.maxValue)
       .map((value) => ({
@@ -357,6 +374,9 @@ export class LineChartComponent {
         const rect = element.getBoundingClientRect();
         if (rect.width > 0) {
           this.width.set(Math.round(rect.width));
+        }
+        if (this.fill() && rect.height > 0) {
+          this.hostHeight.set(Math.round(rect.height));
         }
       };
       measure();

@@ -186,7 +186,7 @@ export class TradeConfirmationPage implements OnInit {
   private fetch(orderId: number): void {
     this.loading.set(true);
     this.error.set(null);
-    this.ordersApi.getOrder(orderId).subscribe({
+    this.ordersApi.getMine(orderId).subscribe({
       next: (order) => {
         this.loading.set(false);
         this.adopt(order);

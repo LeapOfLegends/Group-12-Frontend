@@ -102,7 +102,6 @@
   --space-12: 48px;
 
   /* Layout */
-  --sidebar-width: 264px;
   --topbar-height: 64px;
   --content-max: 1360px;
   --page-gutter: 16px;
@@ -415,6 +414,8 @@ svg {
     display: flex;
     flex-direction: column;
     gap: var(--space-1);
+    /* Lets the block (and the 440px search inside it) shrink on narrow screens. */
+    min-width: 0;
   }
 
   .page-subtitle {
@@ -425,6 +426,13 @@ svg {
     display: flex;
     gap: var(--space-3);
     flex-wrap: wrap;
+  }
+
+  /* Instrument search above the date, sharing the title's left edge. */
+  .page-search {
+    width: 440px;
+    max-width: 100%;
+    margin-bottom: var(--space-2);
   }
 }
 

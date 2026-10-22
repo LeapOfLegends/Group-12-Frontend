@@ -11,10 +11,11 @@ import { MoneyPipe } from '../../shared/pipes/format.pipes';
 import { DeltaTone, FinancialSummaryCardComponent } from '../../shared/ui/financial-summary-card/financial-summary-card';
 import { HoldingsTableComponent } from '../../shared/ui/holdings-table/holdings-table';
 import { IconComponent } from '../../shared/ui/icon/icon';
+import { InstrumentSearchComponent } from '../../shared/ui/instrument-search/instrument-search';
 import { LoadingSkeletonComponent } from '../../shared/ui/loading-skeleton/loading-skeleton';
 import { OrdersTableComponent } from '../../shared/ui/orders-table/orders-table';
 
-/** Client home: cash, portfolio value, return, performance chart, holdings, orders and actions. */
+/** Client home: price search, cash, portfolio value, return, performance chart, holdings, orders and actions. */
 @Component({
   selector: 'app-dashboard-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -26,6 +27,7 @@ import { OrdersTableComponent } from '../../shared/ui/orders-table/orders-table'
     HoldingsTableComponent,
     OrdersTableComponent,
     IconComponent,
+    InstrumentSearchComponent,
     LoadingSkeletonComponent,
     MoneyPipe,
   ],

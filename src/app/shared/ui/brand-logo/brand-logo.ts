@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, input } from '@angular/core';
+import { RouterLink } from '@angular/router';
 
 /**
  * JetZy Trading mark: a paper airplane folded from a dollar bill, taking off across a
@@ -7,12 +8,13 @@ import { ChangeDetectionStrategy, Component, input } from '@angular/core';
 @Component({
   selector: 'app-brand-logo',
   changeDetection: ChangeDetectionStrategy.OnPush,
+  imports: [RouterLink],
   template: `
     <a
       class="brand"
       [class.brand-on-dark]="onDark()"
       [class.brand-compact]="compact()"
-      href="/dashboard"
+      [routerLink]="homeLink()"
       aria-label="JetZy Trading home"
     >
       <svg
@@ -128,4 +130,6 @@ export class BrandLogoComponent {
   readonly onDark = input(false);
   readonly compact = input(false);
   readonly markSize = input(36);
+  /** Where the mark leads: the public landing page by default, the dashboard once signed in. */
+  readonly homeLink = input('/');
 }
