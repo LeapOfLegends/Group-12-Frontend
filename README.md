@@ -61,7 +61,7 @@ a quote straight to the trade page.
 
 ```bash
 npm install
-npm start          # http://localhost:4200, proxies /auth-api -> :3000 and /trading-api -> :8081
+npm start          # http://localhost:4200, proxies /auth-api -> :13000 and /trading-api -> :18081
 npm test           # vitest in watch mode
 npm run test:ci    # single run
 npm run build      # production bundle in dist/jetzy-trading
@@ -72,6 +72,24 @@ that shape in production: serve `dist/jetzy-trading/browser` behind a reverse pr
 forwards `/auth-api/*` to Group-12-Auth and `/trading-api/*` to Group-12-Backend (strip
 the prefix). The Spring backend has no CORS configuration, so calling it from another
 origin fails at the pre-flight.
+
+Only the frontend runs outside the VM. Group-12-Auth, Group-12-Backend and PostgreSQL run
+on the VM, and the dev server reaches them through SSH tunnels on local ports that do not
+clash with anything running on this machine:
+
+```bash
+ssh -N -L 13000:localhost:3000 -L 18081:localhost:8081 -L 15432:localhost:5432 ec2-user@<vm-ip>
+```
+
+| Local port | VM port | Service |
+| --- | --- | --- |
+| 13000 | 3000 | Group-12-Auth (`/auth-api`) |
+| 18081 | 8081 | Group-12-Backend (`/trading-api`) |
+| 15432 | 5432 | PostgreSQL (optional; only for database tools) |
+
+Restart `npm start` after changing `proxy.conf.json`; the dev server reads it once. Auth and
+Backend on the VM must use the same `JWT_SECRET`, otherwise every trading call fails with
+"Invalid signature".
 
 ### Jenkins and Docker
 
@@ -118,12 +136,14 @@ live in the frontend.
 Every login goes to `POST /auth-api/auth/login` with `{ "email", "password" }` (the
 service expects `email`, never `username`). Check, in this order:
 
-1. **Is Group-12-Auth running on port 3000?** If not, the dev-server proxy answers 504 and
-   the page says the sign-in service is not reachable.
+1. **Is Group-12-Auth running on the VM's port 3000, and is the tunnel on 13000 open?** If
+   not, the dev-server proxy answers 504 and the page says the sign-in service is not
+   reachable.
 2. **Does the account have a real bcrypt hash?** The seed scripts insert placeholder
    hashes (`seed-hash-...`) that can never match a password. Only accounts created through
    `/register`, `POST /admins`, or a manual bcrypt insert can sign in.
-3. **Is Group-12-Backend running on 8081 with the same `JWT_SECRET` as Group-12-Auth?**
+3. **Is Group-12-Backend running on the VM's 8081 (tunnel 18081) with the same `JWT_SECRET`
+   as Group-12-Auth?**
    Sign-in succeeds without it, but every dashboard call fails. A secret mismatch makes
    the backend reject every token; the app keeps the session and explains the mismatch
    instead of pretending the session expired.
