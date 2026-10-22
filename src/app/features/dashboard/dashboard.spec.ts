@@ -60,6 +60,7 @@ describe('DashboardPage', () => {
     fixture.detectChanges();
     expect(fixture.nativeElement.textContent).toContain('Administrator account');
     expect(fixture.nativeElement.textContent).toContain('Open the admin dashboard');
+    expect(fixture.nativeElement.querySelector('app-instrument-search')).not.toBeNull();
     http.expectNone(`${API}/api/clients/me/balance`);
   });
 
@@ -129,6 +130,11 @@ describe('DashboardPage', () => {
     expect(text).toContain('Equity'); // allocation by asset class
     expect(text).not.toContain('Quick actions');
     expect(text).toContain('Transfer Money');
-    expect(text).toContain('New Trade');
+    expect(text).toContain('Place Trade');
+    expect(text).not.toContain('New Trade');
+    // The price search sits in the header above the date, and is idle until used.
+    const header = fixture.nativeElement.querySelector('.page-header .page-title') as HTMLElement;
+    expect(header.firstElementChild?.tagName.toLowerCase()).toBe('app-instrument-search');
+    http.expectNone(`${API}/instruments`);
   });
 });

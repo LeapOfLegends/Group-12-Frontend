@@ -1,26 +1,20 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, inject, signal, viewChild } from '@angular/core';
-import { NavigationEnd, Router, RouterOutlet } from '@angular/router';
-import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { filter } from 'rxjs';
+import { ChangeDetectionStrategy, Component, viewChild } from '@angular/core';
+import { RouterOutlet } from '@angular/router';
 import { AccountPanelComponent } from '../account-panel/account-panel';
 import { NavbarComponent } from '../navbar/navbar';
-import { SidebarComponent } from '../sidebar/sidebar';
 
-/** Authenticated shell: sidebar on desktop, drawer on mobile, top bar and content area. */
+/** Authenticated shell: the top navbar, the content area and the profile panel. */
 @Component({
   selector: 'app-layout',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterOutlet, SidebarComponent, NavbarComponent, AccountPanelComponent],
+  imports: [RouterOutlet, NavbarComponent, AccountPanelComponent],
   template: `
     <a class="skip-link" href="#main-content">Skip to main content</a>
     <div class="shell">
-      <app-sidebar [open]="drawerOpen()" (closed)="drawerOpen.set(false)" (openAccount)="openAccount()" />
-      <div class="shell-main">
-        <app-navbar (menu)="drawerOpen.set(true)" (openAccount)="openAccount()" />
-        <main id="main-content" class="shell-content" tabindex="-1">
-          <router-outlet />
-        </main>
-      </div>
+      <app-navbar (openAccount)="openAccount()" />
+      <main id="main-content" class="shell-content" tabindex="-1">
+        <router-outlet />
+      </main>
     </div>
     <app-account-panel #accountPanel />
   `,
@@ -48,18 +42,13 @@ import { SidebarComponent } from '../sidebar/sidebar';
 
     .shell {
       display: flex;
-      min-height: 100vh;
-    }
-
-    .shell-main {
-      flex: 1;
-      min-width: 0;
-      display: flex;
       flex-direction: column;
+      min-height: 100vh;
     }
 
     .shell-content {
       flex: 1;
+      width: 100%;
       padding: var(--space-6) var(--space-8) var(--space-12);
       outline: none;
     }
@@ -72,23 +61,9 @@ import { SidebarComponent } from '../sidebar/sidebar';
   `,
 })
 export class AppLayoutComponent {
-  private readonly router = inject(Router);
-  private readonly destroyRef = inject(DestroyRef);
   private readonly accountPanel = viewChild.required(AccountPanelComponent);
 
-  protected readonly drawerOpen = signal(false);
-
-  constructor() {
-    this.router.events
-      .pipe(
-        filter((event) => event instanceof NavigationEnd),
-        takeUntilDestroyed(this.destroyRef),
-      )
-      .subscribe(() => this.drawerOpen.set(false));
-  }
-
   protected openAccount(): void {
-    this.drawerOpen.set(false);
     this.accountPanel().open();
   }
 }

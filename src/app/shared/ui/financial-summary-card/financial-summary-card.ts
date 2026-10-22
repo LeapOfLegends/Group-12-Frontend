@@ -53,10 +53,16 @@ export type DeltaTone = 'up' | 'down' | 'flat';
     </article>
   `,
   styles: `
+    :host {
+      display: block;
+    }
+
+    /* Fills the grid cell, so tiles in the same row share one height. */
     .summary-card {
       display: flex;
       flex-direction: column;
       gap: 10px;
+      height: 100%;
       min-height: 150px;
       position: relative;
       overflow: hidden;

@@ -1,7 +1,8 @@
 /**
  * Development configuration. `ng serve` uses proxy.conf.json to forward
- * `/auth-api` -> http://localhost:3000 and `/trading-api` -> http://localhost:8081,
- * which keeps requests same-origin and avoids CORS preflights against the Spring backend.
+ * `/auth-api` -> http://localhost:13000 and `/trading-api` -> http://localhost:18081
+ * (SSH tunnels to the VM's 3000 and 8081), which keeps requests same-origin and avoids
+ * CORS preflights against the Spring backend.
  */
 export const environment = {
   production: false,

@@ -12,15 +12,17 @@
   }
 }
 
+/* Cards in the same row share one height: the grids stretch their items and each card fills its cell. */
 .kpi-grid {
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  align-items: stretch;
 }
 
 .ops-grid {
   display: grid;
   grid-template-columns: minmax(0, 2fr) minmax(300px, 1fr);
   gap: var(--space-4);
-  align-items: start;
+  align-items: stretch;
 }
 
 .ops-main,

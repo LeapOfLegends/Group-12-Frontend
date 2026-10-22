@@ -133,6 +133,36 @@ function reserved(clientId) {
 function pendingSell(clientId, instrumentId) {
   return orders.filter((o) => o.clientId === clientId && o.instrumentId === instrumentId && o.orderType === 'SELL' && o.status === 'ACCEPTED').reduce((s, o) => s + o.quantity, 0);
 }
+// Validates like OrderService.submitOrder: the order is ACCEPTED (and executed shortly after) or REJECTED with a reason.
+function placeOrder(res, client, body, locationPrefix) {
+  const now = new Date().toISOString();
+  const order = { orderId: nextOrderId++, clientId: client.clientId, instrumentId: Number(body.instrumentId), orderType: body.orderType, quantity: Number(body.quantity), status: 'SUBMITTED', reservedCash: null, submittedAt: now, acceptedAt: null, rejectedAt: null, failedAt: null, filledAt: null, executionPrice: null, executionQuoteAsOf: null, tradeValue: null, rejectionReason: null, failureReason: null };
+  orders.push(order);
+  const instrument = instruments.get(order.instrumentId);
+  const reject = (reason) => {
+    order.status = 'REJECTED';
+    order.rejectedAt = now;
+    order.rejectionReason = reason;
+    return send(res, 201, order);
+  };
+  if (!instrument) return reject('INSTRUMENT_NOT_FOUND');
+  if (!instrument.tradable) return reject('INSTRUMENT_NOT_TRADABLE');
+  if (instrument.bidPrice === null) return reject('MISSING_QUOTE');
+  if (process.env.STALE_QUOTES === '1') return reject('STALE_QUOTE');
+  if (order.orderType === 'BUY') {
+    const needed = order.quantity * instrument.askPrice;
+    if (client.accountBalance - reserved(client.clientId) < needed) return reject('INSUFFICIENT_FUNDS');
+    order.reservedCash = needed;
+  } else {
+    const holding = holdings.find((h) => h.clientId === client.clientId && h.instrumentId === order.instrumentId);
+    if (!holding || holding.quantity - pendingSell(client.clientId, order.instrumentId) < order.quantity) return reject('INSUFFICIENT_HOLDINGS');
+  }
+  order.status = 'ACCEPTED';
+  order.acceptedAt = now;
+  executeLater(order);
+  res.setHeader('Location', `${locationPrefix}${order.orderId}`);
+  return send(res, 201, order);
+}
 function executeLater(order) {
   setTimeout(() => {
     if (order.status !== 'ACCEPTED') return;
@@ -260,6 +290,47 @@ const server = http.createServer(async (req, res) => {
   }
 
   let match;
+  // ---- client self-service: /api/clients/me/... (the client id comes from the token's sub) ----
+  if (path === '/api/clients/me' || path.startsWith('/api/clients/me/')) {
+    if (!claims) {
+      res.setHeader('WWW-Authenticate', 'Bearer');
+      return apiError(res, 401, 'Unauthorized', 'Bearer token required', path);
+    }
+    if (!Array.isArray(claims.roles) || !claims.roles.includes('CLIENT')) return apiError(res, 403, 'Forbidden', 'Your role does not allow this action', path);
+    const me = clients.find((c) => c.clientId === Number(claims.sub));
+    if (!me) return apiError(res, 404, 'Not Found', `Client not found with id: ${claims.sub}`, path);
+    if (path === '/api/clients/me' && method === 'GET') return send(res, 200, publicClient(me));
+    if (path === '/api/clients/me/balance' && method === 'GET') return send(res, 200, { clientId: me.clientId, accountBalance: me.accountBalance });
+    if (path === '/api/clients/me/balance/transactions' && method === 'POST') {
+      const body = await readBody(req);
+      if (!['DEPOSIT', 'WITHDRAWAL'].includes(body?.type)) return apiError(res, 400, 'Bad Request', 'Transaction type must be DEPOSIT or WITHDRAWAL', path);
+      const amount = Number(body?.amount);
+      if (!(amount > 0) || !Number.isFinite(amount)) return apiError(res, 400, 'Bad Request', 'Amount must be greater than zero', path);
+      if (body.type === 'WITHDRAWAL' && me.accountBalance < amount) return apiError(res, 409, 'Conflict', 'Insufficient funds', path);
+      me.accountBalance += body.type === 'DEPOSIT' ? amount : -amount;
+      return send(res, 200, { clientId: me.clientId, accountBalance: me.accountBalance });
+    }
+    if (path === '/api/clients/me/holdings' && method === 'GET') {
+      const rows = holdings.filter((h) => h.clientId === me.clientId);
+      return rows.length ? send(res, 200, rows) : apiError(res, 404, 'Not Found', 'No holdings found for this client', path);
+    }
+    if (path === '/api/clients/me/orders' && method === 'GET') {
+      return send(res, 200, orders.filter((o) => o.clientId === me.clientId).sort((a, b) => new Date(b.submittedAt) - new Date(a.submittedAt)));
+    }
+    if ((match = path.match(/^\/api\/clients\/me\/orders\/(\d+)$/)) && method === 'GET') {
+      const order = orders.find((o) => o.orderId === Number(match[1]) && o.clientId === me.clientId);
+      return order ? send(res, 200, order) : apiError(res, 404, 'Not Found', 'Order not found', path);
+    }
+    if (path === '/api/clients/me/orders' && method === 'POST') {
+      const body = await readBody(req);
+      if (!body || !body.instrumentId || !['BUY', 'SELL'].includes(body.orderType) || !(Number(body.quantity) > 0)) {
+        return apiError(res, 400, 'Bad Request', 'Quantity must be greater than zero', path);
+      }
+      return placeOrder(res, me, body, '/api/clients/me/orders/');
+    }
+    return apiError(res, 404, 'Not Found', 'No static resource ' + path.slice(1) + '.', path);
+  }
+
   // ---- clients ---------------------------------------------------------------
   if (path === '/api/clients' && method === 'GET') return send(res, 200, clients.map(publicClient));
   if ((match = path.match(/^\/api\/clients\/email\/(.+)$/)) && method === 'GET') {
@@ -304,8 +375,8 @@ const server = http.createServer(async (req, res) => {
     return client ? send(res, 200, publicClient(client)) : apiError(res, 404, 'Not Found', `Client not found with id: ${match[1]}`, path);
   }
 
-  // ---- holdings --------------------------------------------------------------
-  if ((match = path.match(/^\/api\/client\/(\d+)\/holdings$/)) && method === 'GET') {
+  // ---- holdings (administrators: GET /api/clients/{clientId}/holdings) --------
+  if ((match = path.match(/^\/api\/clients?\/(\d+)\/holdings$/)) && method === 'GET') {
     const clientId = Number(match[1]);
     if (!clients.some((c) => c.clientId === clientId)) return apiError(res, 404, 'Not Found', 'Client not found', path);
     const rows = holdings.filter((h) => h.clientId === clientId);
@@ -338,33 +409,7 @@ const server = http.createServer(async (req, res) => {
     }
     const client = clients.find((c) => c.clientId === Number(body.clientId));
     if (!client) return apiError(res, 400, 'Bad Request', 'Client not found', path);
-    const now = new Date().toISOString();
-    const order = { orderId: nextOrderId++, clientId: client.clientId, instrumentId: Number(body.instrumentId), orderType: body.orderType, quantity: Number(body.quantity), status: 'SUBMITTED', reservedCash: null, submittedAt: now, acceptedAt: null, rejectedAt: null, failedAt: null, filledAt: null, executionPrice: null, executionQuoteAsOf: null, tradeValue: null, rejectionReason: null, failureReason: null };
-    orders.push(order);
-    const instrument = instruments.get(order.instrumentId);
-    const reject = (reason) => {
-      order.status = 'REJECTED';
-      order.rejectedAt = now;
-      order.rejectionReason = reason;
-      return send(res, 201, order);
-    };
-    if (!instrument) return reject('INSTRUMENT_NOT_FOUND');
-    if (!instrument.tradable) return reject('INSTRUMENT_NOT_TRADABLE');
-    if (instrument.bidPrice === null) return reject('MISSING_QUOTE');
-    if (process.env.STALE_QUOTES === '1') return reject('STALE_QUOTE');
-    if (order.orderType === 'BUY') {
-      const needed = order.quantity * instrument.askPrice;
-      if (client.accountBalance - reserved(client.clientId) < needed) return reject('INSUFFICIENT_FUNDS');
-      order.reservedCash = needed;
-    } else {
-      const holding = holdings.find((h) => h.clientId === client.clientId && h.instrumentId === order.instrumentId);
-      if (!holding || holding.quantity - pendingSell(client.clientId, order.instrumentId) < order.quantity) return reject('INSUFFICIENT_HOLDINGS');
-    }
-    order.status = 'ACCEPTED';
-    order.acceptedAt = now;
-    executeLater(order);
-    res.setHeader('Location', `/api/orders/${order.orderId}`);
-    return send(res, 201, order);
+    return placeOrder(res, client, body, '/api/orders/');
   }
 
   // ---- admins ----------------------------------------------------------------

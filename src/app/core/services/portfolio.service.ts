@@ -75,8 +75,8 @@ export class PortfolioService {
       const { balance, holdings, orders, instruments } = await firstValueFrom(
         forkJoin({
           balance: this.clientApi.getBalance(clientId),
-          holdings: this.holdingsApi.listForClient(clientId),
-          orders: this.ordersApi.listForClient(clientId),
+          holdings: this.holdingsApi.listMine(),
+          orders: this.ordersApi.listMine(),
         }).pipe(
           switchMap((loaded) => {
             const ids = [...loaded.holdings.map((holding) => holding.instrumentId), ...loaded.orders.map((order) => order.instrumentId)];
