@@ -6,27 +6,33 @@ import { CreateOrderRequest, Order, OrderStatus, OrderType } from '../models/tra
 import { toNumber, toNumberOrZero } from '../utils/money';
 import { isSettled } from '../utils/order-reasons';
 
-/** Group-12-Backend `/api/orders` - submission and the permanent order record. */
+/** Group-12-Backend `/api/clients/me/orders` - submission and the current client's orders. */
 @Injectable({ providedIn: 'root' })
 export class OrdersApiService {
   private readonly http = inject(HttpClient);
-  private readonly baseUrl = `${environment.tradingApiUrl}/api/orders`;
+  private readonly baseUrl = `${environment.tradingApiUrl}/api/clients`;
 
   listForClient(clientId: number): Observable<Order[]> {
-    return this.http.get<Record<string, unknown>[]>(`${this.baseUrl}/client/${clientId}`).pipe(map((rows) => rows.map(toOrder)));
+    return this.http
+      .get<Record<string, unknown>[]>(`${this.baseUrl}/me/orders`)
+      .pipe(map((rows) => rows.map(toOrder)));
   }
 
   getOrder(orderId: number): Observable<Order> {
-    return this.http.get<Record<string, unknown>>(`${this.baseUrl}/${orderId}`).pipe(map(toOrder));
+    return this.http
+      .get<Record<string, unknown>>(`${this.baseUrl}/me/orders/${orderId}`)
+      .pipe(map(toOrder));
   }
 
   /**
-   * POST /api/orders. The backend validates and either ACCEPTS the order (execution
+   * POST /api/clients/me/orders. The backend validates and either ACCEPTS the order (execution
    * then happens asynchronously) or REJECTS it with a reason. Nothing is assumed
    * about execution until the order record says FILLED.
    */
   submit(request: CreateOrderRequest): Observable<Order> {
-    return this.http.post<Record<string, unknown>>(this.baseUrl, request).pipe(map(toOrder));
+    return this.http
+      .post<Record<string, unknown>>(`${this.baseUrl}/me/orders`, request)
+      .pipe(map(toOrder));
   }
 
   /**
@@ -35,7 +41,10 @@ export class OrdersApiService {
    * progress.
    */
   pollUntilSettled(orderId: number): Observable<Order> {
-    const attempts = Math.max(1, Math.ceil(environment.orderPollTimeoutMs / environment.orderPollIntervalMs));
+    const attempts = Math.max(
+      1,
+      Math.ceil(environment.orderPollTimeoutMs / environment.orderPollIntervalMs),
+    );
     return timer(environment.orderPollIntervalMs, environment.orderPollIntervalMs).pipe(
       switchMap(() => this.getOrder(orderId)),
       takeWhile((order, index) => !isSettled(order.status) && index < attempts - 1, true),

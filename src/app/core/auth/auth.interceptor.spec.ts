@@ -64,12 +64,12 @@ describe('authInterceptor', () => {
   it('adds the bearer token to trading and auth API calls only', () => {
     const token = seedSession();
     configure();
-    http.get(`${environment.tradingApiUrl}/api/clients/12/balance`).subscribe();
+    http.get(`${environment.tradingApiUrl}/api/clients/me/balance`).subscribe();
     http.get('https://fonts.example.com/inter.css').subscribe();
 
     expect(
       backend
-        .expectOne(`${environment.tradingApiUrl}/api/clients/12/balance`)
+        .expectOne(`${environment.tradingApiUrl}/api/clients/me/balance`)
         .request.headers.get('Authorization'),
     ).toBe(`Bearer ${token}`);
     expect(

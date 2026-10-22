@@ -15,7 +15,7 @@ export class HoldingsApiService {
    * portfolio, which the UI treats as an empty list rather than an error.
    */
   listForClient(clientId: number): Observable<Holding[]> {
-    return this.http.get<Record<string, unknown>[]>(`${environment.tradingApiUrl}/api/client/${clientId}/holdings`).pipe(
+    return this.http.get<Record<string, unknown>[]>(`${environment.tradingApiUrl}/api/clients/me/holdings`).pipe(
       map((rows) => rows.map(toHolding)),
       catchError((error: unknown) => {
         if (error instanceof HttpErrorResponse && error.status === 404) {

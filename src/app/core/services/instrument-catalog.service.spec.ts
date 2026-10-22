@@ -117,4 +117,36 @@ describe('InstrumentCatalogService', () => {
     http.expectOne(`${BASE}/999`).flush({}, { status: 404, statusText: 'Not Found' });
     expect(result).toBeNull();
   });
+
+  it('refreshes slash-containing symbols by id instead of putting the symbol in the URL', async () => {
+    const loading = service.load();
+    await tick();
+    http.expectOne(BASE).flush([
+      dto('ADA/USD', {
+        instrumentId: 74,
+        assetClass: 'CRYPTO',
+        bidPrice: 0.4,
+        askPrice: 0.41,
+        lastPrice: 0.405,
+      }),
+    ]);
+    await loading;
+
+    let refreshed: unknown = null;
+    service.refreshQuote('ada/usd').subscribe((instrument) => (refreshed = instrument));
+    const request = http.expectOne(`${BASE}/74`);
+    expect(request.request.method).toBe('GET');
+    http.expectNone(`${BASE}/symbol/ADA%2FUSD`);
+    request.flush(
+      dto('ADA/USD', {
+        assetClass: 'CRYPTO',
+        bidPrice: 0.45,
+        askPrice: 0.46,
+        lastPrice: 0.455,
+      }),
+    );
+
+    expect(refreshed).toMatchObject({ instrumentId: 74, symbol: 'ADA/USD', lastPrice: 0.455 });
+    expect(service.bySymbol().get('ADA/USD')?.lastPrice).toBe(0.455);
+  });
 });

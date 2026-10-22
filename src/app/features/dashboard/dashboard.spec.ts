@@ -60,26 +60,24 @@ describe('DashboardPage', () => {
     fixture.detectChanges();
     expect(fixture.nativeElement.textContent).toContain('Administrator account');
     expect(fixture.nativeElement.textContent).toContain('Open the admin dashboard');
-    http.expectNone(`${API}/api/clients/60/balance`);
+    http.expectNone(`${API}/api/clients/me/balance`);
   });
 
   it('loads cash, holdings and orders for a client and derives the summary figures', async () => {
     await setup('client');
 
-    http.expectOne(`${API}/api/clients/12/balance`).flush({ clientId: 12, accountBalance: 1000 });
-    http
-      .expectOne(`${API}/api/client/12/holdings`)
-      .flush([
-        {
-          holdingId: 1,
-          clientId: 12,
-          instrumentId: 2,
-          quantity: 10,
-          averageCost: 100,
-          updatedAt: null,
-        },
-      ]);
-    http.expectOne(`${API}/api/orders/client/12`).flush([
+    http.expectOne(`${API}/api/clients/me/balance`).flush({ clientId: 12, accountBalance: 1000 });
+    http.expectOne(`${API}/api/clients/me/holdings`).flush([
+      {
+        holdingId: 1,
+        clientId: 12,
+        instrumentId: 2,
+        quantity: 10,
+        averageCost: 100,
+        updatedAt: null,
+      },
+    ]);
+    http.expectOne(`${API}/api/clients/me/orders`).flush([
       {
         orderId: 9,
         clientId: 12,

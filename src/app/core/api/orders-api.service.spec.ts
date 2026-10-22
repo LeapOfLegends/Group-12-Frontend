@@ -5,7 +5,7 @@ import { environment } from '../../../environments/environment';
 import { OrderStatus } from '../models/trading.models';
 import { OrdersApiService } from './orders-api.service';
 
-const BASE = `${environment.tradingApiUrl}/api/orders`;
+const BASE = `${environment.tradingApiUrl}/api/clients/me/orders`;
 
 function record(status: OrderStatus, extra: Record<string, unknown> = {}) {
   return {
@@ -35,7 +35,9 @@ describe('OrdersApiService', () => {
   let http: HttpTestingController;
 
   beforeEach(() => {
-    TestBed.configureTestingModule({ providers: [provideHttpClient(), provideHttpClientTesting()] });
+    TestBed.configureTestingModule({
+      providers: [provideHttpClient(), provideHttpClientTesting()],
+    });
     service = TestBed.inject(OrdersApiService);
     http = TestBed.inject(HttpTestingController);
   });
@@ -47,26 +49,47 @@ describe('OrdersApiService', () => {
 
   it('submits the CreateOrderRequest body unchanged and normalises the response', () => {
     let result: unknown = null;
-    service.submit({ clientId: 12, instrumentId: 2, orderType: 'BUY', quantity: 2 }).subscribe((order) => (result = order));
+    service
+      .submit({ instrumentId: 2, orderType: 'BUY', quantity: 2 })
+      .subscribe((order) => (result = order));
     const request = http.expectOne(BASE);
     expect(request.request.method).toBe('POST');
-    expect(request.request.body).toEqual({ clientId: 12, instrumentId: 2, orderType: 'BUY', quantity: 2 });
-    request.flush(record('ACCEPTED', { quantity: '2.00000000', reservedCash: '680.0000000000000000' }), { status: 201, statusText: 'Created' });
-    expect(result).toMatchObject({ orderId: 5, status: 'ACCEPTED', quantity: 2, reservedCash: 680, filledAt: null });
+    expect(request.request.body).toEqual({ instrumentId: 2, orderType: 'BUY', quantity: 2 });
+    request.flush(
+      record('ACCEPTED', { quantity: '2.00000000', reservedCash: '680.0000000000000000' }),
+      { status: 201, statusText: 'Created' },
+    );
+    expect(result).toMatchObject({
+      orderId: 5,
+      status: 'ACCEPTED',
+      quantity: 2,
+      reservedCash: 680,
+      filledAt: null,
+    });
   });
 
   it('polls the order until it reaches a final state', () => {
     vi.useFakeTimers();
     const seen: OrderStatus[] = [];
     let completed = false;
-    service.pollUntilSettled(5).subscribe({ next: (order) => seen.push(order.status), complete: () => (completed = true) });
+    service
+      .pollUntilSettled(5)
+      .subscribe({ next: (order) => seen.push(order.status), complete: () => (completed = true) });
 
     vi.advanceTimersByTime(environment.orderPollIntervalMs);
     http.expectOne(`${BASE}/5`).flush(record('ACCEPTED'));
     expect(completed).toBe(false);
 
     vi.advanceTimersByTime(environment.orderPollIntervalMs);
-    http.expectOne(`${BASE}/5`).flush(record('FILLED', { filledAt: '2026-10-13T10:00:05Z', executionPrice: 340, tradeValue: 680 }));
+    http
+      .expectOne(`${BASE}/5`)
+      .flush(
+        record('FILLED', {
+          filledAt: '2026-10-13T10:00:05Z',
+          executionPrice: 340,
+          tradeValue: 680,
+        }),
+      );
 
     expect(seen).toEqual(['ACCEPTED', 'FILLED']);
     expect(completed).toBe(true);

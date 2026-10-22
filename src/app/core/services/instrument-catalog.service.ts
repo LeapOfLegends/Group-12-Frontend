@@ -103,12 +103,16 @@ export class InstrumentCatalogService {
 
   /** Re-reads the latest quote for one symbol and patches it into the catalogue. */
   refreshQuote(symbol: string): Observable<CatalogInstrument | null> {
-    return this.api.getBySymbol(symbol).pipe(
+    const existing = this.bySymbol().get(symbol.trim().toUpperCase());
+    if (!existing) {
+      return of(null);
+    }
+
+    // A symbol can contain a slash (for example ADA/USD or EUR/USD). Even when
+    // encoded as %2F, many HTTP servers reject it as an encoded path separator.
+    // Refresh by the already-resolved numeric id so every asset class uses a safe URL.
+    return this.api.getById(existing.instrumentId).pipe(
       map((fresh) => {
-        const existing = this.bySymbol().get(fresh.symbol);
-        if (!existing) {
-          return null;
-        }
         const updated: CatalogInstrument = {
           ...existing,
           ...fresh,
@@ -117,7 +121,7 @@ export class InstrumentCatalogService {
         this.instrumentsState.update((instruments) =>
           instruments.map((item) => (item.symbol === updated.symbol ? updated : item)),
         );
-        this.byIdCache.delete(updated.instrumentId);
+        this.byIdCache.set(updated.instrumentId, of(updated));
         return updated;
       }),
       tap({ error: () => undefined }),

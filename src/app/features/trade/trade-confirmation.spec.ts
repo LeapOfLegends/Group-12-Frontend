@@ -147,7 +147,7 @@ describe('TradeConfirmationPage', () => {
     expect(text).toContain('Filled');
     expect(text).toContain('Place Another Trade');
     expect(text).toContain('Return to Dashboard');
-    http.expectNone(`${API}/api/orders/100`);
+    http.expectNone(`${API}/api/clients/me/orders/100`);
   });
 
   it('shows an accepted order as pending and only reports execution once the backend does', async () => {
@@ -165,7 +165,7 @@ describe('TradeConfirmationPage', () => {
 
     // The page re-reads the order record on the configured interval.
     await new Promise((resolve) => setTimeout(resolve, environment.orderPollIntervalMs + 100));
-    http.expectOne(`${API}/api/orders/100`).flush(FILLED);
+    http.expectOne(`${API}/api/clients/me/orders/100`).flush(FILLED);
     await fixture.whenStable();
     drainPortfolioRequests();
     await fixture.whenStable();
@@ -178,7 +178,7 @@ describe('TradeConfirmationPage', () => {
 
   it('reloads the order and its instrument from the backend on a deep link', async () => {
     const fixture = await setup(null, { orderId: '100' });
-    http.expectOne(`${API}/api/orders/100`).flush(FILLED);
+    http.expectOne(`${API}/api/clients/me/orders/100`).flush(FILLED);
     await fixture.whenStable();
     http.expectOne(`${API}/instruments/2`).flush({ ...INSTRUMENT, instrumentId: undefined });
     drainPortfolioRequests();
@@ -197,7 +197,7 @@ describe('TradeConfirmationPage', () => {
     );
     fixture.detectChanges();
     expect(fixture.nativeElement.textContent).toContain('belongs to a different account');
-    http.expectNone(`${API}/api/clients/12/balance`);
+    http.expectNone(`${API}/api/clients/me/balance`);
   });
 
   it('sends the client back to the trade page when there is nothing to confirm', async () => {
