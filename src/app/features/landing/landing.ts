@@ -1,5 +1,6 @@
-import { ChangeDetectionStrategy, Component } from '@angular/core';
+import { ChangeDetectionStrategy, Component, viewChild } from '@angular/core';
 import { RouterLink } from '@angular/router';
+import { AccountPanelComponent } from '../../shared/ui/account-panel/account-panel';
 import { BrandLogoComponent } from '../../shared/ui/brand-logo/brand-logo';
 import { IconComponent } from '../../shared/ui/icon/icon';
 import { NavbarComponent } from '../../shared/ui/navbar/navbar';
@@ -23,12 +24,18 @@ interface Step {
 @Component({
   selector: 'app-landing-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterLink, NavbarComponent, BrandLogoComponent, IconComponent],
+  imports: [RouterLink, NavbarComponent, BrandLogoComponent, IconComponent, AccountPanelComponent],
   templateUrl: './landing.html',
   styleUrl: './landing.scss',
 })
 export class LandingPage {
+  private readonly accountPanel = viewChild.required(AccountPanelComponent);
+
   protected readonly year = new Date().getFullYear();
+
+  protected openAccount(): void {
+    this.accountPanel().open();
+  }
 
   protected readonly features: Feature[] = [
     {

@@ -1,7 +1,9 @@
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { provideRouter } from '@angular/router';
+import { Router, provideRouter } from '@angular/router';
+import { environment } from '../../../environments/environment';
+import { FUTURE_EXP, clientToken } from '../../testing/jwt-fixtures';
 import { LandingPage } from './landing';
 
 describe('LandingPage', () => {
@@ -45,5 +47,54 @@ describe('LandingPage', () => {
     const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
     expect(text).not.toMatch(/\$\s?[\d,]+/);
     expect(text).not.toMatch(/\d+(\.\d+)?\s?%/);
+  });
+
+  it('lets a signed-in user open their account panel and log out from the landing page', async () => {
+    localStorage.setItem(
+      environment.sessionStorageKey,
+      JSON.stringify({
+        accessToken: clientToken(),
+        user: {
+          kind: 'client',
+          id: 12,
+          email: 'jane@example.com',
+          firstName: 'Jane',
+          lastName: 'Doe',
+          displayName: 'Jane Doe',
+          role: null,
+          createdAt: null,
+        },
+        expiresAt: FUTURE_EXP * 1000,
+        issuedAt: 0,
+      }),
+    );
+    fixture.destroy();
+    TestBed.resetTestingModule();
+    await TestBed.configureTestingModule({
+      imports: [LandingPage],
+      providers: [provideRouter([]), provideHttpClient(), provideHttpClientTesting()],
+    }).compileComponents();
+    fixture = TestBed.createComponent(LandingPage);
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(element('app-navbar .navbar-account')?.textContent).toContain('Jane Doe');
+    element<HTMLButtonElement>('app-navbar .navbar-account')?.click();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(element('app-account-panel dialog')?.hasAttribute('open')).toBe(true);
+    expect(element('app-account-panel')?.textContent).toContain('Log out');
+    const dialog = element<HTMLDialogElement>('app-account-panel dialog');
+    Object.defineProperty(dialog, 'close', {
+      value: () => dialog?.removeAttribute('open'),
+    });
+    vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
+    element<HTMLButtonElement>('app-account-panel button.btn-primary')?.click();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(element('app-navbar .navbar-account')).toBeNull();
+    expect(element('app-navbar a.navbar-login')).not.toBeNull();
   });
 });
