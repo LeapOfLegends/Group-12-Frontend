@@ -17,11 +17,11 @@ export const authGuard: CanActivateFn = (_route, state) => {
   });
 };
 
-/** The login page is only for signed-out visitors. */
+/** The login page is only for signed-out visitors; signed-in users go to their own dashboard. */
 export const guestGuard: CanActivateFn = () => {
   const auth = inject(AuthService);
   const router = inject(Router);
-  return auth.isAuthenticated() ? router.createUrlTree(['/dashboard']) : true;
+  return auth.isAuthenticated() ? router.createUrlTree([auth.homeUrl()]) : true;
 };
 
 /** /admin is only for administrators. The backend still enforces roles on every API call. */
@@ -36,7 +36,7 @@ export const adminGuard: CanActivateFn = (_route, state) => {
     return true;
   }
   inject(NotificationService).warning('The administrator dashboard is only available to administrator accounts.');
-  return router.createUrlTree(['/dashboard']);
+  return router.createUrlTree([auth.homeUrl()]);
 };
 
 /** Transfers and trades need a client account; administrators have no portfolio. */
@@ -51,5 +51,5 @@ export const clientGuard: CanActivateFn = (_route, state) => {
     return true;
   }
   inject(NotificationService).warning('Administrator accounts cannot move money or place trades.');
-  return router.createUrlTree(['/dashboard']);
+  return router.createUrlTree([auth.homeUrl()]);
 };

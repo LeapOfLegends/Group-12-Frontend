@@ -12,7 +12,7 @@ import {
   RegisterRequest,
   SessionUser,
 } from '../models/auth.models';
-import { decodeJwt, isJwtExpired } from '../utils/jwt.util';
+import { adminRoleOf, decodeJwt, isJwtExpired } from '../utils/jwt.util';
 
 export type LogoutReason = 'user' | 'expired';
 
@@ -48,6 +48,8 @@ export class AuthService {
   );
   /** Only the backend's super_admin role may call /admins. */
   readonly canManageAdmins = computed(() => this.role() === 'super_admin');
+  /** Where a signed-in user starts: administrators on the admin dashboard, clients on theirs. */
+  readonly homeUrl = computed(() => (this.isAdmin() ? '/admin' : '/dashboard'));
 
   constructor() {
     const session = this.sessionState();
@@ -123,20 +125,21 @@ export class AuthService {
       throw new Error('The sign-in service returned an expired token.');
     }
 
-    const isAdminToken = typeof claims.role === 'string' && claims.role.length > 0;
-    const profile = isAdminToken ? response.admin : response.client;
+    // The token decides the account kind and role (Spring trusts the same claims); the body only supplies names.
+    const role = adminRoleOf(claims);
+    const profile = role ? response.admin : response.client;
     const firstName = profile?.firstName ?? '';
     const lastName = profile?.lastName ?? '';
     const displayName = `${firstName} ${lastName}`.trim() || claims.email;
 
     const user: SessionUser = {
-      kind: isAdminToken ? 'admin' : 'client',
+      kind: role ? 'admin' : 'client',
       id: Number(claims.sub),
       email: claims.email || profile?.email || '',
       firstName,
       lastName,
       displayName,
-      role: isAdminToken ? (claims.role as AdminRole) : null,
+      role,
       createdAt: profile?.createdAt ?? null,
     };
 
@@ -169,7 +172,10 @@ export class AuthService {
         localStorage.removeItem(environment.sessionStorageKey);
         return null;
       }
-      return parsed as AuthSession;
+      // Kind and role always follow the token, so a session saved with stale or edited values is corrected on reload.
+      const session = parsed as AuthSession;
+      const role = adminRoleOf(claims);
+      return { ...session, user: { ...session.user, kind: role ? 'admin' : 'client', role } };
     } catch {
       return null;
     }

@@ -14,7 +14,8 @@ import { adminGuard, authGuard, clientGuard, guestGuard } from './core/auth/auth
  * | /trade                  | Place trade                   | Authorised clients        |
  * | /trade/confirmation     | Trade receipt / order status  | Authorised clients        |
  *
- * Signed-in visitors to `/` continue to their dashboard; everything else under the
+ * Signed-in visitors to `/`, `/login` and `/register` continue to their own dashboard
+ * (`/admin` for administrators, `/dashboard` for clients); everything else under the
  * authenticated layout shares the top navbar.
  */
 export const routes: Routes = [
@@ -86,6 +87,6 @@ export const routes: Routes = [
       },
     ],
   },
-  // Unknown URLs: the landing page for visitors, the dashboard for signed-in users (via guestGuard).
+  // Unknown URLs: the landing page for visitors, their own dashboard for signed-in users (via guestGuard).
   { path: '**', redirectTo: '' },
 ];

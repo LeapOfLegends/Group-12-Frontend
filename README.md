@@ -25,7 +25,7 @@ talks to PostgreSQL.
 
 | Route | Page | Access |
 | --- | --- | --- |
-| `/` | Landing page: what the platform does, with Log in / Sign up in the navbar | Public (signed-in users continue to `/dashboard`) |
+| `/` | Landing page: what the platform does, with Log in / Sign up in the navbar | Public (signed-in users continue to their dashboard: `/admin` or `/dashboard`) |
 | `/login` | Sign in (clients and administrators) | Public |
 | `/register` | Create a client account | Public |
 | `/dashboard` | Client home: price search, cash, portfolio value, return, chart, buying power & allocation, holdings, orders | Authenticated |
@@ -42,10 +42,12 @@ profile card opens the **Profile** panel (session details, appearance, log out);
 narrow screens the links fold into a menu. The landing page uses the same bar with Log in
 and Sign up in place of the profile card.
 
-Administrators land on `/dashboard` with an administrator state (they have no client
-portfolio) and get the **Admin Dashboard** link; clients never see it and are redirected if
-they try `/admin`. Route guards enforce this in the browser; the backend remains the
-security boundary.
+Administrators land on the **Admin Dashboard** (`/admin`) after signing in, and their
+profile shows their administrator role; the navbar's **Dashboard** link shows them an
+administrator state (they have no client portfolio). Clients land on `/dashboard`, never see
+the **Admin Dashboard** link and are redirected if they try `/admin`. A `returnUrl` is only
+followed inside the signed-in account's own area. Route guards enforce this in the browser;
+the backend remains the security boundary.
 
 Both dashboards carry an instrument price search above the date: type a symbol (or pick
 a suggestion from the instrument list) and the app calls `GET /instruments/symbol/{symbol}`

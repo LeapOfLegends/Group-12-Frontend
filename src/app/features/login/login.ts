@@ -88,7 +88,7 @@ export class LoginPage {
     this.auth.login({ email: email.trim(), password }).subscribe({
       next: () => {
         this.submitting.set(false);
-        void this.router.navigateByUrl(this.safeReturnUrl());
+        void this.router.navigateByUrl(this.landingUrl());
       },
       error: (error: unknown) => {
         this.submitting.set(false);
@@ -115,18 +115,25 @@ export class LoginPage {
     });
   }
 
-  /** Only follow same-origin, in-app return paths - never an absolute URL. */
-  private safeReturnUrl(): string {
+  /**
+   * The account's own dashboard, or the return path when it is a same-origin, in-app path
+   * (never an absolute URL) in that account's area: administrators work under /admin, clients
+   * everywhere else, so an administrator sent here from /dashboard still lands on /admin.
+   */
+  private landingUrl(): string {
+    const home = this.auth.homeUrl();
     const requested = this.route.snapshot.queryParamMap.get('returnUrl');
     if (
-      requested &&
-      requested.startsWith('/') &&
-      !requested.startsWith('//') &&
-      !requested.startsWith('/login') &&
-      !requested.startsWith('/register')
+      !requested ||
+      !requested.startsWith('/') ||
+      requested.startsWith('//') ||
+      requested.startsWith('/login') ||
+      requested.startsWith('/register')
     ) {
-      return requested;
+      return home;
     }
-    return '/dashboard';
+    const path = requested.split(/[?#;]/)[0];
+    const adminArea = path === '/admin' || path.startsWith('/admin/');
+    return adminArea === this.auth.isAdmin() ? requested : home;
   }
 }

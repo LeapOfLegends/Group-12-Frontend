@@ -3,17 +3,18 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { TestBed } from '@angular/core/testing';
 import { Router, provideRouter } from '@angular/router';
 import { environment } from '../../../environments/environment';
-import { makeToken } from '../../testing/jwt-fixtures';
+import { adminToken, clientToken, makeToken } from '../../testing/jwt-fixtures';
 import { AuthService } from './auth.service';
 
 const FUTURE = Math.floor(Date.now() / 1000) + 3600;
 const PAST = Math.floor(Date.now() / 1000) - 60;
 
+/** What POST /auth/login answers for an administrator: the role travels uppercase in `roles`. */
 const ADMIN_RESPONSE = {
   accessToken: makeToken({
     sub: '60',
     email: 'super@admin.com',
-    role: 'super_admin',
+    roles: 'SUPER_ADMIN',
     iat: FUTURE - 3600,
     exp: FUTURE,
   }),
@@ -63,6 +64,13 @@ describe('AuthService', () => {
     localStorage.clear();
   });
 
+  function storeSession(accessToken: string, user: Record<string, unknown>): void {
+    localStorage.setItem(
+      environment.sessionStorageKey,
+      JSON.stringify({ accessToken, user, expiresAt: FUTURE * 1000, issuedAt: 0 }),
+    );
+  }
+
   it('logs an administrator in, derives the role from the token and persists the session', () => {
     const auth = TestBed.inject(AuthService);
     let sessionKind = '';
@@ -85,9 +93,24 @@ describe('AuthService', () => {
     expect(auth.canViewFinancialOperations()).toBe(true);
     expect(auth.user()?.displayName).toBe('Super Admin');
     expect(auth.user()?.id).toBe(60);
+    expect(auth.homeUrl()).toBe('/admin');
     expect(
       JSON.parse(localStorage.getItem(environment.sessionStorageKey) ?? '{}').accessToken,
     ).toBe(ADMIN_RESPONSE.accessToken);
+  });
+
+  it('still recognises the older lowercase role claim', () => {
+    const auth = TestBed.inject(AuthService);
+    auth.login({ email: 'ops@admin.com', password: 'secret' }).subscribe();
+    http.expectOne(`${environment.authApiUrl}/auth/login`).flush({
+      ...ADMIN_RESPONSE,
+      accessToken: makeToken({ sub: '61', email: 'ops@admin.com', role: 'operations', iat: 0, exp: FUTURE }),
+    });
+
+    expect(auth.isAdmin()).toBe(true);
+    expect(auth.role()).toBe('operations');
+    expect(auth.canViewTradingOperations()).toBe(true);
+    expect(auth.canManageAdmins()).toBe(false);
   });
 
   it('logs a client in without administrator permissions', () => {
@@ -100,12 +123,50 @@ describe('AuthService', () => {
     expect(auth.role()).toBeNull();
     expect(auth.canManageAdmins()).toBe(false);
     expect(auth.canViewTradingOperations()).toBe(false);
+    expect(auth.homeUrl()).toBe('/dashboard');
     expect(auth.user()).toMatchObject({
       id: 12,
       email: 'jane@example.com',
       firstName: 'Jane',
       kind: 'client',
     });
+  });
+
+  it('corrects a stored administrator session that was saved as a client account', () => {
+    storeSession(adminToken('super_admin'), {
+      kind: 'client',
+      id: 60,
+      email: 'super@admin.com',
+      firstName: '',
+      lastName: '',
+      displayName: 'super@admin.com',
+      role: null,
+      createdAt: null,
+    });
+    const auth = TestBed.inject(AuthService);
+
+    expect(auth.isAdmin()).toBe(true);
+    expect(auth.role()).toBe('super_admin');
+    expect(auth.homeUrl()).toBe('/admin');
+    expect(auth.user()?.displayName).toBe('super@admin.com');
+  });
+
+  it('never restores administrator rights the token does not carry', () => {
+    storeSession(clientToken(), {
+      kind: 'admin',
+      id: 12,
+      email: 'jane@example.com',
+      firstName: 'Jane',
+      lastName: 'Doe',
+      displayName: 'Jane Doe',
+      role: 'super_admin',
+      createdAt: null,
+    });
+    const auth = TestBed.inject(AuthService);
+
+    expect(auth.isClient()).toBe(true);
+    expect(auth.role()).toBeNull();
+    expect(auth.canManageAdmins()).toBe(false);
   });
 
   it('restores a valid stored session on startup and drops an expired one', () => {

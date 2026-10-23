@@ -34,9 +34,14 @@ would fail the pre-flight request.
   `date_of_birth` is `NOT NULL` in the `clients` table, which is why the form asks for it
   even though the brief did not list it.
 - One login endpoint for everyone. The email domain picks the table: `admin.com` is an admin domain, everything else is a client.
-- Admin tokens carry `role: super_admin | operations | finance`; client tokens carry
-  `roles: ['CLIENT']`. The frontend derives the account kind and role from these claims
-  (`AuthService`), which is exactly what the Spring backend trusts.
+- Admin sign-in tokens carry the role uppercase as one string
+  (`roles: 'SUPER_ADMIN' | 'OPERATIONS' | 'FINANCE'`, since Group-12-Auth PR #12); admin
+  refresh tokens still carry the older lowercase `role: super_admin | operations | finance`;
+  client tokens carry `roles: ['CLIENT']`. The frontend accepts every one of these shapes
+  (`adminRoleOf` in `jwt.util.ts`) and derives the account kind and role from the token
+  (`AuthService`, also when a stored session is restored), which is exactly what the Spring
+  backend trusts: its `JwtGrantedAuthoritiesConverter` reads `roles` as a list or a
+  space-separated string. Administrators then land on `/admin`, clients on `/dashboard`.
 - The backend only restricts `/admins/**` (needs `super_admin`). Every other endpoint is
   open, and no endpoint checks that `clientId` in a request matches the token's `sub`.
   The UI therefore scopes operations/finance sections by convention, and BR-02
@@ -149,7 +154,7 @@ verified against the running services and the database:
 | --- | --- |
 | Endpoint | Angular posts to `/auth-api/auth/login`; `proxy.conf.json` rewrites it to `http://localhost:3000/auth/login`, which is the NestJS route. |
 | Body | `{ "email", "password" }` - exactly `LoginDto`. The service expects `email`, not `username`, and rejects extra properties. |
-| Response / roles | `accessToken` + `admin` or `client`; the JWT `role` claim (admins) or `roles: ['CLIENT']` (clients) drives the frontend's guards and the backend's `@PreAuthorize`. |
+| Response / roles | `accessToken` + `admin` or `client`; the JWT `roles` claim (`'SUPER_ADMIN'` etc. for admins, `['CLIENT']` for clients) drives the frontend's guards and landing page and the backend's `@PreAuthorize`. |
 | CORS | Not involved: the dev server proxy keeps every call same-origin (NestJS also enables CORS, Spring does not). |
 | Guards | `/login` and `/register` are guest-only; everything else needs an unexpired token. No guard blocks a successful login. |
 

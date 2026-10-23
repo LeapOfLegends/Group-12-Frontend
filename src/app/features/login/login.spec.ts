@@ -8,6 +8,32 @@ import { LoginPage } from './login';
 
 const FUTURE = Math.floor(Date.now() / 1000) + 3600;
 
+/** POST /auth/login answers, shaped like Group-12-Auth's. */
+const CLIENT_LOGIN = {
+  accessToken: makeToken({ sub: '12', email: 'jane@example.com', roles: ['CLIENT'], iat: 0, exp: FUTURE }),
+  client: {
+    clientId: '12',
+    firstName: 'Jane',
+    lastName: 'Doe',
+    email: 'jane@example.com',
+    phoneNumber: '',
+    dateOfBirth: '',
+    accountBalance: '0',
+    createdAt: '',
+  },
+};
+const ADMIN_LOGIN = {
+  accessToken: makeToken({ sub: '60', email: 'super@admin.com', roles: 'SUPER_ADMIN', iat: 0, exp: FUTURE }),
+  admin: {
+    adminId: '60',
+    firstName: 'Super',
+    lastName: 'Admin',
+    email: 'super@admin.com',
+    role: 'super_admin',
+    createdAt: '2026-10-01T00:00:00.000Z',
+  },
+};
+
 describe('LoginPage', () => {
   let fixture: ComponentFixture<LoginPage>;
   let http: HttpTestingController;
@@ -41,6 +67,19 @@ describe('LoginPage', () => {
     const input = element<HTMLInputElement>(selector);
     input.value = value;
     input.dispatchEvent(new Event('input'));
+  }
+
+  /** Signs in with the given answer from Group-12-Auth and returns where the page navigated. */
+  async function signIn(email: string, response: object): Promise<unknown> {
+    const navigate = vi.spyOn(router, 'navigateByUrl').mockResolvedValue(true);
+    type('#login-email', email);
+    type('#login-password', 'Password123!');
+    element<HTMLFormElement>('form').dispatchEvent(new Event('submit'));
+    await fixture.whenStable();
+    http.expectOne(`${environment.authApiUrl}/auth/login`).flush(response);
+    await fixture.whenStable();
+    expect(navigate).toHaveBeenCalledTimes(1);
+    return navigate.mock.calls[0][0];
   }
 
   afterEach(() => {
@@ -139,6 +178,31 @@ describe('LoginPage', () => {
     });
     await fixture.whenStable();
     expect(navigate).toHaveBeenCalledWith('/dashboard');
+  });
+
+  it('sends an administrator to the admin dashboard after a successful sign-in', async () => {
+    await setup();
+    expect(await signIn('super@admin.com', ADMIN_LOGIN)).toBe('/admin');
+  });
+
+  it('sends an administrator to the admin dashboard even when sign-in started from /dashboard', async () => {
+    await setup({ returnUrl: '/dashboard' });
+    expect(await signIn('super@admin.com', ADMIN_LOGIN)).toBe('/admin');
+  });
+
+  it('returns an administrator to the admin page they asked for', async () => {
+    await setup({ returnUrl: '/admin?section=admins' });
+    expect(await signIn('super@admin.com', ADMIN_LOGIN)).toBe('/admin?section=admins');
+  });
+
+  it('returns a client to the client page they asked for', async () => {
+    await setup({ returnUrl: '/trade' });
+    expect(await signIn('jane@example.com', CLIENT_LOGIN)).toBe('/trade');
+  });
+
+  it('sends a client who started from /admin to their own dashboard', async () => {
+    await setup({ returnUrl: '/admin' });
+    expect(await signIn('jane@example.com', CLIENT_LOGIN)).toBe('/dashboard');
   });
 
   it('mentions an expired session when sent back by the interceptor', async () => {

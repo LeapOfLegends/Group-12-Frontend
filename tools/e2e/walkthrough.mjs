@@ -390,15 +390,27 @@ try {
   // --- Super admin --------------------------------------------------------------
   await page.goto(`${BASE}/login`);
   await login(page, 'super@admin.com', 'SuperAdmin123!');
-  await page.waitForURL(/\/dashboard$/);
-  await page.waitForSelector('text=Administrator account');
-  check('admin lands on dashboard with administrator state', true);
+  await page.waitForURL(/\/admin$/);
+  await page.waitForSelector('app-admin-management table');
+  check('admin lands on the admin dashboard after signing in', page.url().endsWith('/admin'));
+  const adminCard = await page.textContent('app-navbar .navbar-account');
+  check('profile card shows an administrator account', adminCard.includes('Super Admin') && !adminCard.includes('Client account'));
   check('navbar shows the Admin Dashboard link for admins', !!(await page.$('app-navbar nav.navbar-links a[href="/admin"]')));
   check('navbar hides transfer/trade for admins', !(await page.$('a[href="/transfer"]')));
-  check('administrator state keeps the price search above the date', !!(await page.$('app-dashboard-page app-instrument-search')));
+  check('brand logo takes admins home to /admin', (await page.getAttribute('app-navbar app-brand-logo a', 'href')) === '/admin');
+  await page.click('button[aria-label="Open profile"]');
+  await page.waitForSelector('app-account-panel dialog[open]');
+  const adminProfile = (await page.textContent('app-account-panel dialog')).replace(/\s+/g, ' ');
+  check('profile panel describes the administrator account', adminProfile.includes('Administrator ID') && adminProfile.includes('Super Admin') && !adminProfile.includes('Client'));
+  await page.click('button[aria-label="Close profile"]');
   await page.goto(`${BASE}/register`);
+  await page.waitForURL(/\/admin$/);
+  check('signed-in admins are sent from /register to /admin', page.url().endsWith('/admin'));
+  await page.click('app-navbar nav.navbar-links a[href="/dashboard"]');
   await page.waitForURL(/\/dashboard$/);
-  check('signed-in users are kept away from /register', page.url().endsWith('/dashboard'));
+  await page.waitForSelector('text=Administrator account');
+  check('the Dashboard link shows admins the administrator state', true);
+  check('administrator state keeps the price search above the date', !!(await page.$('app-dashboard-page app-instrument-search')));
   await shot(page, '17-admin-landing');
   await page.click('app-navbar nav.navbar-links a[href="/admin"]');
   await page.waitForURL(/\/admin$/);
@@ -446,12 +458,15 @@ try {
   check('new admin appears in table', (await page.textContent('app-admin-management')).includes(newAdminEmail));
   await shot(page, '19-admin-after-create');
 
-  // --- Operations admin ---------------------------------------------------------
+  // --- Operations admin (signing in from a client URL) -------------------------------
   await logout(page);
+  await page.goto(`${BASE}/dashboard`);
+  await page.waitForURL(/\/login\?returnUrl=%2Fdashboard/);
   await login(page, 'ops@admin.com', 'Operations123!');
-  await page.waitForURL(/\/dashboard$/);
-  await page.goto(`${BASE}/admin`);
+  await page.waitForURL(/\/admin$/);
   await page.waitForSelector('app-client-lookup');
+  check('an admin signing in from /dashboard still lands on /admin', page.url().endsWith('/admin'));
+  check('profile card shows the operations role', (await page.textContent('app-navbar .navbar-account')).includes('Operations Admin'));
   check('operations admin sees trading operations', !!(await page.$('app-client-lookup')));
   check('operations admin does not see admin management', !(await page.$('app-admin-management')));
   check('operations admin does not see cash positions', !(await page.$('app-cash-positions')));
@@ -460,8 +475,7 @@ try {
   // --- Finance admin ------------------------------------------------------------
   await logout(page);
   await login(page, 'finance@admin.com', 'Finance12345!');
-  await page.waitForURL(/\/dashboard$/);
-  await page.goto(`${BASE}/admin`);
+  await page.waitForURL(/\/admin$/);
   await page.waitForSelector('app-cash-positions table');
   check('finance admin sees cash positions', true);
   check('finance admin does not see client lookup', !(await page.$('app-client-lookup')));
