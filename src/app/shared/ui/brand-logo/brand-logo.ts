@@ -130,6 +130,6 @@ export class BrandLogoComponent {
   readonly onDark = input(false);
   readonly compact = input(false);
   readonly markSize = input(36);
-  /** Where the mark leads: the public landing page by default, the dashboard once signed in. */
+  /** Where the mark leads: the public landing page by default, the account's own dashboard once signed in. */
   readonly homeLink = input('/');
 }

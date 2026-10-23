@@ -96,6 +96,7 @@ describe('NavbarComponent', () => {
     expect(element('a[href="/transfer"]')).toBeNull();
     expect(element('a[href="/trade"]')).toBeNull();
     expect(element('.navbar-account')?.textContent).toContain('Operations Admin');
+    expect(element('app-brand-logo a')?.getAttribute('href')).toBe('/admin');
   });
 
   it('asks the layout to open the profile panel from the profile card', async () => {

@@ -13,7 +13,7 @@ const FUTURE = Math.floor(Date.now() / 1000) + 3600;
 function seedSession(kind: 'client' | 'admin'): void {
   const token =
     kind === 'admin'
-      ? makeToken({ sub: '60', email: 'ops@admin.com', role: 'operations', iat: 0, exp: FUTURE })
+      ? makeToken({ sub: '60', email: 'ops@admin.com', roles: 'OPERATIONS', iat: 0, exp: FUTURE })
       : makeToken({ sub: '12', email: 'jane@example.com', roles: ['CLIENT'], iat: 0, exp: FUTURE });
   localStorage.setItem(
     environment.sessionStorageKey,
@@ -53,10 +53,21 @@ describe('route guards', () => {
     expect(run(authGuard)).toBe(true);
   });
 
-  it('guestGuard keeps signed-in users away from the login page', () => {
+  it('guestGuard sends signed-in administrators to the admin dashboard', () => {
     seedSession('admin');
     TestBed.inject(AuthService);
+    expect(urlOf(run(guestGuard, '/login'))).toBe('/admin');
+  });
+
+  it('guestGuard sends signed-in clients to their dashboard', () => {
+    seedSession('client');
+    TestBed.inject(AuthService);
     expect(urlOf(run(guestGuard, '/login'))).toBe('/dashboard');
+  });
+
+  it('guestGuard lets signed-out visitors through', () => {
+    TestBed.inject(AuthService);
+    expect(run(guestGuard, '/login')).toBe(true);
   });
 
   it('adminGuard blocks clients and explains why', () => {
@@ -73,11 +84,13 @@ describe('route guards', () => {
     expect(run(adminGuard, '/admin')).toBe(true);
   });
 
-  it('clientGuard blocks administrators from money movement and trading', () => {
+  it('clientGuard sends administrators back to the admin dashboard', () => {
     seedSession('admin');
     TestBed.inject(AuthService);
-    expect(urlOf(run(clientGuard, '/transfer'))).toBe('/dashboard');
-    expect(urlOf(run(clientGuard, '/trade'))).toBe('/dashboard');
+    const warn = vi.spyOn(TestBed.inject(NotificationService), 'warning');
+    expect(urlOf(run(clientGuard, '/transfer'))).toBe('/admin');
+    expect(urlOf(run(clientGuard, '/trade'))).toBe('/admin');
+    expect(warn).toHaveBeenCalled();
   });
 
   it('clientGuard admits clients', () => {

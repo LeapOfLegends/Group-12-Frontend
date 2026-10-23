@@ -3,7 +3,7 @@
  * derives from them.
  */
 
-/** Administrator roles stored in `admins.roles` and carried in the JWT `role` claim. */
+/** Administrator roles stored in `admins.roles`; tokens carry them as described on `JwtClaims`. */
 export type AdminRole = 'super_admin' | 'operations' | 'finance';
 
 export const ADMIN_ROLES: readonly AdminRole[] = ['super_admin', 'operations', 'finance'];
@@ -71,11 +71,17 @@ export interface LoginResponse {
   client?: ClientProfile;
 }
 
-/** Payload of the HS256 JWT. Admin tokens carry `role`; client tokens carry `roles: ['CLIENT']`. */
+/**
+ * Payload of the HS256 JWT. Admin sign-in tokens carry the role uppercase as one string
+ * (`roles: 'SUPER_ADMIN'`), admin refresh tokens still carry the older lowercase `role`
+ * claim, and client tokens carry `roles: ['CLIENT']`. `decodeJwt` reads a string `roles`
+ * claim as a list, like Spring's authorities converter.
+ */
 export interface JwtClaims {
   sub: string;
   email: string;
-  role?: AdminRole;
+  /** Older administrator claim, for example `super_admin`. */
+  role?: string;
   roles?: string[];
   iat: number;
   exp: number;

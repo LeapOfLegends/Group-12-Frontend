@@ -15,6 +15,11 @@ function sign(payload) {
   const sig = crypto.createHmac('sha256', SECRET).update(`${header}.${body}`).digest('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
   return `${header}.${body}.${sig}`;
 }
+// Spring's JwtGrantedAuthoritiesConverter reads "roles" as a list or as one space-separated string.
+function rolesOf(claims) {
+  if (Array.isArray(claims?.roles)) return claims.roles;
+  return typeof claims?.roles === 'string' ? claims.roles.split(/\s+/).filter(Boolean) : [];
+}
 function verify(token) {
   const parts = token.split('.');
   if (parts.length !== 3) return null;
@@ -226,7 +231,8 @@ const server = http.createServer(async (req, res) => {
       const admin = admins.find((a) => a.email === email.toLowerCase());
       if (!admin || admin.password !== body.password) return send(res, 401, { statusCode: 401, message: 'Invalid credentials', error: 'Unauthorized' });
       const { password, ...safe } = admin;
-      return send(res, 200, { accessToken: sign({ sub: String(admin.adminId), email: admin.email, role: admin.role, iat, exp }), admin: { ...safe, adminId: String(admin.adminId) } });
+      // Like Group-12-Auth's loginAdmin: the role travels uppercase as one "roles" string.
+      return send(res, 200, { accessToken: sign({ sub: String(admin.adminId), email: admin.email, roles: admin.role.toUpperCase(), iat, exp }), admin: { ...safe, adminId: String(admin.adminId) } });
     }
     const client = clients.find((c) => c.email === email);
     if (!client || client.password !== body.password) return send(res, 401, { statusCode: 401, message: 'Invalid credentials', error: 'Unauthorized' });
@@ -286,7 +292,7 @@ const server = http.createServer(async (req, res) => {
       res.setHeader('WWW-Authenticate', 'Bearer');
       return apiError(res, 401, 'Unauthorized', 'Bearer token required', path);
     }
-    if (claims.role !== 'super_admin') return apiError(res, 403, 'Forbidden', 'Your role does not allow this action', path);
+    if (!rolesOf(claims).includes('SUPER_ADMIN')) return apiError(res, 403, 'Forbidden', 'Your role does not allow this action', path);
   }
 
   let match;
@@ -296,7 +302,7 @@ const server = http.createServer(async (req, res) => {
       res.setHeader('WWW-Authenticate', 'Bearer');
       return apiError(res, 401, 'Unauthorized', 'Bearer token required', path);
     }
-    if (!Array.isArray(claims.roles) || !claims.roles.includes('CLIENT')) return apiError(res, 403, 'Forbidden', 'Your role does not allow this action', path);
+    if (!rolesOf(claims).includes('CLIENT')) return apiError(res, 403, 'Forbidden', 'Your role does not allow this action', path);
     const me = clients.find((c) => c.clientId === Number(claims.sub));
     if (!me) return apiError(res, 404, 'Not Found', `Client not found with id: ${claims.sub}`, path);
     if (path === '/api/clients/me' && method === 'GET') return send(res, 200, publicClient(me));
@@ -339,13 +345,13 @@ const server = http.createServer(async (req, res) => {
   }
   if (path === '/api/clients/me/balance' && method === 'GET') {
     if (!claims) return apiError(res, 401, 'Unauthorized', 'Bearer token required', path);
-    if (!Array.isArray(claims.roles) || !claims.roles.includes('CLIENT')) return apiError(res, 403, 'Forbidden', 'Your role does not allow this action', path);
+    if (!rolesOf(claims).includes('CLIENT')) return apiError(res, 403, 'Forbidden', 'Your role does not allow this action', path);
     const client = clients.find((candidate) => candidate.clientId === Number(claims?.sub));
     return client ? send(res, 200, { clientId: client.clientId, accountBalance: client.accountBalance }) : apiError(res, 404, 'Not Found', 'Client not found', path);
   }
   if (path === '/api/clients/me/balance/transactions' && method === 'POST') {
     if (!claims) return apiError(res, 401, 'Unauthorized', 'Bearer token required', path);
-    if (!Array.isArray(claims.roles) || !claims.roles.includes('CLIENT')) return apiError(res, 403, 'Forbidden', 'Your role does not allow this action', path);
+    if (!rolesOf(claims).includes('CLIENT')) return apiError(res, 403, 'Forbidden', 'Your role does not allow this action', path);
     const client = clients.find((candidate) => candidate.clientId === Number(claims?.sub));
     if (!client) return apiError(res, 404, 'Not Found', 'Client not found', path);
     const body = await readBody(req);
