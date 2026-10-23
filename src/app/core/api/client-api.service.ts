@@ -28,7 +28,9 @@ export class ClientApiService {
   }
 
   getClient(clientId: number): Observable<ClientRecord> {
-    return this.http.get<Record<string, unknown>>(`${this.baseUrl}/me`).pipe(map(toClientRecord));
+    return this.http
+      .get<Record<string, unknown>>(`${this.baseUrl}/${clientId}`)
+      .pipe(map(toClientRecord));
   }
 
   getClientByEmail(email: string): Observable<ClientRecord> {
