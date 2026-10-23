@@ -17,8 +17,8 @@ interface Step {
 
 /**
  * Public landing page at `/`: what JetZy Trading does and how to start, under the shared
- * navbar in its signed-out form (Log in / Sign up). It describes the product's real
- * capabilities only - no statistics, returns or testimonials are invented.
+ * shared navbar, which shows account navigation when signed in. It describes the product's
+ * real capabilities only - no statistics, returns or testimonials are invented.
  */
 @Component({
   selector: 'app-landing-page',

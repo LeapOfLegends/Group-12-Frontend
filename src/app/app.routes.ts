@@ -4,7 +4,7 @@ import { adminGuard, authGuard, clientGuard, guestGuard } from './core/auth/auth
 /**
  * | Route                   | Page                          | Access                    |
  * |-------------------------|-------------------------------|---------------------------|
- * | /                       | Public landing page           | Public (signed-out only)  |
+ * | /                       | Public landing page           | Public                    |
  * | /login                  | Login                         | Public (signed-out only)  |
  * | /register               | Client registration           | Public (signed-out only)  |
  * | /dashboard              | Client dashboard              | Authenticated             |
@@ -14,15 +14,14 @@ import { adminGuard, authGuard, clientGuard, guestGuard } from './core/auth/auth
  * | /trade                  | Place trade                   | Authorised clients        |
  * | /trade/confirmation     | Trade receipt / order status  | Authorised clients        |
  *
- * Signed-in visitors to `/`, `/login` and `/register` continue to their own dashboard
- * (`/admin` for administrators, `/dashboard` for clients); everything else under the
- * authenticated layout shares the top navbar.
+ * Signed-in visitors can view the public landing page. `/login` and `/register` remain
+ * guest-only and redirect signed-in visitors to their own dashboard. Everything else under
+ * the authenticated layout shares the top navbar.
  */
 export const routes: Routes = [
   {
     path: '',
     pathMatch: 'full',
-    canActivate: [guestGuard],
     loadComponent: () => import('./features/landing/landing').then((m) => m.LandingPage),
     title: 'JetZy Trading · Direct trading for self-directed investors',
   },
@@ -87,6 +86,6 @@ export const routes: Routes = [
       },
     ],
   },
-  // Unknown URLs: the landing page for visitors, their own dashboard for signed-in users (via guestGuard).
+  // Unknown URLs return to the landing page.
   { path: '**', redirectTo: '' },
 ];
