@@ -276,7 +276,7 @@ export class AccountPanelComponent {
     this.profileError.set('');
     this.saveError.set('');
     this.saveSuccess.set('');
-    this.clientApi.getClient(user.id).subscribe({
+    this.clientApi.getMyClient().subscribe({
       next: (profile) => {
         this.clientProfile.set({ email: profile.email, phoneNumber: profile.phoneNumber });
         this.auth.updateClientContact(profile.email, profile.phoneNumber);

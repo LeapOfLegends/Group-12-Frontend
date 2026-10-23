@@ -33,6 +33,13 @@ export class ClientApiService {
       .pipe(map(toClientRecord));
   }
 
+  /** GET /api/clients/me - the authenticated client's own profile. */
+  getMyClient(): Observable<ClientRecord> {
+    return this.http
+      .get<Record<string, unknown>>(`${this.baseUrl}/me`)
+      .pipe(map(toClientRecord));
+  }
+
   /** PATCH /api/clients/me; handled by Spring Boot's updateCurrentClient endpoint. */
   updateMyContact(update: ClientContactUpdate): Observable<ClientRecord> {
     return this.http
