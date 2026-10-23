@@ -95,7 +95,7 @@
         <h2 id="financial-ops-title">Financial operations</h2>
         <p class="text-secondary text-sm">Client cash positions from the live client records. Deposit and withdrawal histories are not yet exposed by the backend.</p>
       </div>
-      <app-cash-positions [clients]="clients() ?? []" [loading]="loadingClients()" />
+      <app-cash-positions [clients]="clients() ?? []" [loading]="loadingClients()" [error]="clientsError()" (retry)="loadClients()" />
     </section>
   }
 
