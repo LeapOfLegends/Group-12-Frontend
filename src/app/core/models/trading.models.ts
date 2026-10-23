@@ -39,6 +39,12 @@ export interface ClientRecord {
   createdAt: string | null;
 }
 
+/** Editable contact fields accepted by PATCH /api/clients/me. */
+export interface ClientContactUpdate {
+  email?: string;
+  phoneNumber?: string;
+}
+
 /** HoldingEntity - a client's position in one instrument. */
 export interface Holding {
   holdingId: number;

@@ -106,6 +106,18 @@ export class AuthService {
     }
   }
 
+  /** Updates client contact details in the active browser session after the API confirms a save. */
+  updateClientContact(email: string, phoneNumber: string): void {
+    const session = this.sessionState();
+    if (!session || session.user.kind !== 'client') {
+      return;
+    }
+    this.setSession({
+      ...session,
+      user: { ...session.user, email, phoneNumber },
+    });
+  }
+
   private setSession(session: AuthSession): void {
     this.sessionState.set(session);
     try {
@@ -136,6 +148,7 @@ export class AuthService {
       kind: role ? 'admin' : 'client',
       id: Number(claims.sub),
       email: claims.email || profile?.email || '',
+      ...(profile && 'phoneNumber' in profile ? { phoneNumber: profile.phoneNumber } : {}),
       firstName,
       lastName,
       displayName,
