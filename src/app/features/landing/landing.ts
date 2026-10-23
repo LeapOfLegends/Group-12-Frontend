@@ -1,5 +1,7 @@
-import { ChangeDetectionStrategy, Component } from '@angular/core';
+import { ChangeDetectionStrategy, Component, inject, viewChild } from '@angular/core';
 import { RouterLink } from '@angular/router';
+import { AuthService } from '../../core/auth/auth.service';
+import { AccountPanelComponent } from '../../shared/ui/account-panel/account-panel';
 import { BrandLogoComponent } from '../../shared/ui/brand-logo/brand-logo';
 import { IconComponent } from '../../shared/ui/icon/icon';
 import { NavbarComponent } from '../../shared/ui/navbar/navbar';
@@ -17,18 +19,25 @@ interface Step {
 
 /**
  * Public landing page at `/`: what JetZy Trading does and how to start, under the shared
- * navbar in its signed-out form (Log in / Sign up). It describes the product's real
- * capabilities only - no statistics, returns or testimonials are invented.
+ * shared navbar, which shows account navigation when signed in. It describes the product's
+ * real capabilities only - no statistics, returns or testimonials are invented.
  */
 @Component({
   selector: 'app-landing-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterLink, NavbarComponent, BrandLogoComponent, IconComponent],
+  imports: [RouterLink, NavbarComponent, BrandLogoComponent, IconComponent, AccountPanelComponent],
   templateUrl: './landing.html',
   styleUrl: './landing.scss',
 })
 export class LandingPage {
+  protected readonly auth = inject(AuthService);
+  private readonly accountPanel = viewChild.required(AccountPanelComponent);
+
   protected readonly year = new Date().getFullYear();
+
+  protected openAccount(): void {
+    this.accountPanel().open();
+  }
 
   protected readonly features: Feature[] = [
     {

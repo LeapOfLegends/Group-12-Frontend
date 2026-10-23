@@ -30,7 +30,7 @@ interface NavItem {
     <header class="navbar" [class.navbar-menu-open]="menuOpen()">
       <div class="navbar-inner">
         <div class="navbar-left">
-          <app-brand-logo [markSize]="32" [homeLink]="signedIn() ? auth.homeUrl() : '/'" />
+          <app-brand-logo [markSize]="32" />
           @if (signedIn()) {
             <nav class="navbar-links" aria-label="Primary">
               @for (item of items(); track item.route) {

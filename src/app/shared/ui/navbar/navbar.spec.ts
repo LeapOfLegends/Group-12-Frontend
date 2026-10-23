@@ -84,7 +84,7 @@ describe('NavbarComponent', () => {
     expect(account?.textContent).toContain('Jane Doe');
     expect(account?.textContent).toContain('Client account');
     expect(element('.navbar-account .avatar')?.textContent?.trim()).toBe('JD');
-    expect(element('app-brand-logo a')?.getAttribute('href')).toBe('/dashboard');
+    expect(element('app-brand-logo a')?.getAttribute('href')).toBe('/');
   });
 
   it('shows Dashboard and Admin Dashboard for administrators and hides money movement', async () => {
@@ -96,7 +96,7 @@ describe('NavbarComponent', () => {
     expect(element('a[href="/transfer"]')).toBeNull();
     expect(element('a[href="/trade"]')).toBeNull();
     expect(element('.navbar-account')?.textContent).toContain('Operations Admin');
-    expect(element('app-brand-logo a')?.getAttribute('href')).toBe('/admin');
+    expect(element('app-brand-logo a')?.getAttribute('href')).toBe('/');
   });
 
   it('asks the layout to open the profile panel from the profile card', async () => {
