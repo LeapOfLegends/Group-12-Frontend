@@ -79,6 +79,12 @@ describe('LandingPage', () => {
     fixture.detectChanges();
 
     expect(element('app-navbar .navbar-account')?.textContent).toContain('Jane Doe');
+    expect(element('#landing-dashboard')?.getAttribute('href')).toBe('/dashboard');
+    expect(element('#landing-dashboard')?.textContent).toContain('Go to dashboard');
+    expect(element('#landing-signup')).toBeNull();
+    expect(element('#landing-login')).toBeNull();
+    expect(element('.cta-actions')).toBeNull();
+    expect(fixture.nativeElement.querySelectorAll('a[href="/register"], a[href="/login"]').length).toBe(0);
     element<HTMLButtonElement>('app-navbar .navbar-account')?.click();
     await fixture.whenStable();
     fixture.detectChanges();

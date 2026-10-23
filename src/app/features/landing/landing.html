@@ -14,14 +14,21 @@
           permanent record of every order &mdash; with no dealer in the loop.
         </p>
         <div class="hero-actions">
-          <a class="btn btn-primary btn-lg" routerLink="/register" id="landing-signup">
-            <app-icon name="user-plus" [size]="18" />
-            Create your account
-          </a>
-          <a class="btn btn-secondary btn-lg" routerLink="/login" id="landing-login">
-            Log in
-            <app-icon name="arrow-right" [size]="18" />
-          </a>
+          @if (auth.user()) {
+            <a class="btn btn-primary btn-lg" [routerLink]="auth.homeUrl()" id="landing-dashboard">
+              Go to dashboard
+              <app-icon name="arrow-right" [size]="18" />
+            </a>
+          } @else {
+            <a class="btn btn-primary btn-lg" routerLink="/register" id="landing-signup">
+              <app-icon name="user-plus" [size]="18" />
+              Create your account
+            </a>
+            <a class="btn btn-secondary btn-lg" routerLink="/login" id="landing-login">
+              Log in
+              <app-icon name="arrow-right" [size]="18" />
+            </a>
+          }
         </div>
         <p class="hero-note">
           <app-icon name="lock" [size]="16" />
@@ -128,10 +135,12 @@
           get a dedicated administration dashboard.
         </p>
       </div>
-      <div class="cta-actions">
-        <a class="btn btn-primary btn-lg" routerLink="/register">Sign up</a>
-        <a class="btn btn-secondary btn-lg" routerLink="/login">Log in</a>
-      </div>
+      @if (!auth.user()) {
+        <div class="cta-actions">
+          <a class="btn btn-primary btn-lg" routerLink="/register">Sign up</a>
+          <a class="btn btn-secondary btn-lg" routerLink="/login">Log in</a>
+        </div>
+      }
     </div>
   </section>
 
