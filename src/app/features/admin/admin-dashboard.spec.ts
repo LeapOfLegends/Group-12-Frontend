@@ -33,6 +33,9 @@ describe('Finance admin dashboard', () => {
   });
 
   afterEach(() => {
+    for (const request of http.match((item) => item.url.endsWith('/api/analytics/platform-metrics'))) {
+      request.flush({ range: 'all', from: null, to: '2026-10-23T12:00:00Z', totalOrders: 0, filledOrders: 0, pendingOrders: 0, failedRejectedOrders: 0, totalDeposits: 0, totalWithdrawals: 0, tradingValues: [] });
+    }
     http.verify();
     TestBed.inject(AuthService).clearSession();
     localStorage.clear();

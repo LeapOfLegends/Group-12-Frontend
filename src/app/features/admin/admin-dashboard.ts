@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, OnInit, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, OnInit, computed, inject, signal, viewChild } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { interval } from 'rxjs';
 import { environment } from '../../../environments/environment';
@@ -19,11 +19,7 @@ import { CashPositionsComponent } from './cash-positions';
 import { ClientLookupComponent } from './client-lookup';
 import { MarketDataHealthComponent } from './market-data-health';
 import { OrderLookupComponent } from './order-lookup';
-
-interface UnavailableMetric {
-  label: string;
-  reason: string;
-}
+import { PlatformMetricsComponent } from './platform-metrics';
 
 /**
  * Administrator dashboard. Every figure comes from an existing backend endpoint;
@@ -41,6 +37,7 @@ interface UnavailableMetric {
     CashPositionsComponent,
     MarketDataHealthComponent,
     AdminManagementComponent,
+    PlatformMetricsComponent,
   ],
   templateUrl: './admin-dashboard.html',
   styleUrl: './admin-dashboard.scss',
@@ -49,6 +46,7 @@ export class AdminDashboardPage implements OnInit {
   private readonly clientApi = inject(ClientApiService);
   private readonly adminsApi = inject(AdminsApiService);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly platformMetrics = viewChild(PlatformMetricsComponent);
   protected readonly auth = inject(AuthService);
   protected readonly catalog = inject(InstrumentCatalogService);
 
@@ -89,15 +87,6 @@ export class AdminDashboardPage implements OnInit {
       finance: admins.filter((admin) => admin.role === 'finance').length,
     };
   });
-
-  protected readonly unavailableMetrics: UnavailableMetric[] = [
-    { label: 'Total orders', reason: 'Orders are only exposed per client (/api/orders/client/{id}).' },
-    { label: 'Total trading volume', reason: 'No platform-wide order or fill aggregate endpoint.' },
-    { label: 'Total deposits', reason: 'Deposits and withdrawals are not exposed as a transaction history.' },
-    { label: 'Total withdrawals', reason: 'Deposits and withdrawals are not exposed as a transaction history.' },
-    { label: 'Pending transactions', reason: 'No platform-wide pending-order or transfer endpoint.' },
-    { label: 'Failed / rejected transactions', reason: 'No platform-wide order status breakdown endpoint.' },
-  ];
 
   ngOnInit(): void {
     interval(10000)
@@ -141,6 +130,7 @@ export class AdminDashboardPage implements OnInit {
   }
 
   protected refreshAll(): void {
+    this.platformMetrics()?.reload();
     this.loadClients();
     void this.catalog.load(true).catch(() => undefined);
     if (this.auth.canManageAdmins()) {
