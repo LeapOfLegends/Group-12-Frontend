@@ -179,14 +179,14 @@ export class TradePage implements OnInit {
       errors.push('Choose an instrument to trade.');
     } else {
       if (!this.marketTradingAllowed()) {
-        errors.push(this.marketMessage());
+        warnings.push(this.marketMessage());
       }
       if (!instrument.tradable) {
         errors.push(`${instrument.symbol} is not currently tradable.`);
       }
       if (price === null) {
         errors.push(`No market quote is available for ${instrument.symbol} right now.`);
-      } else if (this.quoteStale()) {
+      } else if (this.marketTradingAllowed() && this.quoteStale()) {
         warnings.push(
           `The quote for ${instrument.symbol} is ${this.quoteAge() === null ? 'missing a timestamp' : `${this.quoteAge()}s old`}. Orders are priced against quotes under ${this.quoteMaxAge}s old, so this order may be rejected until market data refreshes.`,
         );
@@ -219,7 +219,7 @@ export class TradePage implements OnInit {
       errors.push('Enter a quantity.');
     }
 
-    return { errors, warnings, valid: errors.length === 0 };
+    return { errors, warnings, valid: errors.length === 0 && this.marketTradingAllowed() };
   });
 
   protected readonly summaryModel = computed<OrderSummaryModel>(() => ({

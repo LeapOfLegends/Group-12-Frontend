@@ -89,7 +89,7 @@ describe('TradePage market availability', () => {
 
   it('shows closure and blocks both buy and sell orders', () => {
     flushStatus('CLOSED');
-    expect(fixture.nativeElement.textContent).toContain('Market closed');
+    expect(fixture.nativeElement.textContent).toContain('IEX market is closed');
     for (const side of ['BUY', 'SELL'] as const) {
       page['setSide'](side);
       page['reviewOrder']();
@@ -98,6 +98,28 @@ describe('TradePage market availability', () => {
     }
     expect(button('Review order').disabled).toBe(true);
     expect(submit).not.toHaveBeenCalled();
+  });
+
+  it('replaces the stale-quote warning with market closure in the summary before quantity entry', () => {
+    page['selected'].set({ ...INSTRUMENT, quoteAsOf: new Date(Date.now() - 5280000).toISOString() });
+    page['quantityText'].set('');
+    flushStatus('CLOSED');
+
+    const summary = fixture.nativeElement.querySelector('app-order-summary');
+    const warnings = summary.querySelectorAll('.alert-warning');
+    expect(warnings.length).toBe(1);
+    expect(warnings[0].textContent).toContain('IEX market is closed');
+    expect(summary.textContent).not.toContain('The quote for AAPL');
+    expect(fixture.nativeElement.querySelector('.trade-entry .alert-warning')).toBeNull();
+    expect(button('Review order').disabled).toBe(true);
+  });
+
+  it('keeps the stale-quote warning when the market is open', () => {
+    page['selected'].set({ ...INSTRUMENT, quoteAsOf: new Date(Date.now() - 5280000).toISOString() });
+    flushStatus();
+    const summary = fixture.nativeElement.querySelector('app-order-summary');
+    expect(summary.querySelector('.alert-warning').textContent).toContain('The quote for AAPL');
+    expect(button('Review order').disabled).toBe(false);
   });
 
   it('enables review when the backend reports an open market', () => {
