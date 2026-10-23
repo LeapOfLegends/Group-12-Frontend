@@ -2,7 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable, map } from 'rxjs';
 import { environment } from '../../../environments/environment';
-import { AccountBalance, ClientRecord, MoneyMovementRequest } from '../models/trading.models';
+import { AccountBalance, ClientContactUpdate, ClientRecord, MoneyMovementRequest } from '../models/trading.models';
 import { toNumberOrZero } from '../utils/money';
 
 /** Group-12-Backend `/api/clients` - balances, deposits, withdrawals and client records. */
@@ -30,6 +30,20 @@ export class ClientApiService {
   getClient(clientId: number): Observable<ClientRecord> {
     return this.http
       .get<Record<string, unknown>>(`${this.baseUrl}/${clientId}`)
+      .pipe(map(toClientRecord));
+  }
+
+  /** GET /api/clients/me - the authenticated client's own profile. */
+  getMyClient(): Observable<ClientRecord> {
+    return this.http
+      .get<Record<string, unknown>>(`${this.baseUrl}/me`)
+      .pipe(map(toClientRecord));
+  }
+
+  /** PATCH /api/clients/me; handled by Spring Boot's updateCurrentClient endpoint. */
+  updateMyContact(update: ClientContactUpdate): Observable<ClientRecord> {
+    return this.http
+      .patch<Record<string, unknown>>(`${this.baseUrl}/me`, update)
       .pipe(map(toClientRecord));
   }
 

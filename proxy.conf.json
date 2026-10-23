@@ -1,12 +1,12 @@
 {
   "/auth-api": {
-    "target": "http://localhost:13000",
+    "target": "http://localhost:3000",
     "secure": false,
     "changeOrigin": true,
     "pathRewrite": { "^/auth-api": "" }
   },
   "/trading-api": {
-    "target": "http://localhost:18081",
+    "target": "http://localhost:8081",
     "secure": false,
     "changeOrigin": true,
     "pathRewrite": { "^/trading-api": "" }
