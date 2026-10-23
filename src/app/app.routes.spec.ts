@@ -15,4 +15,10 @@ describe('application routes', () => {
     expect(loginRoute?.canActivate).toBeDefined();
     expect(registerRoute?.canActivate).toBeDefined();
   });
+
+  it('places instrument history under the authenticated layout', () => {
+    const layout = routes.find((route) => route.path === '' && route.children);
+    expect(layout?.canActivate).toBeDefined();
+    expect(layout?.children?.find((route) => route.path === 'instruments/:instrumentId')).toBeDefined();
+  });
 });

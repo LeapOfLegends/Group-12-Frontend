@@ -65,6 +65,35 @@ export interface Instrument {
   instrumentId?: number;
 }
 
+/** InstrumentHistoryDTO and InstrumentHistoryPointDTO from GET /instruments/{id}/history. */
+export type InstrumentHistoryRange = '1D' | '5D' | '1M' | '1Y' | '5Y';
+
+export const INSTRUMENT_HISTORY_RANGES: readonly InstrumentHistoryRange[] = [
+  '1D',
+  '5D',
+  '1M',
+  '1Y',
+  '5Y',
+];
+
+export interface InstrumentHistoryPoint {
+  timestamp: string;
+  /** JSON decimal; accept a string as well for lossless decimal serializers. */
+  close: number | string;
+}
+
+export interface InstrumentHistory {
+  instrumentId: number;
+  symbol: string;
+  range: InstrumentHistoryRange;
+  timeframe: string;
+  currency: string;
+  availableFrom: string | null;
+  availableTo: string | null;
+  partial: boolean;
+  points: InstrumentHistoryPoint[];
+}
+
 /** An instrument whose database id has been resolved, so it can be traded. */
 export interface CatalogInstrument extends Instrument {
   instrumentId: number;

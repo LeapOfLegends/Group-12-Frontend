@@ -34,7 +34,14 @@ const EURUSD = {
   lastTradeAsOf: null,
 };
 
-const KO = { ...AAPL, symbol: 'KO', instrumentName: 'Coca-Cola', bidPrice: 71.2, askPrice: 71.3, lastPrice: 71.25 };
+const KO = {
+  ...AAPL,
+  symbol: 'KO',
+  instrumentName: 'Coca-Cola',
+  bidPrice: 71.2,
+  askPrice: 71.3,
+  lastPrice: 71.25,
+};
 
 const LIST = [AAPL, EURUSD, KO];
 
@@ -105,7 +112,9 @@ describe('InstrumentSearchComponent', () => {
   }
 
   async function press(key: string): Promise<void> {
-    element<HTMLInputElement>('input')!.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true }));
+    element<HTMLInputElement>('input')!.dispatchEvent(
+      new KeyboardEvent('keydown', { key, bubbles: true }),
+    );
     await settle();
   }
 
@@ -126,10 +135,18 @@ describe('InstrumentSearchComponent', () => {
     expect(element('[role="listbox"]')?.textContent).not.toContain('KO');
 
     await submit();
-    http.expectOne(`${API}/instruments/symbol/AAP`).flush(
-      { timestamp: '', status: 404, error: 'Not Found', message: 'Instrument not found', path: '' },
-      { status: 404, statusText: 'Not Found' },
-    );
+    http
+      .expectOne(`${API}/instruments/symbol/AAP`)
+      .flush(
+        {
+          timestamp: '',
+          status: 404,
+          error: 'Not Found',
+          message: 'Instrument not found',
+          path: '',
+        },
+        { status: 404, statusText: 'Not Found' },
+      );
     await settle();
     expect(element('[role="alert"]')?.textContent).toContain('No instrument with the symbol “AAP”');
 
@@ -145,7 +162,10 @@ describe('InstrumentSearchComponent', () => {
     expect(result?.textContent).toContain('$340.00'); // ask / last
     expect(result?.textContent).toContain('fresh');
     expect(result?.textContent).toContain('Tradable');
-    expect(element<HTMLAnchorElement>('.search-result a')?.getAttribute('href')).toBe('/trade?symbol=AAPL');
+    expect(element<HTMLAnchorElement>('.search-result a[href="/instruments/AAPL"]')).not.toBeNull();
+    expect(
+      element<HTMLAnchorElement>('.search-result a[href="/trade?symbol=AAPL"]'),
+    ).not.toBeNull();
   });
 
   it('picks a highlighted suggestion with the keyboard', async () => {
@@ -166,11 +186,15 @@ describe('InstrumentSearchComponent', () => {
     await submit();
     http
       .expectOne(`${API}/instruments/symbol/EUR%2FUSD`)
-      .flush('The request contained an invalid character', { status: 400, statusText: 'Bad Request' });
+      .flush('The request contained an invalid character', {
+        status: 400,
+        statusText: 'Bad Request',
+      });
     await settle();
     expect(element('[role="alert"]')).toBeNull();
     expect(element('.search-result')?.textContent).toContain('Euro / US Dollar');
     expect(element('.search-result')?.textContent).toContain('$1.12'); // bid 1.1158
+    expect(element<HTMLAnchorElement>('.search-result a[href^="/instruments/"]')).toBeNull();
   });
 
   it('does not offer to trade from an administrator account', async () => {
@@ -180,7 +204,8 @@ describe('InstrumentSearchComponent', () => {
     http.expectOne(`${API}/instruments/symbol/KO`).flush(KO);
     await settle();
     expect(element('.search-result')?.textContent).toContain('Coca-Cola');
-    expect(element('.search-result a')).toBeNull();
+    expect(element<HTMLAnchorElement>('.search-result a[href="/instruments/KO"]')).not.toBeNull();
+    expect(element<HTMLAnchorElement>('.search-result a[href^="/trade"]')).toBeNull();
     expect(text()).not.toContain('Trade KO');
   });
 

@@ -1,0 +1,38 @@
+.history-page {
+  max-width: 1120px;
+}
+
+.quote-card {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+
+.quote-price {
+  font-size: var(--text-3xl);
+  font-variant-numeric: tabular-nums;
+}
+
+.history-header {
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.history-message {
+  min-height: 220px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  color: var(--color-text-secondary);
+}
+
+.history-coverage {
+  margin-top: var(--space-3);
+}
+
+.history-card .alert {
+  margin: var(--space-4) 0;
+}

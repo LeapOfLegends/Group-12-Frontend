@@ -50,6 +50,14 @@ export const routes: Routes = [
         title: 'Dashboard · JetZy Trading',
       },
       {
+        path: 'instruments/:instrumentId',
+        loadComponent: () =>
+          import('./features/instrument-history/instrument-history').then(
+            (m) => m.InstrumentHistoryPage,
+          ),
+        title: 'Price history · JetZy Trading',
+      },
+      {
         path: 'transfer',
         canActivate: [clientGuard],
         loadComponent: () => import('./features/transfer/transfer').then((m) => m.TransferPage),

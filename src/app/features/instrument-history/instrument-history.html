@@ -1,0 +1,95 @@
+<div class="page history-page">
+  <a class="back-link" routerLink="/dashboard"
+    ><app-icon name="arrow-left" [size]="18" /> Back to Dashboard</a
+  >
+
+  <header class="page-header">
+    <div class="page-title">
+      <h1>Price history</h1>
+      @if (instrument(); as item) {
+        <p class="page-subtitle">
+          {{ item.symbol }} · {{ item.instrumentName }} · {{ item.currency }}
+        </p>
+      }
+    </div>
+  </header>
+
+  @if (instrumentLoading()) {
+    <app-loading-skeleton variant="text" [lines]="2" label="Loading instrument" />
+  } @else if (instrumentError(); as error) {
+    <div class="alert alert-error" role="alert">
+      <span>{{ error }}</span>
+      <button type="button" class="btn btn-secondary btn-sm" (click)="retry()">Retry</button>
+    </div>
+  } @else if (instrument(); as item) {
+    <section class="card quote-card" aria-label="Latest stored quote">
+      <span class="text-secondary">Latest stored quote</span>
+      <strong class="quote-price">{{ item.lastPrice | price: item.currency }}</strong>
+      <span class="text-secondary">{{ item.currency }}</span>
+      @if (item.quoteAsOf) {
+        <span class="text-secondary text-sm">As of {{ item.quoteAsOf | dateTime }}</span>
+      }
+    </section>
+  }
+
+  @if (!instrumentError()) {
+    <section class="card history-card" aria-labelledby="history-title">
+      <div class="card-header history-header">
+        <div>
+          <h2 id="history-title">Historical closing prices</h2>
+          <p class="card-subtitle">Stored US equity prices</p>
+        </div>
+        <div class="segmented" role="group" aria-label="Price history range">
+          @for (range of ranges; track range) {
+            <button
+              type="button"
+              [attr.aria-pressed]="selectedRange() === range"
+              (click)="setRange(range)"
+            >
+              {{ range }}
+            </button>
+          }
+        </div>
+      </div>
+
+      @if (historyLoading()) {
+        <app-loading-skeleton variant="chart" [height]="300" label="Loading price history" />
+      } @else if (historyError(); as error) {
+        <div class="alert alert-error" role="alert">
+          <span>{{ error }}</span>
+          <button type="button" class="btn btn-secondary btn-sm" (click)="retry()">Retry</button>
+        </div>
+      } @else if (history(); as result) {
+        @if (result.partial) {
+          <div class="alert alert-info" role="status">
+            Only part of this range is cached. The chart shows the available prices.
+          </div>
+        }
+        @if (points().length >= 2) {
+          <app-line-chart
+            [points]="points()"
+            [height]="300"
+            [valueFormatter]="formatValue"
+            [compactFormatter]="formatCompact"
+            [ariaLabel]="result.symbol + ' closing prices for ' + selectedRange()"
+          />
+        } @else if (points().length === 1) {
+          <p class="history-message" role="status">
+            Only one closing price is available for this range:
+            {{ points()[0].value | price: result.currency }}. Choose a longer range to see a chart.
+          </p>
+        } @else {
+          <p class="history-message" role="status">
+            No historical prices are available for this range. Try another range.
+          </p>
+        }
+        @if (result.availableFrom && result.availableTo) {
+          <p class="text-secondary text-sm history-coverage">
+            Available from {{ result.availableFrom | dateTime }} to
+            {{ result.availableTo | dateTime }}
+          </p>
+        }
+      }
+    </section>
+  }
+</div>

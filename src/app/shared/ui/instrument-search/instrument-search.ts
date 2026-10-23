@@ -66,11 +66,21 @@ type PanelView = 'none' | 'suggestions' | 'no-match' | 'loading' | 'result' | 'e
         />
         <span class="search-suffix">
           @if (query()) {
-            <button type="button" class="btn btn-ghost btn-icon search-clear" (click)="clear()" aria-label="Clear search">
+            <button
+              type="button"
+              class="btn btn-ghost btn-icon search-clear"
+              (click)="clear()"
+              aria-label="Clear search"
+            >
               <app-icon name="close" [size]="16" />
             </button>
           }
-          <button type="submit" class="btn btn-soft btn-icon search-submit" [disabled]="!query().trim() || loading()" aria-label="Look up price">
+          <button
+            type="submit"
+            class="btn btn-soft btn-icon search-submit"
+            [disabled]="!query().trim() || loading()"
+            aria-label="Look up price"
+          >
             @if (loading()) {
               <span class="spinner" aria-hidden="true"></span>
             } @else {
@@ -87,7 +97,12 @@ type PanelView = 'none' | 'suggestions' | 'no-match' | 'loading' | 'result' | 'e
         <div class="search-panel" (mousedown)="keepFocus($event)">
           @switch (view()) {
             @case ('suggestions') {
-              <ul [id]="listboxId" class="search-list" role="listbox" aria-label="Matching instruments">
+              <ul
+                [id]="listboxId"
+                class="search-list"
+                role="listbox"
+                aria-label="Matching instruments"
+              >
                 @for (item of suggestions(); track item.symbol; let index = $index) {
                   <li
                     [id]="optionId(index)"
@@ -99,15 +114,20 @@ type PanelView = 'none' | 'suggestions' | 'no-match' | 'loading' | 'result' | 'e
                     <span class="option-symbol">{{ item.symbol }}</span>
                     <span class="option-name truncate">{{ item.instrumentName }}</span>
                     <span class="option-class pill">{{ item.assetClass }}</span>
-                    <span class="option-price tabular">{{ item.lastPrice ?? item.askPrice | price: item.currency }}</span>
+                    <span class="option-price tabular">{{
+                      item.lastPrice ?? item.askPrice | price: item.currency
+                    }}</span>
                   </li>
                 }
               </ul>
-              <p class="search-note search-hint">Choose an instrument, or press Enter to look up the symbol you typed.</p>
+              <p class="search-note search-hint">
+                Choose an instrument, or press Enter to look up the symbol you typed.
+              </p>
             }
             @case ('no-match') {
               <p class="search-note">
-                No instrument in the list matches “{{ query().trim() }}”. Press Enter to look the symbol up anyway.
+                No instrument in the list matches “{{ query().trim() }}”. Press Enter to look the
+                symbol up anyway.
               </p>
             }
             @case ('loading') {
@@ -124,7 +144,12 @@ type PanelView = 'none' | 'suggestions' | 'no-match' | 'loading' | 'result' | 'e
             }
             @case ('result') {
               @if (result(); as found) {
-                <div class="search-result" role="region" aria-live="polite" [attr.aria-label]="'Quote for ' + found.symbol">
+                <div
+                  class="search-result"
+                  role="region"
+                  aria-live="polite"
+                  [attr.aria-label]="'Quote for ' + found.symbol"
+                >
                   <div class="result-head">
                     <div class="result-identity">
                       <span class="result-symbol">{{ found.symbol }}</span>
@@ -154,7 +179,10 @@ type PanelView = 'none' | 'suggestions' | 'no-match' | 'loading' | 'result' | 'e
                     </div>
                     <div>
                       <dt>Quote age</dt>
-                      <dd [class.text-positive]="quoteFresh()" [class.text-negative]="quoteAge() !== null && !quoteFresh()">
+                      <dd
+                        [class.text-positive]="quoteFresh()"
+                        [class.text-negative]="quoteAge() !== null && !quoteFresh()"
+                      >
                         {{ quoteAgeLabel() }}
                       </dd>
                     </div>
@@ -168,12 +196,27 @@ type PanelView = 'none' | 'suggestions' | 'no-match' | 'loading' | 'result' | 'e
                       }
                     </span>
                     <div class="cluster result-actions">
-                      <button type="button" class="btn btn-ghost btn-sm" (click)="lookup(found.symbol)">
+                      @if (found.assetClass.toUpperCase() === 'EQUITY') {
+                        <a
+                          class="btn btn-soft btn-sm"
+                          [routerLink]="['/instruments', found.instrumentId ?? found.symbol]"
+                          >Price history</a
+                        >
+                      }
+                      <button
+                        type="button"
+                        class="btn btn-ghost btn-sm"
+                        (click)="lookup(found.symbol)"
+                      >
                         <app-icon name="refresh" [size]="16" />
                         Refresh
                       </button>
                       @if (auth.isClient() && found.tradable) {
-                        <a class="btn btn-soft btn-sm" routerLink="/trade" [queryParams]="{ symbol: found.symbol }">
+                        <a
+                          class="btn btn-soft btn-sm"
+                          routerLink="/trade"
+                          [queryParams]="{ symbol: found.symbol }"
+                        >
                           Trade {{ found.symbol }}
                           <app-icon name="arrow-right" [size]="16" />
                         </a>
@@ -452,7 +495,8 @@ export class InstrumentSearchComponent {
     const contains = instruments.filter(
       (item) =>
         !starts.includes(item) &&
-        (item.symbol.toUpperCase().includes(term) || item.instrumentName.toUpperCase().includes(term)),
+        (item.symbol.toUpperCase().includes(term) ||
+          item.instrumentName.toUpperCase().includes(term)),
     );
     return [...starts, ...contains].slice(0, MAX_SUGGESTIONS);
   });
@@ -479,10 +523,14 @@ export class InstrumentSearchComponent {
 
   protected readonly activeOptionId = computed(() => {
     const index = this.activeIndex();
-    return this.open() && this.view() === 'suggestions' && this.suggestions()[index] ? this.optionId(index) : null;
+    return this.open() && this.view() === 'suggestions' && this.suggestions()[index]
+      ? this.optionId(index)
+      : null;
   });
 
-  protected readonly quoteAge = computed(() => ageInSeconds(this.result()?.quoteAsOf ?? null, this.now()));
+  protected readonly quoteAge = computed(() =>
+    ageInSeconds(this.result()?.quoteAsOf ?? null, this.now()),
+  );
   protected readonly quoteFresh = computed(() => {
     const age = this.quoteAge();
     return age !== null && age <= environment.quoteMaxAgeSeconds;
@@ -551,7 +599,10 @@ export class InstrumentSearchComponent {
         }
         break;
       case 'Enter': {
-        const highlighted = this.open() && this.view() === 'suggestions' ? this.suggestions()[this.activeIndex()] : undefined;
+        const highlighted =
+          this.open() && this.view() === 'suggestions'
+            ? this.suggestions()[this.activeIndex()]
+            : undefined;
         if (highlighted) {
           event.preventDefault();
           this.choose(highlighted);
@@ -660,7 +711,8 @@ export class InstrumentSearchComponent {
 
   private async fromList(symbol: string): Promise<Instrument | null> {
     try {
-      const listed = this.instruments().length > 0 ? this.instruments() : await firstValueFrom(this.loadList());
+      const listed =
+        this.instruments().length > 0 ? this.instruments() : await firstValueFrom(this.loadList());
       return listed.find((item) => item.symbol.toUpperCase() === symbol) ?? null;
     } catch {
       return null;

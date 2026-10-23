@@ -235,6 +235,13 @@
                   </div>
                 </div>
                 <div class="instrument-actions">
+                  @if (instrument.assetClass.toUpperCase() === 'EQUITY') {
+                    <a
+                      class="btn btn-soft btn-sm"
+                      [routerLink]="['/instruments', instrument.instrumentId]"
+                      >Price history</a
+                    >
+                  }
                   <button
                     type="button"
                     class="btn btn-ghost btn-sm"
