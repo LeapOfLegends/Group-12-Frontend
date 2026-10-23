@@ -94,6 +94,8 @@ export interface SessionUser {
   /** clientId or adminId, depending on `kind`. */
   id: number;
   email: string;
+  /** Client contact number, when supplied by login or a profile update. */
+  phoneNumber?: string;
   firstName: string;
   lastName: string;
   displayName: string;
