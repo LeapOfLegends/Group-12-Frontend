@@ -115,6 +115,17 @@
             </div>
           </div>
 
+          @if (selected()) {
+            <div class="alert" [class.alert-info]="marketTradingAllowed()"
+              [class.alert-warning]="!marketTradingAllowed()" role="status" aria-live="polite">
+              <app-icon [name]="marketTradingAllowed() ? 'check-circle' : 'alert-circle'" />
+              <span>
+                <strong>{{ marketTradingAllowed() ? 'Market open' : marketAvailability()?.status === 'CLOSED' ? 'Market closed' : 'Market availability' }}</strong>
+                — {{ marketMessage() }}
+              </span>
+            </div>
+          }
+
           <fieldset class="entry-fieldset" [disabled]="step() === 'review'">
             <!-- Instrument picker -->
             <div class="field">

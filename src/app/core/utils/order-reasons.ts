@@ -3,6 +3,8 @@ import { Order, OrderStatus } from '../models/trading.models';
 const REJECTION_MESSAGES: Record<string, string> = {
   INSTRUMENT_NOT_FOUND: 'The instrument could not be found.',
   INSTRUMENT_NOT_TRADABLE: 'This instrument is not currently tradable.',
+  MARKET_CLOSED: 'The market is closed. No trade was placed. Please try again when the market reopens.',
+  MARKET_STATUS_UNAVAILABLE: 'Market availability could not be verified. No trade was placed. Please try again once market status refreshes.',
   MISSING_QUOTE: 'No market quote is available for this instrument right now.',
   STALE_QUOTE: 'The market quote was too old to price the order. Please try again once market data refreshes.',
   INSUFFICIENT_FUNDS: 'There was not enough buying power to cover this order.',

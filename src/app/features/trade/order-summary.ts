@@ -91,6 +91,13 @@ export interface OrderSummaryModel {
           <app-icon name="arrow-right" [size]="18" />
         </button>
       } @else if (step() === 'review') {
+        @if (errors().length > 0) {
+          <ul class="issue-list" aria-live="polite">
+            @for (error of errors(); track error) {
+              <li class="field-error"><app-icon name="alert-circle" [size]="16" />{{ error }}</li>
+            }
+          </ul>
+        }
         <p class="review-note text-secondary text-sm">
           You are placing a market order. It will be checked against the trading rules and, if accepted, executed at the current market
           quote — which may differ from the estimate above.
@@ -115,7 +122,7 @@ export interface OrderSummaryModel {
             [class.btn-primary]="model().side === 'BUY'"
             [class.btn-danger]="model().side === 'SELL'"
             (click)="confirm.emit()"
-            [disabled]="submitting()"
+            [disabled]="submitting() || !canReview()"
             [attr.aria-busy]="submitting()"
           >
             @if (submitting()) {

@@ -9,11 +9,12 @@ import {
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { interval } from 'rxjs';
+import { BehaviorSubject, catchError, interval, of, switchMap, timeout, timer } from 'rxjs';
 import { environment } from '../../../environments/environment';
+import { InstrumentsApiService } from '../../core/api/instruments-api.service';
 import { OrdersApiService } from '../../core/api/orders-api.service';
 import { AuthService } from '../../core/auth/auth.service';
-import { CatalogInstrument, Order, OrderType } from '../../core/models/trading.models';
+import { CatalogInstrument, MarketAvailability, Order, OrderType } from '../../core/models/trading.models';
 import { InstrumentCatalogService } from '../../core/services/instrument-catalog.service';
 import { NotificationService } from '../../core/services/notification.service';
 import { PortfolioService } from '../../core/services/portfolio.service';
@@ -62,6 +63,8 @@ export class TradePage implements OnInit {
   private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
   private readonly ordersApi = inject(OrdersApiService);
+  private readonly instrumentsApi = inject(InstrumentsApiService);
+  private readonly marketSelection = new BehaviorSubject<number | null>(null);
   private readonly notifications = inject(NotificationService);
   protected readonly auth = inject(AuthService);
   protected readonly catalog = inject(InstrumentCatalogService);
@@ -78,7 +81,24 @@ export class TradePage implements OnInit {
   protected readonly quantityText = signal('');
   protected readonly quantityTouched = signal(false);
   protected readonly refreshingQuote = signal(false);
+  protected readonly marketAvailability = signal<MarketAvailability | null>(null);
   private readonly now = signal(Date.now());
+
+  protected readonly marketTradingAllowed = computed(() => {
+    const market = this.marketAvailability();
+    return market?.status === 'OPEN' && market.tradingAllowed === true
+      && market.validUntil !== null && Date.parse(market.validUntil) > this.now();
+  });
+  protected readonly marketMessage = computed(() => {
+    const market = this.marketAvailability();
+    if (!market) {
+      return 'Checking market availability…';
+    }
+    if (market.status === 'OPEN' && !this.marketTradingAllowed()) {
+      return 'Market status has expired. Trading is disabled while availability is refreshed.';
+    }
+    return market.message;
+  });
 
   // Submission state
   protected readonly step = signal<TradeStep>('entry');
@@ -158,6 +178,9 @@ export class TradePage implements OnInit {
     if (!instrument) {
       errors.push('Choose an instrument to trade.');
     } else {
+      if (!this.marketTradingAllowed()) {
+        errors.push(this.marketMessage());
+      }
       if (!instrument.tradable) {
         errors.push(`${instrument.symbol} is not currently tradable.`);
       }
@@ -224,7 +247,29 @@ export class TradePage implements OnInit {
     }
     const symbol = params.get('symbol');
 
-    interval(5000)
+    this.marketSelection.pipe(
+      // Switching instruments cancels the old polling stream and any in-flight request.
+      switchMap((id) => id === null ? of(null) : timer(0, 15000).pipe(
+        switchMap(() => this.instrumentsApi.getMarketStatus(id).pipe(
+          timeout(10000),
+          catchError(() => of<MarketAvailability>({
+            marketCode: null,
+            status: 'UNAVAILABLE',
+            tradingAllowed: false,
+            message: 'Market status could not be checked. Trading is disabled. Retrying automatically…',
+            statusAsOf: null,
+            validUntil: null,
+            rejectionReason: 'MARKET_STATUS_UNAVAILABLE',
+          })),
+        )),
+      )),
+      takeUntilDestroyed(this.destroyRef),
+    ).subscribe((market) => {
+      this.now.set(Date.now());
+      this.marketAvailability.set(market);
+    });
+
+    interval(1000)
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe(() => this.now.set(Date.now()));
 
@@ -283,6 +328,8 @@ export class TradePage implements OnInit {
 
   protected choose(instrument: CatalogInstrument): void {
     this.selected.set(instrument);
+    this.marketAvailability.set(null);
+    this.marketSelection.next(instrument.instrumentId);
     this.query.set(instrument.symbol);
     this.listOpen.set(false);
     this.now.set(Date.now());
@@ -290,6 +337,7 @@ export class TradePage implements OnInit {
 
   protected clearInstrument(): void {
     this.selected.set(null);
+    this.marketSelection.next(null);
     this.query.set('');
   }
 
@@ -387,6 +435,7 @@ export class TradePage implements OnInit {
    * with its reason, anything else is handed to /trade/confirmation, which follows execution.
    */
   protected confirmOrder(): void {
+    this.now.set(Date.now());
     const instrument = this.selected();
     const quantity = this.quantity();
     const user = this.auth.user();
@@ -412,6 +461,11 @@ export class TradePage implements OnInit {
           this.submitting.set(false);
           void this.portfolio.refresh();
           if (order.status === 'REJECTED') {
+            if (order.rejectionReason === 'MARKET_CLOSED'
+              || order.rejectionReason === 'MARKET_STATUS_UNAVAILABLE') {
+              this.marketAvailability.set(null);
+              this.marketSelection.next(instrument.instrumentId);
+            }
             this.result.set(order);
             this.step.set('result');
             this.notifications.warning(
