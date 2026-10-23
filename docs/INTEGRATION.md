@@ -76,7 +76,44 @@ would fail the pre-flight request.
 | | `GET /api/clients/{id}` / `GET /api/clients/email/{email}` | client lookup |
 | | `GET /api/clients/{id}/holdings`, `GET /api/orders/client/{id}` | the looked-up client's positions and order history (the `/me` routes are client-only, so administrators use these) |
 | | `GET /api/orders/{id}` | order tracing |
+| | `GET /api/analytics/platform-metrics?range=week\|month\|year\|all` | warehouse order counts and filled trading values; all three admin roles |
 | | `GET /admins`, `POST /admins`, `PUT /admins/{id}`, `DELETE /admins/{id}` | super admin only |
+
+## Platform Metrics
+
+The admin overview reads warehouse activity from `data_warehouse.dw.table_records`
+through `GET /api/analytics/platform-metrics`. The backend uses a separate JDBC
+connection; it does not redirect trading or client queries away from `capstone2026`.
+The same response includes `totalDeposits` and `totalWithdrawals` from
+`capstone2026.transactions`, through the existing Spring/MyBatis datasource.
+Funding totals select `transaction_type = 'DEPOSIT'` or `'WITHDRAWAL'`, exclude
+BUY/SELL transactions, and sum absolute amounts so withdrawals display positively.
+They use `created_at` with the same selected half-open UTC time window, return
+zero for an empty period, and use the application's USD account-cash convention.
+
+Configure the backend with `WAREHOUSE_DATASOURCE_URL` (default
+`jdbc:postgresql://localhost:15432/data_warehouse`),
+`WAREHOUSE_DATASOURCE_USERNAME` and `WAREHOUSE_DATASOURCE_PASSWORD`.
+The latter two default to the existing Spring datasource credentials. A read-only
+database user with access to schema `dw` and `dw.table_records` is recommended.
+
+The default range is `all`. `week` is the preceding seven days; `month` and `year`
+are the preceding calendar month and year, ending at request time in UTC. Windows
+include the lower boundary and exclude the upper boundary. Total, pending
+(`SUBMITTED`/`ACCEPTED`), and failed/rejected order counts are filtered by
+`submitted_at`. Filled counts and trading values use `filled_at`, so a fill may
+belong to a period even when its order was submitted earlier. Trading values sum
+`trade_value` for `FILLED` records and remain separate by currency, without FX conversion.
+
+These are warehouse figures, not real-time transaction totals; completeness and
+status freshness depend on ETL loads. Repeated snapshots are reduced to the latest
+`created_at` per client/instrument/submission-timestamp key, with lifecycle time
+and terminal status breaking ties. Its current schema has no `order_id`, so order
+identity follows this existing ETL key. Funding totals are live transaction-ledger
+aggregates rather than warehouse figures; pending funding transfers remain unavailable.
+An unavailable source database returns 503; the frontend shows an error and retry
+instead of zero totals. Range changes cancel obsolete frontend requests. The
+period filter applies to both warehouse activity and funding totals, not current balances above it.
 
 ## Order lifecycle as the UI presents it
 
@@ -112,6 +149,7 @@ executing" and points to the dashboard. Buying power already subtracts the reser
 - Client activity lookup and order tracing for operations/super admins.
 - Client cash positions for finance/super admins.
 - Market data health (fresh/stale/missing quotes, tradability) from `/instruments`.
+- Warehouse order counts and currency-separated filled trading values with week, month, year and all-time filters.
 
 ### Supported with a workaround
 
@@ -135,9 +173,7 @@ executing" and points to the dashboard. Buying power already subtracts the reser
 
 | Requested metric | Why it is unavailable |
 | --- | --- |
-| Total orders, trading volume, order status breakdown, failed/rejected orders | Orders are only exposed per client; no platform-wide or aggregate endpoint |
-| Total deposits / withdrawals, pending transfers, reconciliation | The `transactions` table is not exposed by any endpoint |
-| Pending transactions | No platform-wide pending-order endpoint |
+| Pending funding transfers, reconciliation | These are not provided by the platform metrics endpoint; funding totals report recorded deposits/withdrawals only |
 | Funding sources / withdrawal destinations | Not modelled (BRS 4.2 puts banking integration out of scope) |
 | Order types other than market | `CreateOrderRequest` has no order-type field beyond BUY/SELL |
 | Fees | The backend charges none; receipts show "No commission" rather than a fabricated amount |

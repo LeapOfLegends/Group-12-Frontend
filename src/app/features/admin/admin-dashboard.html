@@ -20,7 +20,7 @@
   <section aria-labelledby="overview-title" class="stack">
     <div class="section-heading">
       <h2 id="overview-title">Platform overview</h2>
-      <p class="text-secondary text-sm">Live figures from the trading API. Metrics without an endpoint are listed below, not estimated.</p>
+      <p class="text-secondary text-sm">Current platform balances, funding totals and warehouse trading activity.</p>
     </div>
 
     @if (clientsError(); as error) {
@@ -55,22 +55,8 @@
       }
     </div>
 
-    <details class="card card-compact unavailable">
-      <summary>
-        <app-icon name="info" [size]="18" />
-        <span>{{ unavailableMetrics.length }} platform metrics are not available yet</span>
-        <span class="text-secondary text-sm">— they need backend endpoints that do not exist</span>
-      </summary>
-      <ul class="unavailable-list">
-        @for (metric of unavailableMetrics; track metric.label) {
-          <li>
-            <span class="pill">Not connected</span>
-            <strong>{{ metric.label }}</strong>
-            <span class="text-secondary text-sm">{{ metric.reason }}</span>
-          </li>
-        }
-      </ul>
-    </details>
+    <app-platform-metrics />
+
   </section>
 
   <!-- Trading operations ----------------------------------------------------- -->
