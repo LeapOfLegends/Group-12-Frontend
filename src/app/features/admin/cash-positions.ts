@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, computed, input, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, input, output, signal } from '@angular/core';
 import { ClientRecord } from '../../core/models/trading.models';
 import { formatMoney } from '../../core/utils/money';
 import { MoneyPipe, ShortDatePipe } from '../../shared/pipes/format.pipes';
@@ -20,7 +20,9 @@ const PAGE_SIZE = 25;
       <div class="card-header">
         <div>
           <h3 id="cash-positions-title">Client cash positions</h3>
-          <p class="card-subtitle">{{ clients().length }} clients · total cash {{ totalCash() | money }} · average {{ averageCash() | money }}</p>
+          @if (!loading() && !error()) {
+            <p class="card-subtitle">{{ clients().length }} clients · total cash {{ totalCash() | money }} · average {{ averageCash() | money }}</p>
+          }
         </div>
         <div class="controls">
           <label class="visually-hidden" for="cash-search">Search clients</label>
@@ -37,8 +39,16 @@ const PAGE_SIZE = 25;
         </div>
       </div>
 
-      @if (loading() && clients().length === 0) {
+      @if (error(); as message) {
+        <div class="alert alert-error" role="alert">
+          <app-icon name="alert-circle" />
+          <span>{{ message }}</span>
+          <button type="button" class="btn btn-sm btn-secondary alert-action" (click)="retry.emit()">Retry</button>
+        </div>
+      } @else if (loading() && clients().length === 0) {
         <app-loading-skeleton variant="table" [lines]="6" label="Loading client balances" />
+      } @else if (clients().length === 0) {
+        <app-empty-state icon="users" title="No client cash positions" message="No client accounts have been returned." />
       } @else if (visible().length === 0) {
         <app-empty-state icon="users" title="No clients match" message="Try a different name or email address." />
       } @else {
@@ -111,6 +121,8 @@ const PAGE_SIZE = 25;
 export class CashPositionsComponent {
   readonly clients = input<ClientRecord[]>([]);
   readonly loading = input<boolean>(false);
+  readonly error = input<string | null>(null);
+  readonly retry = output<void>();
 
   protected readonly pageSize = PAGE_SIZE;
   protected readonly query = signal('');

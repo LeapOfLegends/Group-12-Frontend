@@ -72,7 +72,7 @@ would fail the pre-flight request.
 | | `GET /instruments/symbol/{symbol}` | quote refresh |
 | | `POST /api/clients/me/orders` | returns the order record: `ACCEPTED` or `REJECTED` (+ reason) |
 | Trade confirmation | `GET /api/clients/me/orders/{id}` | polled every 1.5s (max 150s) until `FILLED`, `FAILED` or `REJECTED`; also used to reload `/trade/confirmation?orderId=` after a refresh |
-| Admin | `GET /api/clients` | client list (super admin, operations) |
+| Admin | `GET /api/clients` | client list for platform overview and cash positions (super admin, operations, finance) |
 | | `GET /api/clients/{id}` / `GET /api/clients/email/{email}` | client lookup |
 | | `GET /api/clients/{id}/holdings`, `GET /api/orders/client/{id}` | the looked-up client's positions and order history (the `/me` routes are client-only, so administrators use these) |
 | | `GET /api/orders/{id}` | order tracing |
