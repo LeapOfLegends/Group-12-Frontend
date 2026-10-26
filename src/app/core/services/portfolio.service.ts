@@ -1,10 +1,10 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
-import { firstValueFrom, forkJoin, map, switchMap } from 'rxjs';
+import { catchError, firstValueFrom, forkJoin, map, of, switchMap } from 'rxjs';
 import { ClientApiService } from '../api/client-api.service';
 import { HoldingsApiService } from '../api/holdings-api.service';
 import { OrdersApiService } from '../api/orders-api.service';
 import { AuthService } from '../auth/auth.service';
-import { Holding, Instrument, Order } from '../models/trading.models';
+import { AccountTransaction, Holding, Instrument, Order } from '../models/trading.models';
 import { describeHttpError } from '../utils/http-error';
 import {
   allocationByAssetClass,
@@ -32,6 +32,8 @@ export class PortfolioService {
   private readonly cashState = signal<number | null>(null);
   private readonly holdingsState = signal<Holding[]>([]);
   private readonly ordersState = signal<Order[]>([]);
+  private readonly transactionsState = signal<AccountTransaction[]>([]);
+  private readonly transactionErrorState = signal<string | null>(null);
   private readonly instrumentsState = signal<Map<number, Instrument>>(new Map());
   private readonly loadingState = signal(false);
   private readonly errorState = signal<string | null>(null);
@@ -41,6 +43,8 @@ export class PortfolioService {
   readonly cash = this.cashState.asReadonly();
   readonly holdings = this.holdingsState.asReadonly();
   readonly orders = this.ordersState.asReadonly();
+  readonly transactions = this.transactionsState.asReadonly();
+  readonly transactionError = this.transactionErrorState.asReadonly();
   readonly instrumentsById = this.instrumentsState.asReadonly();
   readonly loading = this.loadingState.asReadonly();
   readonly error = this.errorState.asReadonly();
@@ -50,6 +54,12 @@ export class PortfolioService {
   readonly positions = computed(() => buildPositions(this.holdingsState(), this.instrumentsState()));
   readonly orderRows = computed(() => buildOrderRows(this.ordersState(), this.instrumentsState()));
   readonly recentOrders = computed(() => this.orderRows().slice(0, 8));
+  readonly recentMoneyTransactions = computed(() => this.transactionsState()
+    .filter((transaction) => transaction.transactionType === 'DEPOSIT' || transaction.transactionType === 'WITHDRAWAL')
+    .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))
+    .slice(0, 8));
+  readonly moneyTransactionCount = computed(() => this.transactionsState()
+    .filter((transaction) => transaction.transactionType === 'DEPOSIT' || transaction.transactionType === 'WITHDRAWAL').length);
   readonly summary = computed(() => summarizePortfolio(this.cashState() ?? 0, this.positions(), this.ordersState()));
   readonly allocation = computed(() => allocationByAssetClass(this.positions()));
   readonly investedSeries = computed(() => investedCapitalSeries(this.ordersState(), this.instrumentsState()));
@@ -70,13 +80,20 @@ export class PortfolioService {
     }
     this.loadingState.set(true);
     this.errorState.set(null);
+    this.transactionErrorState.set(null);
     try {
       const clientId = user.id;
-      const { balance, holdings, orders, instruments } = await firstValueFrom(
+      const { balance, holdings, orders, transactions, instruments } = await firstValueFrom(
         forkJoin({
           balance: this.clientApi.getBalance(clientId),
           holdings: this.holdingsApi.listMine(),
           orders: this.ordersApi.listMine(),
+          transactions: this.clientApi.listMyTransactions().pipe(
+            catchError((error: unknown) => {
+              this.transactionErrorState.set(describeHttpError(error, 'Your transaction history could not be loaded.'));
+              return of([] as AccountTransaction[]);
+            }),
+          ),
         }).pipe(
           switchMap((loaded) => {
             const ids = [...loaded.holdings.map((holding) => holding.instrumentId), ...loaded.orders.map((order) => order.instrumentId)];
@@ -87,6 +104,7 @@ export class PortfolioService {
       this.cashState.set(balance.accountBalance);
       this.holdingsState.set(holdings);
       this.ordersState.set(orders);
+      this.transactionsState.set(transactions);
       this.instrumentsState.set(instruments);
       this.loadedAtState.set(Date.now());
       this.loadedForClientId = clientId;
@@ -119,6 +137,8 @@ export class PortfolioService {
     this.cashState.set(null);
     this.holdingsState.set([]);
     this.ordersState.set([]);
+    this.transactionsState.set([]);
+    this.transactionErrorState.set(null);
     this.instrumentsState.set(new Map());
     this.errorState.set(null);
     this.loadedAtState.set(null);

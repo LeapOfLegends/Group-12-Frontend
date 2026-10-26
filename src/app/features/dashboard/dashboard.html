@@ -219,5 +219,23 @@
         caption="Recent orders"
       />
     </section>
+
+    <section class="card" aria-labelledby="transactions-title">
+      <div class="card-header">
+        <div>
+          <h2 id="transactions-title">Recent transactions</h2>
+          <p class="card-subtitle">Showing your latest {{ recentMoneyTransactions().length }} of {{ moneyTransactionCount() }} deposits and withdrawals.</p>
+        </div>
+        <a class="btn btn-soft btn-sm" routerLink="/transfer">Transfer money</a>
+      </div>
+      @if (transactionError(); as error) {
+        <div class="alert alert-error" role="alert">
+          <app-icon name="alert-circle" />
+          <span>{{ error }}</span>
+        </div>
+      } @else {
+        <app-transactions-table [rows]="recentMoneyTransactions()" [loading]="initialLoading()" />
+      }
+    </section>
   }
 </div>
