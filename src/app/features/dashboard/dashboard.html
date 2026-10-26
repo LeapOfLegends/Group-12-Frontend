@@ -197,7 +197,7 @@
         </div>
         <a class="btn btn-soft btn-sm" routerLink="/trade">Place trade</a>
       </div>
-      <app-holdings-table [positions]="positions()" [loading]="initialLoading()" />
+      <app-holdings-table [positions]="positions()" [loading]="initialLoading()" [visibleRows]="3" />
     </section>
 
     <section class="card" aria-labelledby="orders-title">
@@ -216,6 +216,7 @@
       <app-orders-table
         [rows]="recentOrders()"
         [loading]="initialLoading()"
+        [visibleRows]="3"
         caption="Recent orders"
       />
     </section>
@@ -234,7 +235,7 @@
           <span>{{ error }}</span>
         </div>
       } @else {
-        <app-transactions-table [rows]="recentMoneyTransactions()" [loading]="initialLoading()" />
+        <app-transactions-table [rows]="recentMoneyTransactions()" [loading]="initialLoading()" [visibleRows]="3" />
       }
     </section>
   }

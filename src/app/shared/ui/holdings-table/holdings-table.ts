@@ -5,12 +5,13 @@ import { MoneyPipe, PercentagePipe, PricePipe, QuantityPipe, SignedMoneyPipe } f
 import { EmptyStateComponent } from '../empty-state/empty-state';
 import { IconComponent } from '../icon/icon';
 import { LoadingSkeletonComponent } from '../loading-skeleton/loading-skeleton';
+import { TableScrollDirective } from '../table-scroll';
 
 /** Current holdings with live valuation and Buy / Sell shortcuts. */
 @Component({
   selector: 'app-holdings-table',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterLink, MoneyPipe, PricePipe, QuantityPipe, SignedMoneyPipe, PercentagePipe, EmptyStateComponent, IconComponent, LoadingSkeletonComponent],
+  imports: [RouterLink, MoneyPipe, PricePipe, QuantityPipe, SignedMoneyPipe, PercentagePipe, EmptyStateComponent, IconComponent, LoadingSkeletonComponent, TableScrollDirective],
   template: `
     @if (loading()) {
       <app-loading-skeleton variant="table" [lines]="4" label="Loading holdings" />
@@ -21,7 +22,7 @@ import { LoadingSkeletonComponent } from '../loading-skeleton/loading-skeleton';
         }
       </app-empty-state>
     } @else {
-      <div class="table-wrap">
+      <div class="table-wrap" [appTableScroll]="visibleRows()" tableScrollLabel="Current holdings">
         <table class="table">
           <caption class="visually-hidden">Current holdings</caption>
           <thead>
@@ -99,4 +100,5 @@ export class HoldingsTableComponent {
   readonly positions = input<HoldingPosition[]>([]);
   readonly loading = input<boolean>(false);
   readonly showActions = input<boolean>(true);
+  readonly visibleRows = input<number | null>(null);
 }

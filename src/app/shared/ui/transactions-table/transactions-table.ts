@@ -3,19 +3,20 @@ import { AccountTransaction } from '../../../core/models/trading.models';
 import { DateTimePipe, MoneyPipe, SignedMoneyPipe } from '../../pipes/format.pipes';
 import { EmptyStateComponent } from '../empty-state/empty-state';
 import { LoadingSkeletonComponent } from '../loading-skeleton/loading-skeleton';
+import { TableScrollDirective } from '../table-scroll';
 
 /** Recent account deposits and withdrawals. */
 @Component({
   selector: 'app-transactions-table',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DateTimePipe, MoneyPipe, SignedMoneyPipe, EmptyStateComponent, LoadingSkeletonComponent],
+  imports: [DateTimePipe, MoneyPipe, SignedMoneyPipe, EmptyStateComponent, LoadingSkeletonComponent, TableScrollDirective],
   template: `
     @if (loading()) {
       <app-loading-skeleton variant="table" [lines]="4" label="Loading transactions" />
     } @else if (rows().length === 0) {
       <app-empty-state icon="transfer" title="No deposits or withdrawals yet" message="Account funding activity will appear here." />
     } @else {
-      <div class="table-wrap">
+      <div class="table-wrap" [appTableScroll]="visibleRows()" tableScrollLabel="Recent transactions">
         <table class="table">
           <caption class="visually-hidden">Recent deposits and withdrawals</caption>
           <thead>
@@ -78,4 +79,5 @@ import { LoadingSkeletonComponent } from '../loading-skeleton/loading-skeleton';
 export class TransactionsTableComponent {
   readonly rows = input<AccountTransaction[]>([]);
   readonly loading = input<boolean>(false);
+  readonly visibleRows = input<number | null>(null);
 }
