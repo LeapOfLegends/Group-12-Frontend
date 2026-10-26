@@ -1,6 +1,7 @@
 import { Component, inject } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
 import { ThemeService } from './core/services/theme.service';
+import { AppDataSyncService } from './core/services/app-data-sync.service';
 import { NotificationToastComponent } from './shared/ui/notification-toast/notification-toast';
 
 @Component({
@@ -14,4 +15,6 @@ import { NotificationToastComponent } from './shared/ui/notification-toast/notif
 export class App {
   // Instantiated eagerly so the saved theme is applied as soon as the app boots.
   private readonly theme = inject(ThemeService);
+  // Eager singleton: owns the only app-wide quote and account polling loops.
+  private readonly dataSync = inject(AppDataSyncService);
 }

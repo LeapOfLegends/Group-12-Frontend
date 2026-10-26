@@ -1,44 +1,38 @@
 <div class="page history-page">
-  <a class="back-link" routerLink="/dashboard"
-    ><app-icon name="arrow-left" [size]="18" /> Back to Dashboard</a
-  >
-
-  <header class="page-header">
-    <div class="page-title">
-      <h1>Price history</h1>
-      @if (instrument(); as item) {
-        <p class="page-subtitle">
-          {{ item.symbol }} · {{ item.instrumentName }} · {{ item.currency }}
-        </p>
-      }
-    </div>
-  </header>
+  <a class="back-link" routerLink="/dashboard">
+    <app-icon name="arrow-left" [size]="18" /> Back to Dashboard
+  </a>
 
   @if (instrumentLoading()) {
-    <app-loading-skeleton variant="text" [lines]="2" label="Loading instrument" />
+    <div class="stock-header-loading">
+      <app-loading-skeleton variant="text" [lines]="3" label="Loading instrument" />
+    </div>
   } @else if (instrumentError(); as error) {
     <div class="alert alert-error" role="alert">
       <span>{{ error }}</span>
       <button type="button" class="btn btn-secondary btn-sm" (click)="retry()">Retry</button>
     </div>
   } @else if (instrument(); as item) {
-    <section class="card quote-card" aria-label="Latest stored quote">
-      <span class="text-secondary">Latest stored quote</span>
-      <strong class="quote-price">{{ item.lastPrice | price: item.currency }}</strong>
-      <span class="text-secondary">{{ item.currency }}</span>
-      @if (item.quoteAsOf) {
-        <span class="text-secondary text-sm">As of {{ item.quoteAsOf | dateTime }}</span>
-      }
-    </section>
+    <header class="stock-header">
+      <p class="stock-name">{{ item.instrumentName }}</p>
+      <h1>{{ item.symbol }}</h1>
+      <p class="stock-price">{{ item.lastPrice | price: item.currency }}</p>
+      <p class="stock-meta">
+        {{ item.currency }}
+        @if (item.lastPrice !== null && item.lastTradeAsOf) {
+          <span>· Last trade {{ item.lastTradeAsOf | dateTime }}</span>
+        } @else if (item.lastPrice !== null) {
+          <span>· Trade time unavailable</span>
+        } @else {
+          <span>· No stored trade price</span>
+        }
+      </p>
+    </header>
   }
 
   @if (!instrumentError()) {
-    <section class="card history-card" aria-labelledby="history-title">
-      <div class="card-header history-header">
-        <div>
-          <h2 id="history-title">Historical closing prices</h2>
-          <p class="card-subtitle">Stored US equity prices</p>
-        </div>
+    <section class="history-panel" aria-label="Price history chart">
+      <div class="history-controls">
         <div class="segmented" role="group" aria-label="Price history range">
           @for (range of ranges; track range) {
             <button
@@ -53,7 +47,7 @@
       </div>
 
       @if (historyLoading()) {
-        <app-loading-skeleton variant="chart" [height]="300" label="Loading price history" />
+        <app-loading-skeleton variant="chart" [height]="360" label="Loading price history" />
       } @else if (historyError(); as error) {
         <div class="alert alert-error" role="alert">
           <span>{{ error }}</span>
@@ -68,11 +62,15 @@
         @if (points().length >= 2) {
           <app-line-chart
             [points]="points()"
-            [height]="300"
+            [height]="360"
+            xScale="index"
+            [xTickFormatter]="formatAxisTime"
+            [tooltipTimeFormatter]="formatTooltipTime"
             [valueFormatter]="formatValue"
             [compactFormatter]="formatCompact"
             [ariaLabel]="result.symbol + ' closing prices for ' + selectedRange()"
           />
+          <p class="exchange-time-note">Times shown in New York exchange time (ET).</p>
         } @else if (points().length === 1) {
           <p class="history-message" role="status">
             Only one closing price is available for this range:
@@ -85,8 +83,7 @@
         }
         @if (result.availableFrom && result.availableTo) {
           <p class="text-secondary text-sm history-coverage">
-            Available from {{ result.availableFrom | dateTime }} to
-            {{ result.availableTo | dateTime }}
+            Available {{ result.availableFrom | dateTime }}–{{ result.availableTo | dateTime }}
           </p>
         }
       }

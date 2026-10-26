@@ -4,6 +4,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { environment } from '../../../../environments/environment';
 import { FUTURE_EXP, adminToken, clientToken } from '../../../testing/jwt-fixtures';
+import { InstrumentCatalogService } from '../../../core/services/instrument-catalog.service';
 import { InstrumentSearchComponent } from './instrument-search';
 
 const API = environment.tradingApiUrl;
@@ -135,18 +136,16 @@ describe('InstrumentSearchComponent', () => {
     expect(element('[role="listbox"]')?.textContent).not.toContain('KO');
 
     await submit();
-    http
-      .expectOne(`${API}/instruments/symbol/AAP`)
-      .flush(
-        {
-          timestamp: '',
-          status: 404,
-          error: 'Not Found',
-          message: 'Instrument not found',
-          path: '',
-        },
-        { status: 404, statusText: 'Not Found' },
-      );
+    http.expectOne(`${API}/instruments/symbol/AAP`).flush(
+      {
+        timestamp: '',
+        status: 404,
+        error: 'Not Found',
+        message: 'Instrument not found',
+        path: '',
+      },
+      { status: 404, statusText: 'Not Found' },
+    );
     await settle();
     expect(element('[role="alert"]')?.textContent).toContain('No instrument with the symbol “AAP”');
 
@@ -166,6 +165,20 @@ describe('InstrumentSearchComponent', () => {
     expect(
       element<HTMLAnchorElement>('.search-result a[href="/trade?symbol=AAPL"]'),
     ).not.toBeNull();
+
+    const catalog = TestBed.inject(InstrumentCatalogService);
+    const catalogLoading = catalog.load();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    http
+      .expectOne(`${API}/instruments`)
+      .flush(LIST.map((item, index) => ({ ...item, instrumentId: index + 1 })));
+    await catalogLoading;
+    catalog.refreshQuotes().subscribe();
+    http
+      .expectOne(`${API}/instruments`)
+      .flush([{ ...AAPL, lastPrice: 345, lastTradeAsOf: new Date().toISOString() }, EURUSD, KO]);
+    fixture.detectChanges();
+    expect(element('.search-result')?.textContent).toContain('$345.00');
   });
 
   it('picks a highlighted suggestion with the keyboard', async () => {

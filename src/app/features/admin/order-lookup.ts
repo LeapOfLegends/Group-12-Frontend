@@ -1,11 +1,19 @@
-import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  DestroyRef,
+  computed,
+  inject,
+  signal,
+} from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { firstValueFrom } from 'rxjs';
+import { Subscription, firstValueFrom } from 'rxjs';
 import { OrdersApiService } from '../../core/api/orders-api.service';
 import { Instrument, Order } from '../../core/models/trading.models';
 import { InstrumentCatalogService } from '../../core/services/instrument-catalog.service';
 import { describeHttpError, httpStatusOf } from '../../core/utils/http-error';
-import { describeOrderOutcome } from '../../core/utils/order-reasons';
+import { describeOrderOutcome, isSettled } from '../../core/utils/order-reasons';
 import { DateTimePipe, MoneyPipe, PricePipe, QuantityPipe } from '../../shared/pipes/format.pipes';
 import { IconComponent } from '../../shared/ui/icon/icon';
 import { StatusBadgeComponent } from '../../shared/ui/status-badge/status-badge';
@@ -14,7 +22,15 @@ import { StatusBadgeComponent } from '../../shared/ui/status-badge/status-badge'
 @Component({
   selector: 'app-order-lookup',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ReactiveFormsModule, IconComponent, StatusBadgeComponent, MoneyPipe, PricePipe, QuantityPipe, DateTimePipe],
+  imports: [
+    ReactiveFormsModule,
+    IconComponent,
+    StatusBadgeComponent,
+    MoneyPipe,
+    PricePipe,
+    QuantityPipe,
+    DateTimePipe,
+  ],
   template: `
     <section class="card" aria-labelledby="order-lookup-title">
       <div class="card-header">
@@ -26,7 +42,14 @@ import { StatusBadgeComponent } from '../../shared/ui/status-badge/status-badge'
 
       <form class="lookup-form" [formGroup]="form" (ngSubmit)="search()" novalidate>
         <label class="visually-hidden" for="order-lookup-input">Order ID</label>
-        <input id="order-lookup-input" class="input" formControlName="orderId" inputmode="numeric" placeholder="Order ID, e.g. 47" autocomplete="off" />
+        <input
+          id="order-lookup-input"
+          class="input"
+          formControlName="orderId"
+          inputmode="numeric"
+          placeholder="Order ID, e.g. 47"
+          autocomplete="off"
+        />
         <button type="submit" class="btn btn-primary" [disabled]="loading() || form.invalid">
           @if (loading()) {
             <span class="spinner" aria-hidden="true"></span>
@@ -50,42 +73,81 @@ import { StatusBadgeComponent } from '../../shared/ui/status-badge/status-badge'
           </div>
           <p class="text-secondary text-sm">{{ outcome(found) }}</p>
           <dl class="summary-list compact">
-            <div><dt>Client</dt><dd>ID {{ found.clientId }}</dd></div>
+            <div>
+              <dt>Client</dt>
+              <dd>ID {{ found.clientId }}</dd>
+            </div>
             <div>
               <dt>Instrument</dt>
               <dd>{{ instrument()?.symbol ?? '#' + found.instrumentId }}</dd>
             </div>
-            <div><dt>Side / quantity</dt><dd>{{ found.orderType }} {{ found.quantity | quantity }}</dd></div>
-            <div><dt>Submitted</dt><dd>{{ found.submittedAt | dateTime }}</dd></div>
+            <div>
+              <dt>Side / quantity</dt>
+              <dd>{{ found.orderType }} {{ found.quantity | quantity }}</dd>
+            </div>
+            <div>
+              <dt>Submitted</dt>
+              <dd>{{ found.submittedAt | dateTime }}</dd>
+            </div>
             @if (found.acceptedAt) {
-              <div><dt>Accepted</dt><dd>{{ found.acceptedAt | dateTime }}</dd></div>
+              <div>
+                <dt>Accepted</dt>
+                <dd>{{ found.acceptedAt | dateTime }}</dd>
+              </div>
             }
             @if (found.reservedCash !== null) {
-              <div><dt>Reserved cash</dt><dd>{{ found.reservedCash | money }}</dd></div>
+              <div>
+                <dt>Reserved cash</dt>
+                <dd>{{ found.reservedCash | money }}</dd>
+              </div>
             }
             @if (found.rejectedAt) {
-              <div><dt>Rejected</dt><dd>{{ found.rejectedAt | dateTime }}</dd></div>
+              <div>
+                <dt>Rejected</dt>
+                <dd>{{ found.rejectedAt | dateTime }}</dd>
+              </div>
             }
             @if (found.failedAt) {
-              <div><dt>Failed</dt><dd>{{ found.failedAt | dateTime }}</dd></div>
+              <div>
+                <dt>Failed</dt>
+                <dd>{{ found.failedAt | dateTime }}</dd>
+              </div>
             }
             @if (found.filledAt) {
-              <div><dt>Filled</dt><dd>{{ found.filledAt | dateTime }}</dd></div>
+              <div>
+                <dt>Filled</dt>
+                <dd>{{ found.filledAt | dateTime }}</dd>
+              </div>
             }
             @if (found.executionPrice !== null) {
-              <div><dt>Execution price</dt><dd>{{ found.executionPrice | price }}</dd></div>
+              <div>
+                <dt>Execution price</dt>
+                <dd>{{ found.executionPrice | price }}</dd>
+              </div>
             }
             @if (found.executionQuoteAsOf) {
-              <div><dt>Quote used</dt><dd>{{ found.executionQuoteAsOf | dateTime }}</dd></div>
+              <div>
+                <dt>Quote used</dt>
+                <dd>{{ found.executionQuoteAsOf | dateTime }}</dd>
+              </div>
             }
             @if (found.tradeValue !== null) {
-              <div class="summary-total"><dt>Trade value</dt><dd>{{ found.tradeValue | money }}</dd></div>
+              <div class="summary-total">
+                <dt>Trade value</dt>
+                <dd>{{ found.tradeValue | money }}</dd>
+              </div>
             }
             @if (found.rejectionReason) {
-              <div><dt>Rejection reason</dt><dd>{{ found.rejectionReason }}</dd></div>
+              <div>
+                <dt>Rejection reason</dt>
+                <dd>{{ found.rejectionReason }}</dd>
+              </div>
             }
             @if (found.failureReason) {
-              <div><dt>Failure reason</dt><dd>{{ found.failureReason }}</dd></div>
+              <div>
+                <dt>Failure reason</dt>
+                <dd>{{ found.failureReason }}</dd>
+              </div>
             }
           </dl>
         </div>
@@ -134,12 +196,24 @@ export class OrderLookupComponent {
   private readonly fb = inject(FormBuilder);
   private readonly ordersApi = inject(OrdersApiService);
   private readonly catalog = inject(InstrumentCatalogService);
+  private readonly destroyRef = inject(DestroyRef);
+  private orderPoll?: Subscription;
 
-  protected readonly form = this.fb.nonNullable.group({ orderId: ['', [Validators.required, Validators.pattern(/^\d+$/)]] });
+  protected readonly form = this.fb.nonNullable.group({
+    orderId: ['', [Validators.required, Validators.pattern(/^\d+$/)]],
+  });
   protected readonly loading = signal(false);
   protected readonly error = signal<string | null>(null);
   protected readonly order = signal<Order | null>(null);
-  protected readonly instrument = signal<Instrument | null>(null);
+  private readonly instrumentState = signal<Instrument | null>(null);
+  protected readonly instrument = computed(() => {
+    const instrument = this.instrumentState();
+    if (!instrument?.instrumentId) return instrument;
+    return (
+      this.catalog.instruments().find((item) => item.instrumentId === instrument.instrumentId) ??
+      instrument
+    );
+  });
 
   protected outcome(order: Order): string {
     return describeOrderOutcome(order);
@@ -153,13 +227,27 @@ export class OrderLookupComponent {
     this.loading.set(true);
     this.error.set(null);
     this.order.set(null);
-    this.instrument.set(null);
+    this.orderPoll?.unsubscribe();
+    this.instrumentState.set(null);
     try {
       const order = await firstValueFrom(this.ordersApi.getOrder(id));
       this.order.set(order);
-      this.instrument.set(await firstValueFrom(this.catalog.getById(order.instrumentId)));
+      this.instrumentState.set(await firstValueFrom(this.catalog.getById(order.instrumentId)));
+      if (!isSettled(order.status)) {
+        this.orderPoll = this.ordersApi
+          .pollAdminUntilSettled(id)
+          .pipe(takeUntilDestroyed(this.destroyRef))
+          .subscribe({
+            next: (updated) => this.order.set(updated),
+            error: () => undefined,
+          });
+      }
     } catch (error: unknown) {
-      this.error.set(httpStatusOf(error) === 404 ? `No order with ID ${id}.` : describeHttpError(error, 'The order could not be loaded.'));
+      this.error.set(
+        httpStatusOf(error) === 404
+          ? `No order with ID ${id}.`
+          : describeHttpError(error, 'The order could not be loaded.'),
+      );
     } finally {
       this.loading.set(false);
     }

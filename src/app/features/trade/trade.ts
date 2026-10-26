@@ -14,7 +14,12 @@ import { environment } from '../../../environments/environment';
 import { InstrumentsApiService } from '../../core/api/instruments-api.service';
 import { OrdersApiService } from '../../core/api/orders-api.service';
 import { AuthService } from '../../core/auth/auth.service';
-import { CatalogInstrument, MarketAvailability, Order, OrderType } from '../../core/models/trading.models';
+import {
+  CatalogInstrument,
+  MarketAvailability,
+  Order,
+  OrderType,
+} from '../../core/models/trading.models';
 import { InstrumentCatalogService } from '../../core/services/instrument-catalog.service';
 import { NotificationService } from '../../core/services/notification.service';
 import { PortfolioService } from '../../core/services/portfolio.service';
@@ -77,17 +82,26 @@ export class TradePage implements OnInit {
   protected readonly query = signal('');
   protected readonly listOpen = signal(false);
   protected readonly activeIndex = signal(0);
-  protected readonly selected = signal<CatalogInstrument | null>(null);
+  private readonly selectedId = signal<number | null>(null);
+  protected readonly selected = computed<CatalogInstrument | null>(() => {
+    const id = this.selectedId();
+    return id === null
+      ? null
+      : (this.catalog.instruments().find((instrument) => instrument.instrumentId === id) ?? null);
+  });
   protected readonly quantityText = signal('');
   protected readonly quantityTouched = signal(false);
-  protected readonly refreshingQuote = signal(false);
   protected readonly marketAvailability = signal<MarketAvailability | null>(null);
   private readonly now = signal(Date.now());
 
   protected readonly marketTradingAllowed = computed(() => {
     const market = this.marketAvailability();
-    return market?.status === 'OPEN' && market.tradingAllowed === true
-      && market.validUntil !== null && Date.parse(market.validUntil) > this.now();
+    return (
+      market?.status === 'OPEN' &&
+      market.tradingAllowed === true &&
+      market.validUntil !== null &&
+      Date.parse(market.validUntil) > this.now()
+    );
   });
   protected readonly marketMessage = computed(() => {
     const market = this.marketAvailability();
@@ -247,27 +261,38 @@ export class TradePage implements OnInit {
     }
     const symbol = params.get('symbol');
 
-    this.marketSelection.pipe(
-      // Switching instruments cancels the old polling stream and any in-flight request.
-      switchMap((id) => id === null ? of(null) : timer(0, 15000).pipe(
-        switchMap(() => this.instrumentsApi.getMarketStatus(id).pipe(
-          timeout(10000),
-          catchError(() => of<MarketAvailability>({
-            marketCode: null,
-            status: 'UNAVAILABLE',
-            tradingAllowed: false,
-            message: 'Market status could not be checked. Trading is disabled. Retrying automatically…',
-            statusAsOf: null,
-            validUntil: null,
-            rejectionReason: 'MARKET_STATUS_UNAVAILABLE',
-          })),
-        )),
-      )),
-      takeUntilDestroyed(this.destroyRef),
-    ).subscribe((market) => {
-      this.now.set(Date.now());
-      this.marketAvailability.set(market);
-    });
+    this.marketSelection
+      .pipe(
+        // Switching instruments cancels the old polling stream and any in-flight request.
+        switchMap((id) =>
+          id === null
+            ? of(null)
+            : timer(0, 15000).pipe(
+                switchMap(() =>
+                  this.instrumentsApi.getMarketStatus(id).pipe(
+                    timeout(10000),
+                    catchError(() =>
+                      of<MarketAvailability>({
+                        marketCode: null,
+                        status: 'UNAVAILABLE',
+                        tradingAllowed: false,
+                        message:
+                          'Market status could not be checked. Trading is disabled. Retrying automatically…',
+                        statusAsOf: null,
+                        validUntil: null,
+                        rejectionReason: 'MARKET_STATUS_UNAVAILABLE',
+                      }),
+                    ),
+                  ),
+                ),
+              ),
+        ),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe((market) => {
+        this.now.set(Date.now());
+        this.marketAvailability.set(market);
+      });
 
     interval(1000)
       .pipe(takeUntilDestroyed(this.destroyRef))
@@ -327,7 +352,7 @@ export class TradePage implements OnInit {
   }
 
   protected choose(instrument: CatalogInstrument): void {
-    this.selected.set(instrument);
+    this.selectedId.set(instrument.instrumentId);
     this.marketAvailability.set(null);
     this.marketSelection.next(instrument.instrumentId);
     this.query.set(instrument.symbol);
@@ -336,30 +361,9 @@ export class TradePage implements OnInit {
   }
 
   protected clearInstrument(): void {
-    this.selected.set(null);
+    this.selectedId.set(null);
     this.marketSelection.next(null);
     this.query.set('');
-  }
-
-  protected refreshQuote(): void {
-    const instrument = this.selected();
-    if (!instrument || this.refreshingQuote()) {
-      return;
-    }
-    this.refreshingQuote.set(true);
-    this.catalog.refreshQuote(instrument.symbol).subscribe({
-      next: (updated) => {
-        this.refreshingQuote.set(false);
-        this.now.set(Date.now());
-        if (updated) {
-          this.selected.set(updated);
-        }
-      },
-      error: (error: unknown) => {
-        this.refreshingQuote.set(false);
-        this.notifications.error(describeHttpError(error, 'The quote could not be refreshed.'));
-      },
-    });
   }
 
   // --- order entry ---------------------------------------------------------
@@ -461,8 +465,10 @@ export class TradePage implements OnInit {
           this.submitting.set(false);
           void this.portfolio.refresh();
           if (order.status === 'REJECTED') {
-            if (order.rejectionReason === 'MARKET_CLOSED'
-              || order.rejectionReason === 'MARKET_STATUS_UNAVAILABLE') {
+            if (
+              order.rejectionReason === 'MARKET_CLOSED' ||
+              order.rejectionReason === 'MARKET_STATUS_UNAVAILABLE'
+            ) {
               this.marketAvailability.set(null);
               this.marketSelection.next(instrument.instrumentId);
             }

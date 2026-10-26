@@ -13,16 +13,30 @@ import { PortfolioService } from '../../core/services/portfolio.service';
 import { TradePage } from './trade';
 
 const INSTRUMENT: CatalogInstrument = {
-  instrumentId: 2, symbol: 'AAPL', instrumentName: 'Apple', assetClass: 'EQUITY',
-  currency: 'USD', tradable: true, bidPrice: 99, askPrice: 100, lastPrice: 100,
-  quoteAsOf: new Date().toISOString(), lastTradeAsOf: null,
+  instrumentId: 2,
+  symbol: 'AAPL',
+  instrumentName: 'Apple',
+  assetClass: 'EQUITY',
+  currency: 'USD',
+  tradable: true,
+  bidPrice: 99,
+  askPrice: 100,
+  lastPrice: 100,
+  quoteAsOf: new Date().toISOString(),
+  lastTradeAsOf: null,
 };
 const statusUrl = (id = 2) => `${environment.tradingApiUrl}/instruments/${id}/market-status`;
 function availability(status: 'OPEN' | 'CLOSED' = 'OPEN'): MarketAvailability {
   return {
-    marketCode: 'IEX', status, tradingAllowed: status === 'OPEN',
-    message: status === 'OPEN' ? 'IEX market is open.' : 'IEX market is closed. Please try again when it reopens.',
-    statusAsOf: new Date().toISOString(), validUntil: new Date(Date.now() + 90000).toISOString(),
+    marketCode: 'IEX',
+    status,
+    tradingAllowed: status === 'OPEN',
+    message:
+      status === 'OPEN'
+        ? 'IEX market is open.'
+        : 'IEX market is closed. Please try again when it reopens.',
+    statusAsOf: new Date().toISOString(),
+    validUntil: new Date(Date.now() + 90000).toISOString(),
     rejectionReason: status === 'OPEN' ? null : 'MARKET_CLOSED',
   };
 }
@@ -32,25 +46,42 @@ describe('TradePage market availability', () => {
   let page: TradePage;
   let http: HttpTestingController;
   const submit = vi.fn();
+  const catalogInstruments = signal([INSTRUMENT]);
 
   beforeEach(async () => {
     submit.mockReset();
+    catalogInstruments.set([INSTRUMENT]);
     await TestBed.configureTestingModule({
       imports: [TradePage],
       providers: [
-        provideRouter([]), provideHttpClient(), provideHttpClientTesting(),
-        { provide: ActivatedRoute, useValue: { snapshot: { queryParamMap: convertToParamMap({}) } } },
+        provideRouter([]),
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        {
+          provide: ActivatedRoute,
+          useValue: { snapshot: { queryParamMap: convertToParamMap({}) } },
+        },
         { provide: AuthService, useValue: { user: signal({ id: 12 }) } },
         { provide: OrdersApiService, useValue: { submit } },
         { provide: NotificationService, useValue: { warning: vi.fn(), error: vi.fn() } },
-        { provide: InstrumentCatalogService, useValue: {
-          loading: signal(false), error: signal(null), instruments: signal([INSTRUMENT]),
-          load: vi.fn().mockResolvedValue([INSTRUMENT]),
-        } },
-        { provide: PortfolioService, useValue: {
-          load: vi.fn().mockResolvedValue(undefined), refresh: vi.fn().mockResolvedValue(undefined),
-          summary: signal({ buyingPower: 10000 }), sellableQuantity: () => 5,
-        } },
+        {
+          provide: InstrumentCatalogService,
+          useValue: {
+            loading: signal(false),
+            error: signal(null),
+            instruments: catalogInstruments,
+            load: vi.fn().mockResolvedValue([INSTRUMENT]),
+          },
+        },
+        {
+          provide: PortfolioService,
+          useValue: {
+            load: vi.fn().mockResolvedValue(undefined),
+            refresh: vi.fn().mockResolvedValue(undefined),
+            summary: signal({ buyingPower: 10000 }),
+            sellableQuantity: () => 5,
+          },
+        },
       ],
     }).compileComponents();
     vi.useFakeTimers();
@@ -75,8 +106,9 @@ describe('TradePage market availability', () => {
   }
 
   function button(label: string): HTMLButtonElement {
-    return [...fixture.nativeElement.querySelectorAll('button')]
-      .find((element: HTMLButtonElement) => element.textContent?.includes(label));
+    return [...fixture.nativeElement.querySelectorAll('button')].find(
+      (element: HTMLButtonElement) => element.textContent?.includes(label),
+    );
   }
 
   it('blocks review and direct submission while availability is loading', () => {
@@ -101,7 +133,9 @@ describe('TradePage market availability', () => {
   });
 
   it('replaces the stale-quote warning with market closure in the summary before quantity entry', () => {
-    page['selected'].set({ ...INSTRUMENT, quoteAsOf: new Date(Date.now() - 5280000).toISOString() });
+    catalogInstruments.set([
+      { ...INSTRUMENT, quoteAsOf: new Date(Date.now() - 5280000).toISOString() },
+    ]);
     page['quantityText'].set('');
     flushStatus('CLOSED');
 
@@ -115,7 +149,9 @@ describe('TradePage market availability', () => {
   });
 
   it('keeps the stale-quote warning when the market is open', () => {
-    page['selected'].set({ ...INSTRUMENT, quoteAsOf: new Date(Date.now() - 5280000).toISOString() });
+    catalogInstruments.set([
+      { ...INSTRUMENT, quoteAsOf: new Date(Date.now() - 5280000).toISOString() },
+    ]);
     flushStatus();
     const summary = fixture.nativeElement.querySelector('app-order-summary');
     expect(summary.querySelector('.alert-warning').textContent).toContain('The quote for AAPL');
@@ -128,6 +164,13 @@ describe('TradePage market availability', () => {
     page['reviewOrder']();
     fixture.detectChanges();
     expect(button('Place buy order').disabled).toBe(false);
+  });
+
+  it('keeps the selected instrument attached to canonical catalogue updates', () => {
+    flushStatus();
+    catalogInstruments.set([{ ...INSTRUMENT, lastPrice: 110, bidPrice: 109, askPrice: 111 }]);
+    expect(page['selected']()?.lastPrice).toBe(110);
+    expect(page['estimatedPrice']()).toBe(111);
   });
 
   it('disables confirmation and explains closure if the market closes during review', async () => {
@@ -162,7 +205,9 @@ describe('TradePage market availability', () => {
   });
 
   it('blocks confirmation when backend availability expires between polls', async () => {
-    http.expectOne(statusUrl()).flush({ ...availability(), validUntil: new Date(Date.now() + 1000).toISOString() });
+    http
+      .expectOne(statusUrl())
+      .flush({ ...availability(), validUntil: new Date(Date.now() + 1000).toISOString() });
     page['reviewOrder']();
     await vi.advanceTimersByTimeAsync(1000);
     fixture.detectChanges();

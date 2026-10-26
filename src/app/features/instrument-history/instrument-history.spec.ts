@@ -6,8 +6,13 @@ import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/route
 import { BehaviorSubject } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { InstrumentHistory } from '../../core/models/trading.models';
+import { InstrumentCatalogService } from '../../core/services/instrument-catalog.service';
 import { LineChartComponent } from '../../shared/charts/line-chart/line-chart';
-import { InstrumentHistoryPage } from './instrument-history';
+import {
+  InstrumentHistoryPage,
+  formatEquityAxisTime,
+  formatEquityTooltipTime,
+} from './instrument-history';
 
 const API = `${environment.tradingApiUrl}/instruments/7`;
 const instrument = {
@@ -51,6 +56,7 @@ describe('InstrumentHistoryPage', () => {
   const params = new BehaviorSubject(convertToParamMap({ instrumentId: '7' }));
 
   async function setup(): Promise<void> {
+    sessionStorage.clear();
     params.next(convertToParamMap({ instrumentId: '7' }));
     await TestBed.configureTestingModule({
       imports: [InstrumentHistoryPage],
@@ -88,6 +94,7 @@ describe('InstrumentHistoryPage', () => {
     fixture?.destroy();
     http?.verify();
     TestBed.resetTestingModule();
+    sessionStorage.clear();
   });
 
   it('shows the stored quote and converts timestamps and decimal closes for the line chart', async () => {
@@ -96,7 +103,7 @@ describe('InstrumentHistoryPage', () => {
     expect(text()).toContain('Apple');
     expect(text()).toContain('$250.00');
     expect(text()).toContain('USD');
-    load('1M', history('1M'));
+    load('1D', history('1D'));
     const chart = fixture.debugElement.query(By.directive(LineChartComponent))
       ?.componentInstance as LineChartComponent | undefined;
     expect(chart).not.toBeNull();
@@ -108,7 +115,7 @@ describe('InstrumentHistoryPage', () => {
 
   it('switches ranges and replaces partial cached data', async () => {
     await setup();
-    load('1M', history('1M'));
+    load('1D', history('1D'));
     select('5Y');
     expect(fixture.nativeElement.querySelector('app-loading-skeleton')).not.toBeNull();
     load('5Y', history('5Y', true));
@@ -121,24 +128,68 @@ describe('InstrumentHistoryPage', () => {
 
   it('handles empty and single-point history', async () => {
     await setup();
-    load('1M', history('1M', false, []));
+    load('1D', history('1D', false, []));
     expect(text()).toContain('No historical prices');
-    select('1D');
-    load('1D', history('1D', false, points.slice(0, 1)));
+    select('5D');
+    load('5D', history('5D', false, points.slice(0, 1)));
     expect(text()).toContain('Only one closing price');
     expect(fixture.nativeElement.querySelector('app-line-chart')).toBeNull();
   });
 
   it.each([404, 422, 503, 500])('recovers after a %i history error', async (status) => {
     await setup();
-    http.expectOne(`${API}/history?range=1M`).flush({}, { status, statusText: 'Error' });
+    http.expectOne(`${API}/history?range=1D`).flush({}, { status, statusText: 'Error' });
     fixture.detectChanges();
     expect(fixture.nativeElement.querySelector('[role="alert"]')).not.toBeNull();
     const retry = [...(fixture.nativeElement as HTMLElement).querySelectorAll('button')].find(
       (item) => item.textContent?.trim() === 'Retry',
     );
     retry!.click();
-    load('1M', history('1M'));
+    load('1D', history('1D'));
     expect(fixture.nativeElement.querySelector('app-line-chart')).not.toBeNull();
+  });
+
+  it('uses the last-trade timestamp with the large stored price', async () => {
+    await setup();
+    load('1D', history('1D'));
+    expect(text()).toContain('AAPL');
+    expect(text()).toContain('Apple');
+    expect(text()).toContain('$250.00');
+    expect(text()).toContain('Last trade');
+    expect(text()).not.toContain('Latest stored quote');
+    expect(text()).not.toContain('Historical closing prices');
+  });
+
+  it('updates the header from the shared canonical quote without reloading history', async () => {
+    await setup();
+    load('1D', history('1D'));
+    const catalog = TestBed.inject(InstrumentCatalogService);
+    const loading = catalog.load();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    http.expectOne(`${environment.tradingApiUrl}/instruments`).flush([
+      {
+        ...instrument,
+        instrumentId: 7,
+        lastPrice: 255,
+        lastTradeAsOf: '2026-10-22T14:05:00Z',
+      },
+    ]);
+    await loading;
+    fixture.detectChanges();
+    expect(text()).toContain('$255.00');
+    http.expectNone(`${API}/history?range=1D`);
+  });
+});
+
+describe('US equity history time formatting', () => {
+  it('shows date and actual exchange time for 5D ticks and tooltips', () => {
+    const time = Date.parse('2026-10-21T14:30:00Z');
+    expect(formatEquityAxisTime(time, '5D')).toMatch(/Oct 21.*10:30 AM/);
+    expect(formatEquityTooltipTime(time, '5D')).toMatch(/Oct 21, 2026.*10:30 AM.*EDT/);
+  });
+
+  it('uses New York daylight-saving offsets supplied by Intl', () => {
+    expect(formatEquityTooltipTime(Date.parse('2026-10-30T13:30:00Z'), '5D')).toContain('EDT');
+    expect(formatEquityTooltipTime(Date.parse('2026-11-02T14:30:00Z'), '5D')).toContain('EST');
   });
 });

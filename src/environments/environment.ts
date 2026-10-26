@@ -14,6 +14,11 @@ export const environment = {
   sessionStorageKey: 'jetzy.session',
   /** How long the backend considers a market quote fresh (order-lifecycle.quote.max-age). */
   quoteMaxAgeSeconds: 30,
+  /** Background reads use backend timestamps as truth; these only control request cadence. */
+  quotePollIntervalMs: 5000,
+  portfolioPollIntervalMs: 15000,
+  historyPollIntervalMs: 60000,
+  adminPollIntervalMs: 15000,
   /** Polling interval and ceiling used while an accepted order is being executed. */
   orderPollIntervalMs: 1500,
   orderPollTimeoutMs: 150000,

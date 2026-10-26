@@ -149,4 +149,60 @@ describe('InstrumentCatalogService', () => {
     expect(refreshed).toMatchObject({ instrumentId: 74, symbol: 'ADA/USD', lastPrice: 0.455 });
     expect(service.bySymbol().get('ADA/USD')?.lastPrice).toBe(0.455);
   });
+
+  it('coalesces batch refreshes, retains ids, and rejects older quote data', async () => {
+    const loading = service.load();
+    await tick();
+    http.expectOne(BASE).flush([
+      dto('AAPL', {
+        instrumentId: 2,
+        lastPrice: 100,
+        quoteAsOf: '2026-10-23T14:00:00Z',
+        lastTradeAsOf: '2026-10-23T14:00:00Z',
+      }),
+    ]);
+    await loading;
+
+    service.refreshQuotes().subscribe();
+    service.refreshQuotes().subscribe();
+    http.expectOne(BASE).flush([
+      dto('AAPL', {
+        lastPrice: 105,
+        quoteAsOf: '2026-10-23T14:00:05Z',
+        lastTradeAsOf: '2026-10-23T14:00:05Z',
+      }),
+    ]);
+    expect(service.bySymbol().get('AAPL')).toMatchObject({ instrumentId: 2, lastPrice: 105 });
+
+    service.refreshQuotes().subscribe();
+    http.expectOne(BASE).flush([
+      dto('AAPL', {
+        lastPrice: 99,
+        quoteAsOf: '2026-10-23T13:59:00Z',
+        lastTradeAsOf: '2026-10-23T13:59:00Z',
+      }),
+    ]);
+    expect(service.bySymbol().get('AAPL')?.lastPrice).toBe(105);
+  });
+
+  it('keeps the last successful quote through a transient refresh failure and recovers', async () => {
+    const loading = service.load();
+    await tick();
+    http.expectOne(BASE).flush([dto('AAPL', { instrumentId: 2, lastPrice: 100 })]);
+    await loading;
+
+    service.refreshQuotes().subscribe({ error: () => undefined });
+    http.expectOne(BASE).flush({}, { status: 503, statusText: 'Unavailable' });
+    expect(service.bySymbol().get('AAPL')?.lastPrice).toBe(100);
+
+    service.refreshQuotes().subscribe();
+    http.expectOne(BASE).flush([
+      dto('AAPL', {
+        lastPrice: 102,
+        quoteAsOf: '2026-10-23T14:00:05Z',
+        lastTradeAsOf: '2026-10-23T14:00:05Z',
+      }),
+    ]);
+    expect(service.bySymbol().get('AAPL')?.lastPrice).toBe(102);
+  });
 });

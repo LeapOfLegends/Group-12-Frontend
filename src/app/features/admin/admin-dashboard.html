@@ -5,14 +5,9 @@
       <span class="eyebrow">{{ today }}</span>
       <h1>Administration</h1>
       <p class="page-subtitle">
-        Signed in as <strong>{{ auth.user()?.displayName }}</strong> · <span class="pill pill-accent">{{ roleLabel() }}</span>
+        Signed in as <strong>{{ auth.user()?.displayName }}</strong> ·
+        <span class="pill pill-accent">{{ roleLabel() }}</span>
       </p>
-    </div>
-    <div class="page-actions">
-      <button type="button" class="btn btn-secondary" (click)="refreshAll()" [disabled]="loadingClients() || catalog.loading()">
-        <app-icon name="refresh" [size]="18" />
-        Refresh data
-      </button>
     </div>
   </header>
 
@@ -20,22 +15,45 @@
   <section aria-labelledby="overview-title" class="stack">
     <div class="section-heading">
       <h2 id="overview-title">Platform overview</h2>
-      <p class="text-secondary text-sm">Current platform balances, funding totals and warehouse trading activity.</p>
+      <p class="text-secondary text-sm">
+        Current platform balances, funding totals and warehouse trading activity.
+      </p>
     </div>
 
     @if (clientsError(); as error) {
       <div class="alert alert-error" role="alert">
         <app-icon name="alert-circle" />
         <span>{{ error }}</span>
-        <button type="button" class="btn btn-sm btn-secondary alert-action" (click)="loadClients()">Retry</button>
+        <button type="button" class="btn btn-sm btn-secondary alert-action" (click)="loadClients()">
+          Retry
+        </button>
       </div>
     }
 
     <div class="grid kpi-grid">
-      <app-financial-summary-card label="Registered clients" [value]="count(totalClients())" hint="Client records on the platform" icon="users" [loading]="loadingClients()" />
-      <app-financial-summary-card label="Accounts with cash" [value]="count(fundedAccounts())" hint="Clients with a positive cash balance" icon="wallet" [loading]="loadingClients()" />
+      <app-financial-summary-card
+        label="Registered clients"
+        [value]="count(totalClients())"
+        hint="Client records on the platform"
+        icon="users"
+        [loading]="loadingClients()"
+      />
+      <app-financial-summary-card
+        label="Accounts with cash"
+        [value]="count(fundedAccounts())"
+        hint="Clients with a positive cash balance"
+        icon="wallet"
+        [loading]="loadingClients()"
+      />
       @if (auth.canViewFinancialOperations()) {
-        <app-financial-summary-card label="Total client cash" [value]="compactMoney(totalClientCash())" hint="Sum of all client cash balances" icon="dollar" [accent]="true" [loading]="loadingClients()" />
+        <app-financial-summary-card
+          label="Total client cash"
+          [value]="compactMoney(totalClientCash())"
+          hint="Sum of all client cash balances"
+          icon="dollar"
+          [accent]="true"
+          [loading]="loadingClients()"
+        />
       }
       <app-financial-summary-card
         label="Tradable instruments"
@@ -48,7 +66,14 @@
         <app-financial-summary-card
           label="Administrators"
           [value]="count(totalAdmins())"
-          [hint]="adminsByRole().super_admin + ' super · ' + adminsByRole().operations + ' operations · ' + adminsByRole().finance + ' finance'"
+          [hint]="
+            adminsByRole().super_admin +
+            ' super · ' +
+            adminsByRole().operations +
+            ' operations · ' +
+            adminsByRole().finance +
+            ' finance'
+          "
           icon="shield"
           [loading]="loadingAdmins()"
         />
@@ -56,7 +81,6 @@
     </div>
 
     <app-platform-metrics />
-
   </section>
 
   <!-- Trading operations ----------------------------------------------------- -->
@@ -64,13 +88,19 @@
     <section aria-labelledby="trading-ops-title" class="stack">
       <div class="section-heading">
         <h2 id="trading-ops-title">Trading operations</h2>
-        <p class="text-secondary text-sm">Reconstruct any client's activity or any order's lifecycle from the permanent record.</p>
+        <p class="text-secondary text-sm">
+          Reconstruct any client's activity or any order's lifecycle from the permanent record.
+        </p>
       </div>
       <div class="ops-grid">
         <app-client-lookup class="ops-main" />
         <app-order-lookup class="ops-side" />
       </div>
-      <app-market-data-health [instruments]="catalog.instruments()" [loading]="catalog.loading() && catalog.instruments().length === 0" [now]="now()" />
+      <app-market-data-health
+        [instruments]="catalog.instruments()"
+        [loading]="catalog.loading() && catalog.instruments().length === 0"
+        [now]="now()"
+      />
     </section>
   }
 
@@ -79,9 +109,17 @@
     <section aria-labelledby="financial-ops-title" class="stack">
       <div class="section-heading">
         <h2 id="financial-ops-title">Financial operations</h2>
-        <p class="text-secondary text-sm">Client cash positions from the live client records. Deposit and withdrawal histories are not yet exposed by the backend.</p>
+        <p class="text-secondary text-sm">
+          Client cash positions from the live client records. Deposit and withdrawal histories are
+          not yet exposed by the backend.
+        </p>
       </div>
-      <app-cash-positions [clients]="clients() ?? []" [loading]="loadingClients()" [error]="clientsError()" (retry)="loadClients()" />
+      <app-cash-positions
+        [clients]="clients() ?? []"
+        [loading]="loadingClients()"
+        [error]="clientsError()"
+        (retry)="loadClients()"
+      />
     </section>
   }
 
@@ -90,16 +128,28 @@
     <section aria-labelledby="admin-mgmt-title" class="stack">
       <div class="section-heading">
         <h2 id="admin-mgmt-title">Administrative management</h2>
-        <p class="text-secondary text-sm">Only Super Admins can view, create, edit or remove administrator accounts.</p>
+        <p class="text-secondary text-sm">
+          Only Super Admins can view, create, edit or remove administrator accounts.
+        </p>
       </div>
       @if (adminsError(); as error) {
         <div class="alert alert-error" role="alert">
           <app-icon name="alert-circle" />
           <span>{{ error }}</span>
-          <button type="button" class="btn btn-sm btn-secondary alert-action" (click)="loadAdmins()">Retry</button>
+          <button
+            type="button"
+            class="btn btn-sm btn-secondary alert-action"
+            (click)="loadAdmins()"
+          >
+            Retry
+          </button>
         </div>
       }
-      <app-admin-management [admins]="admins() ?? []" [loading]="loadingAdmins()" (changed)="loadAdmins()" />
+      <app-admin-management
+        [admins]="admins() ?? []"
+        [loading]="loadingAdmins()"
+        (changed)="loadAdmins()"
+      />
     </section>
   }
 </div>

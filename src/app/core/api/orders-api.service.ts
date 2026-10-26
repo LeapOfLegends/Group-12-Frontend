@@ -19,7 +19,9 @@ export class OrdersApiService {
 
   /** GET /api/clients/me/orders - the signed-in client's full order history. */
   listMine(): Observable<Order[]> {
-    return this.http.get<Record<string, unknown>[]>(this.mineUrl).pipe(map((rows) => rows.map(toOrder)));
+    return this.http
+      .get<Record<string, unknown>[]>(this.mineUrl)
+      .pipe(map((rows) => rows.map(toOrder)));
   }
 
   /** GET /api/orders/client/{clientId} - any client's orders (super admin, operations, finance). */
@@ -54,12 +56,21 @@ export class OrdersApiService {
    * show progress.
    */
   pollUntilSettled(orderId: number): Observable<Order> {
+    return this.poll(() => this.getMine(orderId));
+  }
+
+  /** Administrator equivalent using the cross-client order endpoint. */
+  pollAdminUntilSettled(orderId: number): Observable<Order> {
+    return this.poll(() => this.getOrder(orderId));
+  }
+
+  private poll(read: () => Observable<Order>): Observable<Order> {
     const attempts = Math.max(
       1,
       Math.ceil(environment.orderPollTimeoutMs / environment.orderPollIntervalMs),
     );
     return timer(environment.orderPollIntervalMs, environment.orderPollIntervalMs).pipe(
-      switchMap(() => this.getMine(orderId)),
+      switchMap(read),
       takeWhile((order, index) => !isSettled(order.status) && index < attempts - 1, true),
     );
   }

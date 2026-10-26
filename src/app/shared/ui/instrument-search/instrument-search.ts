@@ -470,7 +470,11 @@ export class InstrumentSearchComponent {
   protected readonly open = signal(false);
   protected readonly activeIndex = signal(-1);
   protected readonly loading = signal(false);
-  protected readonly result = signal<Instrument | null>(null);
+  private readonly resultState = signal<Instrument | null>(null);
+  protected readonly result = computed<Instrument | null>(() => {
+    const result = this.resultState();
+    return result ? (this.catalog.bySymbol().get(result.symbol) ?? result) : null;
+  });
   protected readonly error = signal<string | null>(null);
   /** The (upper-cased) symbol the current result or error refers to. */
   protected readonly lookedUp = signal('');
@@ -634,7 +638,7 @@ export class InstrumentSearchComponent {
   protected clear(): void {
     this.lookupSeq++;
     this.query.set('');
-    this.result.set(null);
+    this.resultState.set(null);
     this.error.set(null);
     this.lookedUp.set('');
     this.activeIndex.set(-1);
@@ -652,13 +656,13 @@ export class InstrumentSearchComponent {
     const seq = ++this.lookupSeq;
     this.loading.set(true);
     this.error.set(null);
-    this.result.set(null);
+    this.resultState.set(null);
     this.lookedUp.set(symbol);
     this.open.set(true);
     try {
       const instrument = await firstValueFrom(this.api.getBySymbol(symbol));
       if (seq === this.lookupSeq) {
-        this.result.set(instrument);
+        this.resultState.set(instrument);
         this.now.set(Date.now());
       }
     } catch (error: unknown) {
@@ -672,7 +676,7 @@ export class InstrumentSearchComponent {
         return;
       }
       if (fallback) {
-        this.result.set(fallback);
+        this.resultState.set(fallback);
         this.now.set(Date.now());
       } else {
         this.error.set(

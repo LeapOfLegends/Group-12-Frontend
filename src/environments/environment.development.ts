@@ -11,6 +11,10 @@ export const environment = {
   tradingApiUrl: '/trading-api',
   sessionStorageKey: 'jetzy.session',
   quoteMaxAgeSeconds: 30,
+  quotePollIntervalMs: 5000,
+  portfolioPollIntervalMs: 15000,
+  historyPollIntervalMs: 60000,
+  adminPollIntervalMs: 15000,
   orderPollIntervalMs: 1500,
   orderPollTimeoutMs: 150000,
 };

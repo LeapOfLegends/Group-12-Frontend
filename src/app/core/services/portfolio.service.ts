@@ -37,26 +37,42 @@ export class PortfolioService {
   private readonly errorState = signal<string | null>(null);
   private readonly loadedAtState = signal<number | null>(null);
   private loadedForClientId: number | null = null;
+  private loadPromise: Promise<void> | null = null;
+  private loadKey: string | null = null;
 
   readonly cash = this.cashState.asReadonly();
   readonly holdings = this.holdingsState.asReadonly();
   readonly orders = this.ordersState.asReadonly();
-  readonly instrumentsById = this.instrumentsState.asReadonly();
+  readonly instrumentsById = computed(() => {
+    const merged = new Map(this.instrumentsState());
+    for (const instrument of this.catalog.instruments()) {
+      if (merged.has(instrument.instrumentId)) merged.set(instrument.instrumentId, instrument);
+    }
+    return merged;
+  });
   readonly loading = this.loadingState.asReadonly();
   readonly error = this.errorState.asReadonly();
   readonly loadedAt = this.loadedAtState.asReadonly();
   readonly hasLoaded = computed(() => this.loadedAtState() !== null);
 
-  readonly positions = computed(() => buildPositions(this.holdingsState(), this.instrumentsState()));
-  readonly orderRows = computed(() => buildOrderRows(this.ordersState(), this.instrumentsState()));
+  readonly positions = computed(() => buildPositions(this.holdingsState(), this.instrumentsById()));
+  readonly orderRows = computed(() => buildOrderRows(this.ordersState(), this.instrumentsById()));
   readonly recentOrders = computed(() => this.orderRows().slice(0, 8));
-  readonly summary = computed(() => summarizePortfolio(this.cashState() ?? 0, this.positions(), this.ordersState()));
+  readonly summary = computed(() =>
+    summarizePortfolio(this.cashState() ?? 0, this.positions(), this.ordersState()),
+  );
   readonly allocation = computed(() => allocationByAssetClass(this.positions()));
-  readonly investedSeries = computed(() => investedCapitalSeries(this.ordersState(), this.instrumentsState()));
-  readonly pendingOrders = computed(() => this.ordersState().filter((order) => order.status === 'ACCEPTED' || order.status === 'SUBMITTED'));
+  readonly investedSeries = computed(() =>
+    investedCapitalSeries(this.ordersState(), this.instrumentsById()),
+  );
+  readonly pendingOrders = computed(() =>
+    this.ordersState().filter(
+      (order) => order.status === 'ACCEPTED' || order.status === 'SUBMITTED',
+    ),
+  );
 
   /** Loads the portfolio for the signed-in client; no-op for administrators. */
-  async load(force = false): Promise<void> {
+  async load(force = false, silent = false): Promise<void> {
     const user = this.auth.user();
     if (!user || user.kind !== 'client') {
       this.reset();
@@ -65,40 +81,71 @@ export class PortfolioService {
     if (!force && this.loadedForClientId === user.id && this.loadedAtState() !== null) {
       return;
     }
+    const accessToken = this.auth.accessToken();
+    const requestKey = `${user.id}:${accessToken ?? ''}`;
+    if (this.loadPromise && this.loadKey === requestKey) return this.loadPromise;
     if (this.loadedForClientId !== user.id) {
       this.reset();
     }
-    this.loadingState.set(true);
-    this.errorState.set(null);
-    try {
-      const clientId = user.id;
-      const { balance, holdings, orders, instruments } = await firstValueFrom(
-        forkJoin({
-          balance: this.clientApi.getBalance(clientId),
-          holdings: this.holdingsApi.listMine(),
-          orders: this.ordersApi.listMine(),
-        }).pipe(
-          switchMap((loaded) => {
-            const ids = [...loaded.holdings.map((holding) => holding.instrumentId), ...loaded.orders.map((order) => order.instrumentId)];
-            return this.catalog.getMany(ids).pipe(map((instruments) => ({ ...loaded, instruments })));
-          }),
-        ),
-      );
-      this.cashState.set(balance.accountBalance);
-      this.holdingsState.set(holdings);
-      this.ordersState.set(orders);
-      this.instrumentsState.set(instruments);
-      this.loadedAtState.set(Date.now());
-      this.loadedForClientId = clientId;
-    } catch (error: unknown) {
-      this.errorState.set(describeHttpError(error, 'Your portfolio could not be loaded.'));
-    } finally {
-      this.loadingState.set(false);
-    }
+    if (!silent || !this.hasLoaded()) this.loadingState.set(true);
+    if (!silent) this.errorState.set(null);
+    const request = (async () => {
+      try {
+        const clientId = user.id;
+        const { balance, holdings, orders, instruments } = await firstValueFrom(
+          forkJoin({
+            balance: this.clientApi.getBalance(clientId),
+            holdings: this.holdingsApi.listMine(),
+            orders: this.ordersApi.listMine(),
+          }).pipe(
+            switchMap((loaded) => {
+              const ids = [
+                ...loaded.holdings.map((holding) => holding.instrumentId),
+                ...loaded.orders.map((order) => order.instrumentId),
+              ];
+              return this.catalog
+                .getMany(ids)
+                .pipe(map((instruments) => ({ ...loaded, instruments })));
+            }),
+          ),
+        );
+        const current = this.auth.user();
+        if (
+          !current ||
+          current.kind !== 'client' ||
+          current.id !== clientId ||
+          this.auth.accessToken() !== accessToken
+        )
+          return;
+        this.cashState.set(balance.accountBalance);
+        this.holdingsState.set(holdings);
+        this.ordersState.set(orders);
+        this.instrumentsState.set(instruments);
+        this.loadedAtState.set(Date.now());
+        this.loadedForClientId = clientId;
+      } catch (error: unknown) {
+        if (!silent || !this.hasLoaded()) {
+          this.errorState.set(describeHttpError(error, 'Your portfolio could not be loaded.'));
+        }
+      } finally {
+        if (this.loadKey === requestKey) {
+          this.loadingState.set(false);
+          this.loadPromise = null;
+          this.loadKey = null;
+        }
+      }
+    })();
+    this.loadPromise = request;
+    this.loadKey = requestKey;
+    return request;
   }
 
   refresh(): Promise<void> {
     return this.load(true);
+  }
+
+  refreshSilently(): Promise<void> {
+    return this.load(true, true);
   }
 
   /** Applies a backend-confirmed balance without a full reload (after a deposit or withdrawal). */

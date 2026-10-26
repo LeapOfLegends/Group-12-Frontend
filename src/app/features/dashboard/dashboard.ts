@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnInit, computed, inject } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { AuthService } from '../../core/auth/auth.service';
 import { ADMIN_ROLE_LABELS } from '../../core/models/auth.models';
@@ -8,7 +8,10 @@ import { formatMoney, formatPercent, formatSignedMoney } from '../../core/utils/
 import { PortfolioChartComponent } from '../../shared/charts/portfolio-chart/portfolio-chart';
 import { BarListComponent } from '../../shared/charts/bar-list/bar-list';
 import { MoneyPipe } from '../../shared/pipes/format.pipes';
-import { DeltaTone, FinancialSummaryCardComponent } from '../../shared/ui/financial-summary-card/financial-summary-card';
+import {
+  DeltaTone,
+  FinancialSummaryCardComponent,
+} from '../../shared/ui/financial-summary-card/financial-summary-card';
 import { HoldingsTableComponent } from '../../shared/ui/holdings-table/holdings-table';
 import { IconComponent } from '../../shared/ui/icon/icon';
 import { InstrumentSearchComponent } from '../../shared/ui/instrument-search/instrument-search';
@@ -38,15 +41,18 @@ export class DashboardPage implements OnInit {
   protected readonly auth = inject(AuthService);
   protected readonly portfolio = inject(PortfolioService);
 
-  protected readonly refreshing = signal(false);
   protected readonly today = formatDate(new Date());
-  protected readonly greeting = computed(() => `${greetingForHour(new Date().getHours())}, ${this.auth.user()?.firstName || 'there'}`);
+  protected readonly greeting = computed(
+    () => `${greetingForHour(new Date().getHours())}, ${this.auth.user()?.firstName || 'there'}`,
+  );
   protected readonly roleLabel = computed(() => {
     const role = this.auth.role();
     return role ? ADMIN_ROLE_LABELS[role] : '';
   });
 
-  protected readonly initialLoading = computed(() => this.portfolio.loading() && !this.portfolio.hasLoaded());
+  protected readonly initialLoading = computed(
+    () => this.portfolio.loading() && !this.portfolio.hasLoaded(),
+  );
   protected readonly summary = this.portfolio.summary;
   protected readonly positions = this.portfolio.positions;
   protected readonly recentOrders = this.portfolio.recentOrders;
@@ -68,12 +74,17 @@ export class DashboardPage implements OnInit {
   protected readonly holdingsHint = computed(() => {
     const summary = this.summary();
     const count = this.positions().length;
-    const base = count === 1 ? '1 holding at current prices' : `${count} holdings at current prices`;
-    return summary.unpricedHoldings > 0 ? `${base} · ${summary.unpricedHoldings} without a quote` : base;
+    const base =
+      count === 1 ? '1 holding at current prices' : `${count} holdings at current prices`;
+    return summary.unpricedHoldings > 0
+      ? `${base} · ${summary.unpricedHoldings} without a quote`
+      : base;
   });
   protected readonly returnHint = computed(() => {
     const summary = this.summary();
-    return summary.costBasis > 0 ? `vs. ${formatMoney(summary.costBasis)} cost basis` : 'No priced holdings yet';
+    return summary.costBasis > 0
+      ? `vs. ${formatMoney(summary.costBasis)} cost basis`
+      : 'No priced holdings yet';
   });
   protected readonly chartSubtitle = 'Net capital invested through filled orders';
   protected readonly chartCaption =
@@ -83,14 +94,5 @@ export class DashboardPage implements OnInit {
 
   ngOnInit(): void {
     void this.portfolio.load();
-  }
-
-  protected async refresh(): Promise<void> {
-    this.refreshing.set(true);
-    try {
-      await this.portfolio.refresh();
-    } finally {
-      this.refreshing.set(false);
-    }
   }
 }

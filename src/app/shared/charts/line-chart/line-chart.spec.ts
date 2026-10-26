@@ -58,7 +58,9 @@ describe('LineChartComponent', () => {
     await fixture.whenStable();
     fixture.detectChanges();
     expect(fixture.nativeElement.querySelector('.tooltip')?.textContent).toContain('$10');
-    expect(fixture.nativeElement.querySelector('[aria-live="polite"]')?.textContent).toContain('first');
+    expect(fixture.nativeElement.querySelector('[aria-live="polite"]')?.textContent).toContain(
+      'first',
+    );
   });
 
   it('projects fallback content when there are not enough points', async () => {
@@ -67,5 +69,40 @@ describe('LineChartComponent', () => {
     fixture.detectChanges();
     expect(fixture.nativeElement.querySelector('svg')).toBeNull();
     expect(fixture.nativeElement.querySelector('.chart-empty')).not.toBeNull();
+  });
+
+  it('compresses overnight and weekend gaps only when index scaling is requested', () => {
+    const points = [
+      { time: Date.parse('2026-10-23T19:30:00Z'), value: 10 },
+      { time: Date.parse('2026-10-23T20:00:00Z'), value: 11 },
+      { time: Date.parse('2026-10-26T13:30:00Z'), value: 12 },
+    ];
+    fixture.componentRef.setInput('points', points);
+    fixture.detectChanges();
+    const timed = (fixture.componentInstance as any).plotted().map((point: any) => point.x);
+    expect(timed[1] - timed[0]).toBeLessThan(timed[2] - timed[1]);
+
+    fixture.componentRef.setInput('xScale', 'index');
+    fixture.detectChanges();
+    const indexed = (fixture.componentInstance as any).plotted().map((point: any) => point.x);
+    expect(indexed[1] - indexed[0]).toBeCloseTo(indexed[2] - indexed[1], 5);
+  });
+
+  it('derives compact index-scale ticks from real observations', () => {
+    const points = Array.from({ length: 20 }, (_, index) => ({
+      time: Date.parse('2026-10-20T13:30:00Z') + index * 30 * 60_000,
+      value: 100 + index,
+    }));
+    const formatter = vi.fn((time: number) => String(time));
+    fixture.componentRef.setInput('points', points);
+    fixture.componentRef.setInput('xScale', 'index');
+    fixture.componentRef.setInput('xTickFormatter', formatter);
+    fixture.detectChanges();
+
+    const ticks = (fixture.componentInstance as any).xTicks();
+    expect(ticks.length).toBeLessThanOrEqual(4);
+    expect(
+      formatter.mock.calls.every(([time]) => points.some((point) => point.time === time)),
+    ).toBe(true);
   });
 });

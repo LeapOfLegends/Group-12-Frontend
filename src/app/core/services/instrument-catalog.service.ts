@@ -1,6 +1,15 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { Injectable, computed, inject, signal } from '@angular/core';
-import { Observable, catchError, firstValueFrom, forkJoin, map, of, shareReplay, tap } from 'rxjs';
+import {
+  Observable,
+  catchError,
+  finalize,
+  firstValueFrom,
+  forkJoin,
+  map,
+  of,
+  shareReplay,
+} from 'rxjs';
 import { InstrumentsApiService } from '../api/instruments-api.service';
 import { CatalogInstrument, Instrument } from '../models/trading.models';
 import { describeHttpError } from '../utils/http-error';
@@ -28,6 +37,7 @@ export class InstrumentCatalogService {
   private readonly errorState = signal<string | null>(null);
   private readonly loadedAtState = signal<number | null>(null);
   private loadPromise: Promise<CatalogInstrument[]> | null = null;
+  private quoteRefresh$: Observable<CatalogInstrument[]> | null = null;
 
   readonly instruments = this.instrumentsState.asReadonly();
   readonly loading = this.loadingState.asReadonly();
@@ -52,9 +62,10 @@ export class InstrumentCatalogService {
     this.errorState.set(null);
     this.loadPromise = this.loadCatalog()
       .then((instruments) => {
-        this.instrumentsState.set(instruments);
+        this.instrumentsState.set(this.mergeCatalog(instruments));
+        this.refreshByIdCache();
         this.loadedAtState.set(Date.now());
-        return instruments;
+        return this.instrumentsState();
       })
       .catch((error: unknown) => {
         this.errorState.set(describeHttpError(error, 'Instruments could not be loaded.'));
@@ -69,9 +80,17 @@ export class InstrumentCatalogService {
 
   /** Fetches one instrument by id with a per-session cache (used to label holdings and orders). */
   getById(instrumentId: number): Observable<Instrument | null> {
+    const canonical = this.instrumentsState().find((item) => item.instrumentId === instrumentId);
+    if (canonical) return of(canonical);
     let cached = this.byIdCache.get(instrumentId);
     if (!cached) {
       cached = this.api.getById(instrumentId).pipe(
+        map((fresh) =>
+          this.mergeInstrument(
+            { ...fresh, instrumentId },
+            this.instrumentsState().find((item) => item.instrumentId === instrumentId),
+          ),
+        ),
         catchError(() => of(null)),
         shareReplay(1),
       );
@@ -113,19 +132,41 @@ export class InstrumentCatalogService {
     // Refresh by the already-resolved numeric id so every asset class uses a safe URL.
     return this.api.getById(existing.instrumentId).pipe(
       map((fresh) => {
-        const updated: CatalogInstrument = {
-          ...existing,
-          ...fresh,
-          instrumentId: existing.instrumentId,
-        };
+        const updated = this.mergeInstrument(
+          { ...fresh, instrumentId: existing.instrumentId },
+          existing,
+        );
         this.instrumentsState.update((instruments) =>
           instruments.map((item) => (item.symbol === updated.symbol ? updated : item)),
         );
         this.byIdCache.set(updated.instrumentId, of(updated));
         return updated;
       }),
-      tap({ error: () => undefined }),
     );
+  }
+
+  /** Coalesced batch quote read. IDs and metadata already resolved by the catalogue are retained. */
+  refreshQuotes(): Observable<CatalogInstrument[]> {
+    if (this.quoteRefresh$) return this.quoteRefresh$;
+    this.quoteRefresh$ = this.api.list().pipe(
+      map((listed) => {
+        const bySymbol = new Map(listed.map((item) => [item.symbol, item]));
+        this.instrumentsState.update((current) =>
+          current.map((existing) => {
+            const incoming = bySymbol.get(existing.symbol);
+            return incoming
+              ? this.mergeInstrument({ ...incoming, instrumentId: existing.instrumentId }, existing)
+              : existing;
+          }),
+        );
+        this.loadedAtState.set(Date.now());
+        this.refreshByIdCache();
+        return this.instrumentsState();
+      }),
+      finalize(() => (this.quoteRefresh$ = null)),
+      shareReplay({ bufferSize: 1, refCount: false }),
+    );
+    return this.quoteRefresh$;
   }
 
   private async loadCatalog(): Promise<CatalogInstrument[]> {
@@ -214,4 +255,40 @@ export class InstrumentCatalogService {
       /* storage unavailable */
     }
   }
+
+  private mergeCatalog(incoming: CatalogInstrument[]): CatalogInstrument[] {
+    const existing = this.bySymbol();
+    return incoming.map((item) => this.mergeInstrument(item, existing.get(item.symbol)));
+  }
+
+  private mergeInstrument(
+    incoming: CatalogInstrument,
+    existing?: CatalogInstrument,
+  ): CatalogInstrument {
+    if (!existing) return incoming;
+    const quoteIsCurrent = timestampOf(incoming.quoteAsOf) >= timestampOf(existing.quoteAsOf);
+    const tradeIsCurrent =
+      timestampOf(incoming.lastTradeAsOf) >= timestampOf(existing.lastTradeAsOf);
+    return {
+      ...existing,
+      ...incoming,
+      instrumentId: existing.instrumentId,
+      bidPrice: quoteIsCurrent ? incoming.bidPrice : existing.bidPrice,
+      askPrice: quoteIsCurrent ? incoming.askPrice : existing.askPrice,
+      quoteAsOf: quoteIsCurrent ? incoming.quoteAsOf : existing.quoteAsOf,
+      lastPrice: tradeIsCurrent ? incoming.lastPrice : existing.lastPrice,
+      lastTradeAsOf: tradeIsCurrent ? incoming.lastTradeAsOf : existing.lastTradeAsOf,
+    };
+  }
+
+  private refreshByIdCache(): void {
+    for (const instrument of this.instrumentsState()) {
+      this.byIdCache.set(instrument.instrumentId, of(instrument));
+    }
+  }
+}
+
+function timestampOf(value: string | null): number {
+  const parsed = value ? Date.parse(value) : Number.NEGATIVE_INFINITY;
+  return Number.isFinite(parsed) ? parsed : Number.NEGATIVE_INFINITY;
 }
