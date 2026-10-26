@@ -1,18 +1,8 @@
 <div class="login-shell">
-  <section class="login-visual" aria-hidden="true">
-    <div class="visual-inner">
-      <app-brand-logo [onDark]="true" [markSize]="44" />
-      <div class="visual-copy">
-        <p class="visual-eyebrow">Direct trading platform</p>
-        <h2 class="visual-title">See your positions. Place a trade. Know the outcome.</h2>
-        <p class="visual-text">
-          Cash, holdings and every order you have ever placed, in one trustworthy view — no dealer
-          in the loop.
-        </p>
-      </div>
-
-      <figure class="visual-chart">
-        <svg viewBox="0 0 520 220" preserveAspectRatio="none">
+  <main class="login-main">
+    <div class="login-visual" aria-hidden="true">
+      <div class="visual-chart">
+        <svg viewBox="0 0 520 220" preserveAspectRatio="none" focusable="false">
           <defs>
             <linearGradient id="login-area" x1="0" x2="0" y1="0" y2="1">
               <stop offset="0%" stop-color="#C8A46B" stop-opacity="0.35" />
@@ -37,25 +27,8 @@
           />
           <circle cx="520" cy="28" r="6" fill="#C8A46B" stroke="#073B2A" stroke-width="3" />
         </svg>
-        <figcaption class="visual-stats">
-          <div>
-            <span class="stat-label">Market quotes</span
-            ><span class="stat-value">Live, stored securely</span>
-          </div>
-          <div>
-            <span class="stat-label">Every order</span
-            ><span class="stat-value">Permanently recorded</span>
-          </div>
-          <div>
-            <span class="stat-label">Your balance</span
-            ><span class="stat-value">Always current</span>
-          </div>
-        </figcaption>
-      </figure>
+      </div>
     </div>
-  </section>
-
-  <main class="login-main">
     <div class="login-top">
       <span class="login-brand"><app-brand-logo [markSize]="34" /></span>
       <button
@@ -69,6 +42,7 @@
     </div>
 
     <div class="login-card">
+      <p class="login-eyebrow">Your next move starts here</p>
       <h1>Sign in</h1>
       <p class="login-lead">
         Welcome back. Use the email and password for your JetZy Trading account.
