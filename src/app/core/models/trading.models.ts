@@ -19,6 +19,17 @@ export interface AccountBalance {
   accountBalance: number;
 }
 
+/** TransactionsEntity returned by GET /api/clients/me/transactions. */
+export interface AccountTransaction {
+  transactionId: number;
+  clientId: number;
+  orderId: number | null;
+  transactionType: string;
+  amount: number;
+  balanceAfter: number;
+  createdAt: string;
+}
+
 /** Request body for POST /api/clients/me/balance/transactions. */
 export interface MoneyMovementRequest {
   type: 'DEPOSIT' | 'WITHDRAWAL';
