@@ -1,10 +1,12 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
+import { signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
-import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
+import { ActivatedRoute, Router, convertToParamMap, provideRouter } from '@angular/router';
 import { BehaviorSubject } from 'rxjs';
 import { environment } from '../../../environments/environment';
+import { AuthService } from '../../core/auth/auth.service';
 import { InstrumentHistory } from '../../core/models/trading.models';
 import { InstrumentCatalogService } from '../../core/services/instrument-catalog.service';
 import { LineChartComponent } from '../../shared/charts/line-chart/line-chart';
@@ -53,10 +55,14 @@ function history(
 describe('InstrumentHistoryPage', () => {
   let fixture: ComponentFixture<InstrumentHistoryPage>;
   let http: HttpTestingController;
+  let router: Router;
+  let navigate: ReturnType<typeof vi.spyOn>;
+  const isClient = signal(true);
   const params = new BehaviorSubject(convertToParamMap({ instrumentId: '7' }));
 
-  async function setup(): Promise<void> {
+  async function setup(options: { client?: boolean; tradable?: boolean } = {}): Promise<void> {
     sessionStorage.clear();
+    isClient.set(options.client ?? true);
     params.next(convertToParamMap({ instrumentId: '7' }));
     await TestBed.configureTestingModule({
       imports: [InstrumentHistoryPage],
@@ -65,12 +71,15 @@ describe('InstrumentHistoryPage', () => {
         provideHttpClient(),
         provideHttpClientTesting(),
         { provide: ActivatedRoute, useValue: { paramMap: params.asObservable() } },
+        { provide: AuthService, useValue: { isClient } },
       ],
     }).compileComponents();
     http = TestBed.inject(HttpTestingController);
+    router = TestBed.inject(Router);
+    navigate = vi.spyOn(router, 'navigateByUrl').mockResolvedValue(true);
     fixture = TestBed.createComponent(InstrumentHistoryPage);
     fixture.detectChanges();
-    http.expectOne(API).flush(instrument);
+    http.expectOne(API).flush({ ...instrument, tradable: options.tradable ?? true });
     fixture.detectChanges();
   }
 
@@ -113,6 +122,44 @@ describe('InstrumentHistoryPage', () => {
     ]);
   });
 
+  it('shows eligible clients a Trade button that preserves the symbol in the query string', async () => {
+    await setup();
+    const trade = fixture.nativeElement.querySelector(
+      'a[href="/trade?symbol=AAPL"]',
+    ) as HTMLAnchorElement | null;
+    expect(trade?.textContent).toContain('Trade AAPL');
+    trade!.click();
+    expect(navigate).toHaveBeenCalled();
+    expect(String(navigate.mock.calls[0][0])).toBe('/trade?symbol=AAPL');
+    load('1D', history('1D'));
+  });
+
+  it('does not expose the Trade action to administrators', async () => {
+    await setup({ client: false });
+    expect(text()).not.toContain('Trade AAPL');
+    expect(fixture.nativeElement.querySelector('a[href^="/trade"]')).toBeNull();
+    load('1D', history('1D'));
+  });
+
+  it('explains and disables trading for a non-tradable instrument', async () => {
+    await setup({ tradable: false });
+    const disabled = fixture.nativeElement.querySelector(
+      '.history-trade[disabled]',
+    ) as HTMLButtonElement | null;
+    expect(disabled?.disabled).toBe(true);
+    expect(disabled?.textContent).toContain('Trade AAPL');
+    expect(text()).toContain('This instrument is not currently tradable.');
+    expect(fixture.nativeElement.querySelector('a[href^="/trade"]')).toBeNull();
+    load('1D', history('1D'));
+  });
+
+  it('keeps the Trade action available when no historical candles exist', async () => {
+    await setup();
+    load('1D', history('1D', false, []));
+    expect(text()).toContain('No historical prices');
+    expect(fixture.nativeElement.querySelector('a[href="/trade?symbol=AAPL"]')).not.toBeNull();
+  });
+
   it('switches ranges and replaces partial cached data', async () => {
     await setup();
     load('1D', history('1D'));
@@ -136,7 +183,7 @@ describe('InstrumentHistoryPage', () => {
     expect(fixture.nativeElement.querySelector('app-line-chart')).toBeNull();
   });
 
-  it.each([404, 422, 503, 500])('recovers after a %i history error', async (status) => {
+  it.each([503, 500])('recovers after a %i history error', async (status) => {
     await setup();
     http.expectOne(`${API}/history?range=1D`).flush({}, { status, statusText: 'Error' });
     fixture.detectChanges();
@@ -147,6 +194,28 @@ describe('InstrumentHistoryPage', () => {
     retry!.click();
     load('1D', history('1D'));
     expect(fixture.nativeElement.querySelector('app-line-chart')).not.toBeNull();
+  });
+
+  it.each([
+    [404, 'No price history was found'],
+    [422, 'Price history is not available'],
+  ])('shows a non-blocking unavailable state after a %i response', async (status, message) => {
+    await setup();
+    http.expectOne(`${API}/history?range=1D`).flush({}, { status, statusText: 'Unavailable' });
+    fixture.detectChanges();
+    expect(text()).toContain(message);
+    expect(fixture.nativeElement.querySelector('[role="status"]')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('[role="alert"]')).toBeNull();
+    expect(
+      [...(fixture.nativeElement as HTMLElement).querySelectorAll('button')].some(
+        (item) => item.textContent?.trim() === 'Retry',
+      ),
+    ).toBe(false);
+    if (status === 422) {
+      expect(fixture.nativeElement.querySelector('button[disabled]')).not.toBeNull();
+      select('5D');
+      http.expectNone(`${API}/history?range=5D`);
+    }
   });
 
   it('uses the last-trade timestamp with the large stored price', async () => {

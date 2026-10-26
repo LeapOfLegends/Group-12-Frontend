@@ -14,8 +14,36 @@
     </div>
   } @else if (instrument(); as item) {
     <header class="stock-header">
-      <p class="stock-name">{{ item.instrumentName }}</p>
-      <h1>{{ item.symbol }}</h1>
+      <div class="stock-header-top">
+        <div class="stock-identity">
+          <p class="stock-name">{{ item.instrumentName }}</p>
+          <h1>{{ item.symbol }}</h1>
+        </div>
+        @if (auth.isClient()) {
+          @if (item.tradable) {
+            <a
+              class="btn btn-primary history-trade"
+              routerLink="/trade"
+              [queryParams]="{ symbol: item.symbol }"
+            >
+              Trade {{ item.symbol }}
+              <app-icon name="arrow-right" [size]="18" />
+            </a>
+          } @else {
+            <div class="trade-unavailable">
+              <button
+                type="button"
+                class="btn btn-primary history-trade"
+                disabled
+                title="This instrument is not currently tradable"
+              >
+                Trade {{ item.symbol }}
+              </button>
+              <span>This instrument is not currently tradable.</span>
+            </div>
+          }
+        }
+      </div>
       <p class="stock-price">{{ item.lastPrice | price: item.currency }}</p>
       <p class="stock-meta">
         {{ item.currency }}
@@ -28,65 +56,12 @@
         }
       </p>
     </header>
-  }
 
-  @if (!instrumentError()) {
-    <section class="history-panel" aria-label="Price history chart">
-      <div class="history-controls">
-        <div class="segmented" role="group" aria-label="Price history range">
-          @for (range of ranges; track range) {
-            <button
-              type="button"
-              [attr.aria-pressed]="selectedRange() === range"
-              (click)="setRange(range)"
-            >
-              {{ range }}
-            </button>
-          }
-        </div>
-      </div>
-
-      @if (historyLoading()) {
-        <app-loading-skeleton variant="chart" [height]="360" label="Loading price history" />
-      } @else if (historyError(); as error) {
-        <div class="alert alert-error" role="alert">
-          <span>{{ error }}</span>
-          <button type="button" class="btn btn-secondary btn-sm" (click)="retry()">Retry</button>
-        </div>
-      } @else if (history(); as result) {
-        @if (result.partial) {
-          <div class="alert alert-info" role="status">
-            Only part of this range is cached. The chart shows the available prices.
-          </div>
-        }
-        @if (points().length >= 2) {
-          <app-line-chart
-            [points]="points()"
-            [height]="360"
-            xScale="index"
-            [xTickFormatter]="formatAxisTime"
-            [tooltipTimeFormatter]="formatTooltipTime"
-            [valueFormatter]="formatValue"
-            [compactFormatter]="formatCompact"
-            [ariaLabel]="result.symbol + ' closing prices for ' + selectedRange()"
-          />
-          <p class="exchange-time-note">Times shown in New York exchange time (ET).</p>
-        } @else if (points().length === 1) {
-          <p class="history-message" role="status">
-            Only one closing price is available for this range:
-            {{ points()[0].value | price: result.currency }}. Choose a longer range to see a chart.
-          </p>
-        } @else {
-          <p class="history-message" role="status">
-            No historical prices are available for this range. Try another range.
-          </p>
-        }
-        @if (result.availableFrom && result.availableTo) {
-          <p class="text-secondary text-sm history-coverage">
-            Available {{ result.availableFrom | dateTime }}–{{ result.availableTo | dateTime }}
-          </p>
-        }
-      }
-    </section>
+    <app-instrument-history-chart
+      class="history-panel"
+      [instrument]="item"
+      [instrumentId]="historyInstrumentId()"
+      [height]="360"
+    />
   }
 </div>

@@ -1,7 +1,7 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { provideRouter } from '@angular/router';
+import { Router, provideRouter } from '@angular/router';
 import { environment } from '../../../../environments/environment';
 import { FUTURE_EXP, adminToken, clientToken } from '../../../testing/jwt-fixtures';
 import { InstrumentCatalogService } from '../../../core/services/instrument-catalog.service';
@@ -71,6 +71,8 @@ function seedSession(kind: 'client' | 'admin'): void {
 describe('InstrumentSearchComponent', () => {
   let fixture: ComponentFixture<InstrumentSearchComponent>;
   let http: HttpTestingController;
+  let router: Router;
+  let navigate: ReturnType<typeof vi.spyOn>;
 
   async function setup(kind: 'client' | 'admin' = 'client'): Promise<void> {
     localStorage.clear();
@@ -81,6 +83,8 @@ describe('InstrumentSearchComponent', () => {
       providers: [provideRouter([]), provideHttpClient(), provideHttpClientTesting()],
     }).compileComponents();
     http = TestBed.inject(HttpTestingController);
+    router = TestBed.inject(Router);
+    navigate = vi.spyOn(router, 'navigate').mockResolvedValue(true);
     fixture = TestBed.createComponent(InstrumentSearchComponent);
     await fixture.whenStable();
     fixture.detectChanges();
@@ -124,33 +128,26 @@ describe('InstrumentSearchComponent', () => {
     await settle();
   }
 
+  async function choose(symbol: string): Promise<void> {
+    const option = [...fixture.nativeElement.querySelectorAll('[role="option"]')].find(
+      (item: HTMLElement) => item.textContent?.includes(symbol),
+    ) as HTMLElement | undefined;
+    expect(option).toBeDefined();
+    option!.click();
+    await settle();
+  }
+
   afterEach(() => {
     http.verify();
     localStorage.clear();
   });
 
-  it('suggests instruments while typing and looks a symbol up on Enter, showing bid, ask and last trade', async () => {
+  it('clicking a suggestion opens a compact, automatically updated three-price overview', async () => {
     await setup('client');
     await type('aap');
     expect(element('[role="listbox"]')?.textContent).toContain('AAPL');
     expect(element('[role="listbox"]')?.textContent).not.toContain('KO');
-
-    await submit();
-    http.expectOne(`${API}/instruments/symbol/AAP`).flush(
-      {
-        timestamp: '',
-        status: 404,
-        error: 'Not Found',
-        message: 'Instrument not found',
-        path: '',
-      },
-      { status: 404, statusText: 'Not Found' },
-    );
-    await settle();
-    expect(element('[role="alert"]')?.textContent).toContain('No instrument with the symbol “AAP”');
-
-    await type('AAPL', null);
-    await submit();
+    await choose('AAPL');
     http.expectOne(`${API}/instruments/symbol/AAPL`).flush(AAPL);
     await settle();
 
@@ -159,12 +156,14 @@ describe('InstrumentSearchComponent', () => {
     expect(result?.textContent).toContain('Apple');
     expect(result?.textContent).toContain('$339.94'); // bid
     expect(result?.textContent).toContain('$340.00'); // ask / last
-    expect(result?.textContent).toContain('fresh');
     expect(result?.textContent).toContain('Tradable');
-    expect(element<HTMLAnchorElement>('.search-result a[href="/instruments/AAPL"]')).not.toBeNull();
+    expect(result?.textContent).not.toContain('Quote age');
+    expect(result?.textContent).not.toContain('Refresh');
+    expect(result?.textContent).not.toContain('Price history');
     expect(
       element<HTMLAnchorElement>('.search-result a[href="/trade?symbol=AAPL"]'),
     ).not.toBeNull();
+    expect(navigate).not.toHaveBeenCalled();
 
     const catalog = TestBed.inject(InstrumentCatalogService);
     const catalogLoading = catalog.load();
@@ -181,43 +180,184 @@ describe('InstrumentSearchComponent', () => {
     expect(element('.search-result')?.textContent).toContain('$345.00');
   });
 
-  it('picks a highlighted suggestion with the keyboard', async () => {
+  it('pressing Enter navigates an unambiguous match to price history', async () => {
+    await setup('client');
+    await type('aap');
+    await submit();
+    expect(navigate).toHaveBeenCalledWith(['/instruments', 'AAPL']);
+    http.expectNone(`${API}/instruments/symbol/AAP`);
+  });
+
+  it('the arrow button uses the same navigation as Enter', async () => {
+    await setup('client');
+    await type('AAPL');
+    element<HTMLButtonElement>('.search-submit')!.click();
+    await settle();
+    expect(navigate).toHaveBeenCalledWith(['/instruments', 'AAPL']);
+  });
+
+  it('advertises ticker and company-name searches accessibly', async () => {
+    await setup('client');
+    const input = element<HTMLInputElement>('input')!;
+    expect(input.placeholder).toBe('Search by ticker or company name');
+    expect(element('label')?.textContent).toBe('Search by ticker or company name');
+    expect(element('label')?.getAttribute('for')).toBe(input.id);
+  });
+
+  it.each([
+    ['  aPpLe  ', 'AAPL'],
+    ['cOcA', 'KO'],
+    ['aapl', 'AAPL'],
+  ])('resolves ticker or company query %s', async (query, symbol) => {
+    await setup('client');
+    await type(query);
+    expect(element('[role="listbox"]')?.textContent).toContain(symbol);
+    await submit();
+    expect(navigate).toHaveBeenCalledWith(['/instruments', symbol]);
+    http.expectNone((request) => request.url.includes('/instruments/symbol/'));
+  });
+
+  it('requires a selection when multiple instruments share a company name', async () => {
+    await setup('client');
+    await type('Apple', [AAPL, { ...AAPL, symbol: 'APPL2' }]);
+    await submit();
+    expect(navigate).not.toHaveBeenCalled();
+    expect(element('[role="alert"]')?.textContent).toContain('More than one instrument');
+  });
+
+  it('prioritizes an exact ticker over a company name', async () => {
+    await setup('client');
+    await type('KO', [KO, { ...AAPL, instrumentName: 'KO' }]);
+    await submit();
+    expect(navigate).toHaveBeenCalledWith(['/instruments', 'KO']);
+  });
+
+  it('waits for the shared list request before submitting a company name', async () => {
+    await setup('client');
+    await type('Apple', null);
+    await submit();
+    expect(navigate).not.toHaveBeenCalled();
+    expect(element<HTMLButtonElement>('.search-submit')?.disabled).toBe(true);
+    http.expectNone(`${API}/instruments/symbol/APPLE`);
+    http.expectOne(`${API}/instruments`).flush(LIST);
+    await settle();
+    expect(navigate).toHaveBeenCalledWith(['/instruments', 'AAPL']);
+    expect(element<HTMLButtonElement>('.search-submit')?.disabled).toBe(false);
+  });
+
+  it.each(['edit', 'clear', 'resubmit', 'destroy'])(
+    'discards a pending company-name submission after %s',
+    async (action) => {
+      await setup('client');
+      await type('Apple', null);
+      await submit();
+      const pending = http.expectOne(`${API}/instruments`);
+      if (action === 'clear') {
+        element<HTMLButtonElement>('.search-clear')!.click();
+      } else if (action === 'destroy') {
+        fixture.destroy();
+      } else {
+        await type('Coca', null);
+        if (action === 'resubmit') await submit();
+      }
+      pending.flush(LIST);
+      await settle();
+      if (action === 'resubmit') {
+        expect(navigate).toHaveBeenCalledExactlyOnceWith(['/instruments', 'KO']);
+      } else {
+        expect(navigate).not.toHaveBeenCalled();
+      }
+    },
+  );
+
+  it('falls back to ticker lookup when the pending instrument list fails', async () => {
+    await setup('client');
+    await type('AAPL', null);
+    await submit();
+    http.expectOne(`${API}/instruments`).flush('Unavailable', { status: 503, statusText: 'Unavailable' });
+    await settle();
+    http.expectOne(`${API}/instruments/symbol/AAPL`).flush(AAPL);
+    await settle();
+    expect(navigate).toHaveBeenCalledWith(['/instruments', 'AAPL']);
+  });
+
+  it('navigates the actively highlighted suggestion with the keyboard', async () => {
     await setup('client');
     await type('ko');
     await press('ArrowDown');
     expect(element('input')?.getAttribute('aria-activedescendant')).toContain('option-0');
     await press('Enter');
-    http.expectOne(`${API}/instruments/symbol/KO`).flush(KO);
-    await settle();
-    expect(element<HTMLInputElement>('input')?.value).toBe('KO');
-    expect(element('.search-result')?.textContent).toContain('Coca-Cola');
+    expect(navigate).toHaveBeenCalledWith(['/instruments', 'KO']);
   });
 
-  it('falls back to the instrument list for symbols with a slash when the server rejects the encoded path', async () => {
+  it('submits an already-previewed instrument without another lookup', async () => {
+    await setup('client');
+    await type('KO');
+    await choose('KO');
+    http.expectOne(`${API}/instruments/symbol/KO`).flush(KO);
+    await settle();
+    await submit();
+    expect(navigate).toHaveBeenCalledWith(['/instruments', 'KO']);
+    http.expectNone(`${API}/instruments/symbol/KO`);
+  });
+
+  it('does not navigate ambiguous text to an arbitrary first suggestion', async () => {
+    await setup('client');
+    await type('a');
+    await submit();
+    expect(navigate).not.toHaveBeenCalled();
+    expect(element('[role="alert"]')?.textContent).toContain('More than one instrument');
+  });
+
+  it('does not navigate when an older asynchronous lookup completes late', async () => {
+    await setup('client');
+    await type('ZZZ', []);
+    element<HTMLFormElement>('form')!.dispatchEvent(new Event('submit'));
+    const stale = http.expectOne(`${API}/instruments/symbol/ZZZ`);
+
+    await type('AAPL', null);
+    element<HTMLFormElement>('form')!.dispatchEvent(new Event('submit'));
+    const current = http.expectOne(`${API}/instruments/symbol/AAPL`);
+    stale.flush(KO);
+    await settle();
+    expect(navigate).not.toHaveBeenCalled();
+
+    current.flush(AAPL);
+    await settle();
+    expect(navigate).toHaveBeenCalledWith(['/instruments', 'AAPL']);
+  });
+
+  it('rejects arbitrary company-name text instead of treating it as a ticker', async () => {
+    await setup('client');
+    await type('Unknown Company', []);
+    await submit();
+    expect(navigate).not.toHaveBeenCalled();
+    expect(element('[role="alert"]')?.textContent).toContain('No instrument matches');
+    http.expectNone(`${API}/instruments/symbol/UNKNOWN%20COMPANY`);
+  });
+
+  it('does not put an unresolved slash-containing symbol into a route path', async () => {
     await setup('client');
     await type('EUR/USD');
     await submit();
-    http
-      .expectOne(`${API}/instruments/symbol/EUR%2FUSD`)
-      .flush('The request contained an invalid character', {
-        status: 400,
-        statusText: 'Bad Request',
-      });
-    await settle();
-    expect(element('[role="alert"]')).toBeNull();
-    expect(element('.search-result')?.textContent).toContain('Euro / US Dollar');
-    expect(element('.search-result')?.textContent).toContain('$1.12'); // bid 1.1158
-    expect(element<HTMLAnchorElement>('.search-result a[href^="/instruments/"]')).toBeNull();
+    expect(navigate).not.toHaveBeenCalled();
+    expect(element('[role="alert"]')?.textContent).toContain('instrument ID');
+  });
+
+  it('uses a numeric id for slash-containing symbols when the catalog provides one', async () => {
+    await setup('client');
+    await type('EUR/USD', [{ ...EURUSD, instrumentId: 8 }]);
+    await submit();
+    expect(navigate).toHaveBeenCalledWith(['/instruments', 8]);
   });
 
   it('does not offer to trade from an administrator account', async () => {
     await setup('admin');
     await type('KO');
-    await submit();
+    await choose('KO');
     http.expectOne(`${API}/instruments/symbol/KO`).flush(KO);
     await settle();
     expect(element('.search-result')?.textContent).toContain('Coca-Cola');
-    expect(element<HTMLAnchorElement>('.search-result a[href="/instruments/KO"]')).not.toBeNull();
     expect(element<HTMLAnchorElement>('.search-result a[href^="/trade"]')).toBeNull();
     expect(text()).not.toContain('Trade KO');
   });

@@ -23,7 +23,7 @@ import {
 import { InstrumentCatalogService } from '../../core/services/instrument-catalog.service';
 import { NotificationService } from '../../core/services/notification.service';
 import { PortfolioService } from '../../core/services/portfolio.service';
-import { ageInSeconds, formatRelativeAge } from '../../core/utils/dates';
+import { ageInSeconds } from '../../core/utils/dates';
 import { describeHttpError } from '../../core/utils/http-error';
 import {
   decimalPlaces,
@@ -37,6 +37,7 @@ import { MoneyPipe, PricePipe, QuantityPipe } from '../../shared/pipes/format.pi
 import { IconComponent } from '../../shared/ui/icon/icon';
 import { LoadingSkeletonComponent } from '../../shared/ui/loading-skeleton/loading-skeleton';
 import { StatusBadgeComponent } from '../../shared/ui/status-badge/status-badge';
+import { InstrumentHistoryChartComponent } from '../instrument-history/instrument-history-chart';
 import { OrderSummaryComponent, OrderSummaryModel, TradeStep } from './order-summary';
 import { TradeReceiptState } from './trade-confirmation';
 
@@ -52,6 +53,7 @@ const MAX_QUANTITY_DECIMALS = 8;
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     RouterLink,
+    InstrumentHistoryChartComponent,
     OrderSummaryComponent,
     IconComponent,
     LoadingSkeletonComponent,
@@ -165,11 +167,6 @@ export class TradePage implements OnInit {
     const age = this.quoteAge();
     return age === null || age > this.quoteMaxAge;
   });
-  protected readonly quoteAgeLabel = computed(() => {
-    const quoteAsOf = this.selected()?.quoteAsOf;
-    return quoteAsOf ? formatRelativeAge(quoteAsOf, this.now()) : 'No quote';
-  });
-
   protected readonly estimatedValue = computed(() => {
     const quantity = this.quantity();
     const price = this.estimatedPrice();

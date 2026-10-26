@@ -99,14 +99,22 @@ export class PortfolioService {
     }
     if (!silent || !this.hasLoaded()) this.loadingState.set(true);
     if (!silent) this.errorState.set(null);
+    if (!silent) this.transactionErrorState.set(null);
     const request = (async () => {
       try {
         const clientId = user.id;
-        const { balance, holdings, orders, instruments } = await firstValueFrom(
+        let transactionError: string | null = null;
+        const { balance, holdings, orders, transactions, instruments } = await firstValueFrom(
           forkJoin({
             balance: this.clientApi.getBalance(clientId),
             holdings: this.holdingsApi.listMine(),
             orders: this.ordersApi.listMine(),
+            transactions: this.clientApi.listMyTransactions().pipe(
+              catchError((error: unknown) => {
+                transactionError = describeHttpError(error, 'Your transaction history could not be loaded.');
+                return of([] as AccountTransaction[]);
+              }),
+            ),
           }).pipe(
             switchMap((loaded) => {
               const ids = [
@@ -130,6 +138,8 @@ export class PortfolioService {
         this.cashState.set(balance.accountBalance);
         this.holdingsState.set(holdings);
         this.ordersState.set(orders);
+        this.transactionsState.set(transactions);
+        this.transactionErrorState.set(transactionError);
         this.instrumentsState.set(instruments);
         this.loadedAtState.set(Date.now());
         this.loadedForClientId = clientId;
