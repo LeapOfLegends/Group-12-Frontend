@@ -17,6 +17,7 @@ import { IconComponent } from '../../shared/ui/icon/icon';
 import { InstrumentSearchComponent } from '../../shared/ui/instrument-search/instrument-search';
 import { LoadingSkeletonComponent } from '../../shared/ui/loading-skeleton/loading-skeleton';
 import { OrdersTableComponent } from '../../shared/ui/orders-table/orders-table';
+import { TransactionsTableComponent } from '../../shared/ui/transactions-table/transactions-table';
 
 /** Client home: price search, cash, portfolio value, return, performance chart, holdings, orders and actions. */
 @Component({
@@ -33,6 +34,7 @@ import { OrdersTableComponent } from '../../shared/ui/orders-table/orders-table'
     InstrumentSearchComponent,
     LoadingSkeletonComponent,
     MoneyPipe,
+    TransactionsTableComponent,
   ],
   templateUrl: './dashboard.html',
   styleUrl: './dashboard.scss',
@@ -56,6 +58,9 @@ export class DashboardPage implements OnInit {
   protected readonly summary = this.portfolio.summary;
   protected readonly positions = this.portfolio.positions;
   protected readonly recentOrders = this.portfolio.recentOrders;
+  protected readonly recentMoneyTransactions = this.portfolio.recentMoneyTransactions;
+  protected readonly moneyTransactionCount = this.portfolio.moneyTransactionCount;
+  protected readonly transactionError = this.portfolio.transactionError;
   protected readonly allocation = this.portfolio.allocation;
   protected readonly investedSeries = this.portfolio.investedSeries;
   protected readonly pendingCount = computed(() => this.portfolio.pendingOrders().length);

@@ -2,7 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable, map } from 'rxjs';
 import { environment } from '../../../environments/environment';
-import { AccountBalance, ClientContactUpdate, ClientRecord, MoneyMovementRequest } from '../models/trading.models';
+import { AccountBalance, AccountTransaction, ClientContactUpdate, ClientRecord, MoneyMovementRequest } from '../models/trading.models';
 import { toNumberOrZero } from '../utils/money';
 
 /** Group-12-Backend `/api/clients` - balances, deposits, withdrawals and client records. */
@@ -13,6 +13,13 @@ export class ClientApiService {
 
   getBalance(_clientId: number): Observable<AccountBalance> {
     return this.http.get<AccountBalance>(`${this.baseUrl}/me/balance`).pipe(map(normalizeBalance));
+  }
+
+  /** GET /api/clients/me/transactions - the signed-in client's account ledger. */
+  listMyTransactions(): Observable<AccountTransaction[]> {
+    return this.http
+      .get<Record<string, unknown>[]>(`${this.baseUrl}/me/transactions`)
+      .pipe(map((rows) => rows.map(toAccountTransaction)));
   }
 
   /** POST /api/clients/me/balance/transactions with a deposit discriminator. */
@@ -63,6 +70,18 @@ export class ClientApiService {
 
 function normalizeBalance(raw: AccountBalance): AccountBalance {
   return { clientId: Number(raw.clientId), accountBalance: toNumberOrZero(raw.accountBalance) };
+}
+
+function toAccountTransaction(raw: Record<string, unknown>): AccountTransaction {
+  return {
+    transactionId: Number(raw['transactionId']),
+    clientId: Number(raw['clientId']),
+    orderId: raw['orderId'] === null || raw['orderId'] === undefined ? null : Number(raw['orderId']),
+    transactionType: String(raw['transactionType'] ?? ''),
+    amount: toNumberOrZero(raw['amount']),
+    balanceAfter: toNumberOrZero(raw['balanceAfter']),
+    createdAt: String(raw['createdAt'] ?? ''),
+  };
 }
 
 /** Keeps only the fields the UI may use; `passwordHash` and `ssn` are dropped on purpose. */
