@@ -99,6 +99,26 @@ describe('DashboardPage', () => {
         failureReason: null,
       },
     ]);
+    http.expectOne(`${API}/api/clients/me/transactions`).flush([
+      {
+        transactionId: 3,
+        clientId: 12,
+        orderId: null,
+        transactionType: 'DEPOSIT',
+        amount: 500,
+        balanceAfter: 1000,
+        createdAt: '2026-10-02T10:00:00Z',
+      },
+      {
+        transactionId: 2,
+        clientId: 12,
+        orderId: null,
+        transactionType: 'WITHDRAWAL',
+        amount: -50,
+        balanceAfter: 500,
+        createdAt: '2026-10-01T10:00:00Z',
+      },
+    ]);
     await fixture.whenStable();
     http.expectOne(`${API}/instruments/2`).flush({
       symbol: 'AAPL',
@@ -124,6 +144,11 @@ describe('DashboardPage', () => {
     expect(text).toContain('$2,200.00'); // total account value
     expect(text).toContain('AAPL');
     expect(text).toContain('Filled');
+    expect(text).toContain('Recent transactions');
+    expect(text).toContain('Deposit');
+    expect(text).toContain('Withdrawal');
+    expect(text).toContain('+$500.00');
+    expect(text).toContain('-$50.00');
     expect(text).toContain('Buying Power & Asset Allocation');
     expect(text).toContain('Buying power');
     expect(text).toContain('Asset allocation');

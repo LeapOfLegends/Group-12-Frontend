@@ -32,6 +32,37 @@ describe('ClientApiService', () => {
     expect(result).toEqual({ clientId: 554, accountBalance: 1250.5 });
   });
 
+  it('reads and normalizes the authenticated client transaction history', () => {
+    let result: unknown = null;
+    service.listMyTransactions().subscribe((transactions) => (result = transactions));
+
+    const request = http.expectOne(`${BASE}/me/transactions`);
+    expect(request.request.method).toBe('GET');
+    request.flush([
+      {
+        transactionId: '7',
+        clientId: '554',
+        orderId: null,
+        transactionType: 'DEPOSIT',
+        amount: '250.50',
+        balanceAfter: '1500.50',
+        createdAt: '2026-10-02T10:00:00Z',
+      },
+    ]);
+
+    expect(result).toEqual([
+      {
+        transactionId: 7,
+        clientId: 554,
+        orderId: null,
+        transactionType: 'DEPOSIT',
+        amount: 250.5,
+        balanceAfter: 1500.5,
+        createdAt: '2026-10-02T10:00:00Z',
+      },
+    ]);
+  });
+
   it('sends a deposit to the unified transaction endpoint', () => {
     let result: unknown = null;
     service.deposit(250).subscribe((balance) => (result = balance));
