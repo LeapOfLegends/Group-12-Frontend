@@ -9,14 +9,12 @@ import {
   viewChild,
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { RouterLink } from '@angular/router';
-import { Observable, catchError, firstValueFrom, interval, of, shareReplay, tap } from 'rxjs';
-import { environment } from '../../../../environments/environment';
+import { Router, RouterLink } from '@angular/router';
+import { Observable, catchError, firstValueFrom, of, shareReplay, tap } from 'rxjs';
 import { InstrumentsApiService } from '../../../core/api/instruments-api.service';
 import { AuthService } from '../../../core/auth/auth.service';
 import { Instrument } from '../../../core/models/trading.models';
 import { InstrumentCatalogService } from '../../../core/services/instrument-catalog.service';
-import { ageInSeconds, formatRelativeAge } from '../../../core/utils/dates';
 import { describeHttpError, httpStatusOf } from '../../../core/utils/http-error';
 import { DateTimePipe, PricePipe } from '../../pipes/format.pipes';
 import { IconComponent } from '../icon/icon';
@@ -28,8 +26,8 @@ type PanelView = 'none' | 'suggestions' | 'no-match' | 'loading' | 'result' | 'e
 
 /**
  * Dashboard search bar that looks up an instrument's current price by symbol through
- * `GET /instruments/symbol/{symbol}` and shows the platform's stored quote (bid, ask, last
- * trade, quote age). While typing, matches from the instrument list are suggested; the list
+ * `GET /instruments/symbol/{symbol}` and shows the platform's stored quote (bid, ask and last
+ * trade). While typing, matches from the instrument list are suggested; the list
  * is only read once the field is used, so the dashboards stay as light as before.
  */
 @Component({
@@ -38,7 +36,7 @@ type PanelView = 'none' | 'suggestions' | 'no-match' | 'loading' | 'result' | 'e
   imports: [RouterLink, IconComponent, StatusBadgeComponent, PricePipe, DateTimePipe],
   template: `
     <form class="search" role="search" (submit)="onSubmit($event)" (focusout)="onFocusOut($event)">
-      <label class="visually-hidden" [for]="inputId">Look up an instrument price by symbol</label>
+      <label class="visually-hidden" [for]="inputId">Search by ticker or company name</label>
       <div class="search-field">
         <span class="search-prefix" aria-hidden="true"><app-icon name="search" [size]="18" /></span>
         <input
@@ -57,7 +55,7 @@ type PanelView = 'none' | 'suggestions' | 'no-match' | 'loading' | 'result' | 'e
           autocapitalize="characters"
           spellcheck="false"
           enterkeyhint="search"
-          placeholder="Look up a price, e.g. AAPL"
+          placeholder="Search by ticker or company name"
           [value]="query()"
           (input)="onInput($event)"
           (focus)="onFocus()"
@@ -66,11 +64,21 @@ type PanelView = 'none' | 'suggestions' | 'no-match' | 'loading' | 'result' | 'e
         />
         <span class="search-suffix">
           @if (query()) {
-            <button type="button" class="btn btn-ghost btn-icon search-clear" (click)="clear()" aria-label="Clear search">
+            <button
+              type="button"
+              class="btn btn-ghost btn-icon search-clear"
+              (click)="clear()"
+              aria-label="Clear search"
+            >
               <app-icon name="close" [size]="16" />
             </button>
           }
-          <button type="submit" class="btn btn-soft btn-icon search-submit" [disabled]="!query().trim() || loading()" aria-label="Look up price">
+          <button
+            type="submit"
+            class="btn btn-soft btn-icon search-submit"
+            [disabled]="!query().trim() || loading()"
+            aria-label="Open price history"
+          >
             @if (loading()) {
               <span class="spinner" aria-hidden="true"></span>
             } @else {
@@ -80,14 +88,20 @@ type PanelView = 'none' | 'suggestions' | 'no-match' | 'loading' | 'result' | 'e
         </span>
       </div>
       <span [id]="hintId" class="visually-hidden">
-        Type a symbol or company name, then press Enter to see the platform's latest stored quote.
+        Type a symbol or company name, then press Enter to open its price history. Choose a
+        suggestion to preview its latest stored quote.
       </span>
 
       @if (open() && view() !== 'none') {
         <div class="search-panel" (mousedown)="keepFocus($event)">
           @switch (view()) {
             @case ('suggestions') {
-              <ul [id]="listboxId" class="search-list" role="listbox" aria-label="Matching instruments">
+              <ul
+                [id]="listboxId"
+                class="search-list"
+                role="listbox"
+                aria-label="Matching instruments"
+              >
                 @for (item of suggestions(); track item.symbol; let index = $index) {
                   <li
                     [id]="optionId(index)"
@@ -99,21 +113,26 @@ type PanelView = 'none' | 'suggestions' | 'no-match' | 'loading' | 'result' | 'e
                     <span class="option-symbol">{{ item.symbol }}</span>
                     <span class="option-name truncate">{{ item.instrumentName }}</span>
                     <span class="option-class pill">{{ item.assetClass }}</span>
-                    <span class="option-price tabular">{{ item.lastPrice ?? item.askPrice | price: item.currency }}</span>
+                    <span class="option-price tabular">{{
+                      item.lastPrice ?? item.askPrice | price: item.currency
+                    }}</span>
                   </li>
                 }
               </ul>
-              <p class="search-note search-hint">Choose an instrument, or press Enter to look up the symbol you typed.</p>
+              <p class="search-note search-hint">
+                Choose an instrument to preview it, or press Enter to open its price history.
+              </p>
             }
             @case ('no-match') {
               <p class="search-note">
-                No instrument in the list matches “{{ query().trim() }}”. Press Enter to look the symbol up anyway.
+                No instrument in the list matches “{{ query().trim() }}”. Enter an exact ticker to
+                open price history.
               </p>
             }
             @case ('loading') {
               <p class="search-note search-loading" role="status">
                 <span class="spinner" aria-hidden="true"></span>
-                Looking up {{ lookedUp() }}…
+                Resolving {{ lookedUp() }}…
               </p>
             }
             @case ('error') {
@@ -124,7 +143,12 @@ type PanelView = 'none' | 'suggestions' | 'no-match' | 'loading' | 'result' | 'e
             }
             @case ('result') {
               @if (result(); as found) {
-                <div class="search-result" role="region" aria-live="polite" [attr.aria-label]="'Quote for ' + found.symbol">
+                <div
+                  class="search-result"
+                  role="region"
+                  aria-live="polite"
+                  [attr.aria-label]="'Quote for ' + found.symbol"
+                >
                   <div class="result-head">
                     <div class="result-identity">
                       <span class="result-symbol">{{ found.symbol }}</span>
@@ -152,12 +176,6 @@ type PanelView = 'none' | 'suggestions' | 'no-match' | 'loading' | 'result' | 'e
                       <dt>Last trade</dt>
                       <dd>{{ found.lastPrice | price: found.currency }}</dd>
                     </div>
-                    <div>
-                      <dt>Quote age</dt>
-                      <dd [class.text-positive]="quoteFresh()" [class.text-negative]="quoteAge() !== null && !quoteFresh()">
-                        {{ quoteAgeLabel() }}
-                      </dd>
-                    </div>
                   </dl>
                   <div class="result-foot">
                     <span class="text-secondary text-xs">
@@ -168,12 +186,12 @@ type PanelView = 'none' | 'suggestions' | 'no-match' | 'loading' | 'result' | 'e
                       }
                     </span>
                     <div class="cluster result-actions">
-                      <button type="button" class="btn btn-ghost btn-sm" (click)="lookup(found.symbol)">
-                        <app-icon name="refresh" [size]="16" />
-                        Refresh
-                      </button>
                       @if (auth.isClient() && found.tradable) {
-                        <a class="btn btn-soft btn-sm" routerLink="/trade" [queryParams]="{ symbol: found.symbol }">
+                        <a
+                          class="btn btn-soft btn-sm"
+                          routerLink="/trade"
+                          [queryParams]="{ symbol: found.symbol }"
+                        >
                           Trade {{ found.symbol }}
                           <app-icon name="arrow-right" [size]="16" />
                         </a>
@@ -237,7 +255,7 @@ type PanelView = 'none' | 'suggestions' | 'no-match' | 'loading' | 'result' | 'e
       height: 16px;
     }
 
-    /* Wider than the field so a quote's four figures sit side by side; never wider than the viewport. */
+    /* Wider than the field so the quote figures stay balanced; never wider than the viewport. */
     .search-panel {
       position: absolute;
       top: calc(100% + 6px);
@@ -352,7 +370,7 @@ type PanelView = 'none' | 'suggestions' | 'no-match' | 'loading' | 'result' | 'e
 
     .quote-grid {
       display: grid;
-      grid-template-columns: repeat(4, minmax(0, 1fr));
+      grid-template-columns: repeat(3, minmax(0, 1fr));
       gap: 8px;
       margin: 0;
     }
@@ -414,6 +432,7 @@ export class InstrumentSearchComponent {
 
   private readonly api = inject(InstrumentsApiService);
   private readonly catalog = inject(InstrumentCatalogService);
+  private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
   protected readonly auth = inject(AuthService);
   private readonly inputRef = viewChild.required<ElementRef<HTMLInputElement>>('input');
@@ -427,12 +446,15 @@ export class InstrumentSearchComponent {
   protected readonly open = signal(false);
   protected readonly activeIndex = signal(-1);
   protected readonly loading = signal(false);
-  protected readonly result = signal<Instrument | null>(null);
+  private readonly resultState = signal<Instrument | null>(null);
+  protected readonly result = computed<Instrument | null>(() => {
+    const result = this.resultState();
+    return result ? (this.catalog.bySymbol().get(result.symbol) ?? result) : null;
+  });
   protected readonly error = signal<string | null>(null);
   /** The (upper-cased) symbol the current result or error refers to. */
   protected readonly lookedUp = signal('');
   private readonly listState = signal<Instrument[] | null>(null);
-  private readonly now = signal(Date.now());
   private list$: Observable<Instrument[]> | null = null;
   private lookupSeq = 0;
 
@@ -452,7 +474,8 @@ export class InstrumentSearchComponent {
     const contains = instruments.filter(
       (item) =>
         !starts.includes(item) &&
-        (item.symbol.toUpperCase().includes(term) || item.instrumentName.toUpperCase().includes(term)),
+        (item.symbol.toUpperCase().includes(term) ||
+          item.instrumentName.toUpperCase().includes(term)),
     );
     return [...starts, ...contains].slice(0, MAX_SUGGESTIONS);
   });
@@ -479,28 +502,10 @@ export class InstrumentSearchComponent {
 
   protected readonly activeOptionId = computed(() => {
     const index = this.activeIndex();
-    return this.open() && this.view() === 'suggestions' && this.suggestions()[index] ? this.optionId(index) : null;
+    return this.open() && this.view() === 'suggestions' && this.suggestions()[index]
+      ? this.optionId(index)
+      : null;
   });
-
-  protected readonly quoteAge = computed(() => ageInSeconds(this.result()?.quoteAsOf ?? null, this.now()));
-  protected readonly quoteFresh = computed(() => {
-    const age = this.quoteAge();
-    return age !== null && age <= environment.quoteMaxAgeSeconds;
-  });
-  protected readonly quoteAgeLabel = computed(() => {
-    const found = this.result();
-    if (!found?.quoteAsOf) {
-      return 'No quote';
-    }
-    return `${formatRelativeAge(found.quoteAsOf, this.now())} · ${this.quoteFresh() ? 'fresh' : 'stale'}`;
-  });
-
-  constructor() {
-    // Keeps the quote-age label honest while a result stays on screen.
-    interval(10_000)
-      .pipe(takeUntilDestroyed())
-      .subscribe(() => this.now.set(Date.now()));
-  }
 
   protected optionId(index: number): string {
     return `instrument-search-${this.uid}-option-${index}`;
@@ -528,6 +533,8 @@ export class InstrumentSearchComponent {
   }
 
   protected onInput(event: Event): void {
+    this.lookupSeq++;
+    this.loading.set(false);
     this.query.set((event.target as HTMLInputElement).value);
     this.activeIndex.set(-1);
     this.open.set(true);
@@ -551,12 +558,15 @@ export class InstrumentSearchComponent {
         }
         break;
       case 'Enter': {
-        const highlighted = this.open() && this.view() === 'suggestions' ? this.suggestions()[this.activeIndex()] : undefined;
+        const highlighted =
+          this.open() && this.view() === 'suggestions'
+            ? this.suggestions()[this.activeIndex()]
+            : undefined;
         if (highlighted) {
           event.preventDefault();
-          this.choose(highlighted);
+          void this.navigateToHistory(highlighted);
         }
-        // Otherwise the form submits and looks up the typed symbol.
+        // Otherwise the form submits through the same resolver as the arrow button.
         break;
       }
       case 'Escape':
@@ -570,20 +580,20 @@ export class InstrumentSearchComponent {
 
   protected onSubmit(event: Event): void {
     event.preventDefault();
-    void this.lookup(this.query());
+    void this.submitToHistory();
   }
 
   protected choose(item: Instrument): void {
     this.query.set(item.symbol);
     this.activeIndex.set(-1);
     this.inputRef().nativeElement.focus();
-    void this.lookup(item.symbol);
+    void this.lookup(item.symbol, item);
   }
 
   protected clear(): void {
     this.lookupSeq++;
     this.query.set('');
-    this.result.set(null);
+    this.resultState.set(null);
     this.error.set(null);
     this.lookedUp.set('');
     this.activeIndex.set(-1);
@@ -593,7 +603,7 @@ export class InstrumentSearchComponent {
   }
 
   /** Reads the stored quote for one symbol through GET /instruments/symbol/{symbol}. */
-  protected async lookup(raw: string): Promise<void> {
+  protected async lookup(raw: string, known?: Instrument): Promise<void> {
     const symbol = raw.trim().toUpperCase();
     if (!symbol) {
       return;
@@ -601,14 +611,17 @@ export class InstrumentSearchComponent {
     const seq = ++this.lookupSeq;
     this.loading.set(true);
     this.error.set(null);
-    this.result.set(null);
+    this.resultState.set(null);
     this.lookedUp.set(symbol);
     this.open.set(true);
     try {
       const instrument = await firstValueFrom(this.api.getBySymbol(symbol));
       if (seq === this.lookupSeq) {
-        this.result.set(instrument);
-        this.now.set(Date.now());
+        this.resultState.set(
+          known?.instrumentId === undefined
+            ? instrument
+            : { ...instrument, instrumentId: known.instrumentId },
+        );
       }
     } catch (error: unknown) {
       if (seq !== this.lookupSeq) {
@@ -621,8 +634,7 @@ export class InstrumentSearchComponent {
         return;
       }
       if (fallback) {
-        this.result.set(fallback);
-        this.now.set(Date.now());
+        this.resultState.set(fallback);
       } else {
         this.error.set(
           httpStatusOf(error) === 404
@@ -635,6 +647,134 @@ export class InstrumentSearchComponent {
         this.loading.set(false);
       }
     }
+  }
+
+  /** Resolves Enter and arrow submissions identically, without guessing among multiple matches. */
+  private async submitToHistory(): Promise<void> {
+    const term = this.query().trim().toUpperCase();
+    if (!term) {
+      return;
+    }
+
+    const highlighted =
+      this.open() && this.view() === 'suggestions'
+        ? this.suggestions()[this.activeIndex()]
+        : undefined;
+    if (highlighted) {
+      await this.navigateToHistory(highlighted);
+      return;
+    }
+
+    const preview = this.result();
+    if (preview && this.lookedUp() === term) {
+      await this.navigateToHistory(preview);
+      return;
+    }
+
+    const seq = ++this.lookupSeq;
+    if (this.instruments().length === 0 && this.listState() === null) {
+      this.loading.set(true);
+      this.error.set(null);
+      this.open.set(true);
+      await firstValueFrom(this.loadList());
+      if (seq !== this.lookupSeq || this.destroyRef.destroyed) {
+        return;
+      }
+      this.loading.set(false);
+    }
+
+    const instruments = this.instruments();
+    const exactSymbol = instruments.find((item) => item.symbol.toUpperCase() === term);
+    if (exactSymbol) {
+      await this.navigateToHistory(exactSymbol, seq);
+      return;
+    }
+
+    const exactNames = instruments.filter(
+      (item) => item.instrumentName.trim().toUpperCase() === term,
+    );
+    const matches = exactNames.length > 0 ? exactNames : this.suggestions();
+    if (matches.length === 1) {
+      await this.navigateToHistory(matches[0], seq);
+      return;
+    }
+    if (matches.length > 1) {
+      this.showNavigationError(
+        `More than one instrument matches “${this.query().trim()}”. Choose a suggestion first.`,
+      );
+      return;
+    }
+
+    // A compact ticker can still be valid when the lazy list is unavailable or stale.
+    // Company-name phrases are deliberately not sent to the symbol endpoint.
+    if (!/^[A-Z][A-Z0-9.-]{0,14}$/.test(term)) {
+      this.showNavigationError(
+        `No instrument matches “${this.query().trim()}”. Choose a suggestion or enter an exact ticker.`,
+      );
+      return;
+    }
+
+    this.loading.set(true);
+    this.error.set(null);
+    this.resultState.set(null);
+    this.lookedUp.set(term);
+    this.open.set(true);
+    try {
+      const instrument = await firstValueFrom(this.api.getBySymbol(term));
+      if (seq === this.lookupSeq) {
+        await this.navigateToHistory(instrument, seq);
+      }
+    } catch (error: unknown) {
+      if (seq === this.lookupSeq) {
+        this.showNavigationError(
+          httpStatusOf(error) === 404
+            ? `No instrument with the symbol “${term}”. Try the exact ticker, for example AAPL.`
+            : describeHttpError(error, 'Price history could not be opened right now.'),
+          seq,
+        );
+      }
+    } finally {
+      if (seq === this.lookupSeq) {
+        this.loading.set(false);
+      }
+    }
+  }
+
+  private async navigateToHistory(item: Instrument, expectedSeq?: number): Promise<void> {
+    const seq = expectedSeq ?? ++this.lookupSeq;
+    const instrument = this.catalog.bySymbol().get(item.symbol) ?? item;
+    const id = instrument.instrumentId;
+    const routeKey =
+      typeof id === 'number' && Number.isSafeInteger(id) && id > 0
+        ? id
+        : /^[A-Za-z][A-Za-z0-9.-]*$/.test(instrument.symbol)
+          ? instrument.symbol
+          : null;
+
+    if (seq !== this.lookupSeq) {
+      return;
+    }
+    if (routeKey === null) {
+      this.showNavigationError(
+        `Price history for ${instrument.symbol} cannot be opened until its instrument ID is available.`,
+        seq,
+      );
+      return;
+    }
+
+    this.open.set(false);
+    await this.router.navigate(['/instruments', routeKey]);
+  }
+
+  private showNavigationError(message: string, expectedSeq?: number): void {
+    if (expectedSeq !== undefined && expectedSeq !== this.lookupSeq) {
+      return;
+    }
+    this.loading.set(false);
+    this.resultState.set(null);
+    this.lookedUp.set(this.query().trim().toUpperCase());
+    this.error.set(message);
+    this.open.set(true);
   }
 
   private ensureSuggestions(): void {
@@ -660,7 +800,8 @@ export class InstrumentSearchComponent {
 
   private async fromList(symbol: string): Promise<Instrument | null> {
     try {
-      const listed = this.instruments().length > 0 ? this.instruments() : await firstValueFrom(this.loadList());
+      const listed =
+        this.instruments().length > 0 ? this.instruments() : await firstValueFrom(this.loadList());
       return listed.find((item) => item.symbol.toUpperCase() === symbol) ?? null;
     } catch {
       return null;

@@ -1,6 +1,14 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, OnInit, computed, inject, signal, viewChild } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  DestroyRef,
+  OnInit,
+  computed,
+  inject,
+  signal,
+} from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { interval } from 'rxjs';
+import { filter, interval, timer } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { AdminsApiService } from '../../core/api/admins-api.service';
 import { ClientApiService } from '../../core/api/client-api.service';
@@ -8,6 +16,7 @@ import { AuthService } from '../../core/auth/auth.service';
 import { ADMIN_ROLE_LABELS } from '../../core/models/auth.models';
 import { AdminRecord, ClientRecord } from '../../core/models/trading.models';
 import { InstrumentCatalogService } from '../../core/services/instrument-catalog.service';
+import { AppVisibilityService } from '../../core/services/app-visibility.service';
 import { ageInSeconds, formatDate } from '../../core/utils/dates';
 import { describeHttpError } from '../../core/utils/http-error';
 import { formatCompactMoney, formatInteger } from '../../core/utils/money';
@@ -46,7 +55,7 @@ export class AdminDashboardPage implements OnInit {
   private readonly clientApi = inject(ClientApiService);
   private readonly adminsApi = inject(AdminsApiService);
   private readonly destroyRef = inject(DestroyRef);
-  private readonly platformMetrics = viewChild(PlatformMetricsComponent);
+  private readonly visibility = inject(AppVisibilityService);
   protected readonly auth = inject(AuthService);
   protected readonly catalog = inject(InstrumentCatalogService);
 
@@ -67,8 +76,12 @@ export class AdminDashboardPage implements OnInit {
   protected readonly now = signal(Date.now());
 
   protected readonly totalClients = computed(() => this.clients()?.length ?? null);
-  protected readonly fundedAccounts = computed(() => this.clients()?.filter((client) => client.accountBalance > 0).length ?? null);
-  protected readonly totalClientCash = computed(() => this.clients()?.reduce((sum, client) => sum + client.accountBalance, 0) ?? null);
+  protected readonly fundedAccounts = computed(
+    () => this.clients()?.filter((client) => client.accountBalance > 0).length ?? null,
+  );
+  protected readonly totalClientCash = computed(
+    () => this.clients()?.reduce((sum, client) => sum + client.accountBalance, 0) ?? null,
+  );
   protected readonly tradableInstruments = computed(() => this.catalog.tradable().length);
   protected readonly freshQuotes = computed(() => {
     const now = this.now();
@@ -77,7 +90,9 @@ export class AdminDashboardPage implements OnInit {
       return age !== null && age <= environment.quoteMaxAgeSeconds;
     }).length;
   });
-  protected readonly quotedInstruments = computed(() => this.catalog.instruments().filter((instrument) => instrument.quoteAsOf !== null).length);
+  protected readonly quotedInstruments = computed(
+    () => this.catalog.instruments().filter((instrument) => instrument.quoteAsOf !== null).length,
+  );
   protected readonly totalAdmins = computed(() => this.admins()?.length ?? null);
   protected readonly adminsByRole = computed(() => {
     const admins = this.admins() ?? [];
@@ -92,6 +107,12 @@ export class AdminDashboardPage implements OnInit {
     interval(10000)
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe(() => this.now.set(Date.now()));
+    timer(environment.adminPollIntervalMs, environment.adminPollIntervalMs)
+      .pipe(
+        filter(() => this.visibility.visible()),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe(() => this.loadClients(true));
     this.loadClients();
     void this.catalog.load().catch(() => undefined);
     if (this.auth.canManageAdmins()) {
@@ -99,43 +120,42 @@ export class AdminDashboardPage implements OnInit {
     }
   }
 
-  protected loadClients(): void {
-    this.loadingClients.set(true);
-    this.clientsError.set(null);
-    this.clientApi.listClients().subscribe({
-      next: (clients) => {
-        this.clients.set(clients);
-        this.loadingClients.set(false);
-      },
-      error: (error: unknown) => {
-        this.clientsError.set(describeHttpError(error, 'Client records could not be loaded.'));
-        this.loadingClients.set(false);
-      },
-    });
+  protected loadClients(silent = false): void {
+    if (this.loadingClients()) return;
+    if (!silent || this.clients() === null) this.loadingClients.set(true);
+    if (!silent) this.clientsError.set(null);
+    this.clientApi
+      .listClients()
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (clients) => {
+          this.clients.set(clients);
+          this.loadingClients.set(false);
+        },
+        error: (error: unknown) => {
+          if (!silent || this.clients() === null) {
+            this.clientsError.set(describeHttpError(error, 'Client records could not be loaded.'));
+          }
+          this.loadingClients.set(false);
+        },
+      });
   }
 
   protected loadAdmins(): void {
     this.loadingAdmins.set(true);
     this.adminsError.set(null);
-    this.adminsApi.list().subscribe({
+    this.adminsApi.list().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: (admins) => {
         this.admins.set(admins);
         this.loadingAdmins.set(false);
       },
       error: (error: unknown) => {
-        this.adminsError.set(describeHttpError(error, 'Administrator records could not be loaded.'));
+        this.adminsError.set(
+          describeHttpError(error, 'Administrator records could not be loaded.'),
+        );
         this.loadingAdmins.set(false);
       },
     });
-  }
-
-  protected refreshAll(): void {
-    this.platformMetrics()?.reload();
-    this.loadClients();
-    void this.catalog.load(true).catch(() => undefined);
-    if (this.auth.canManageAdmins()) {
-      this.loadAdmins();
-    }
   }
 
   protected count(value: number | null): string {

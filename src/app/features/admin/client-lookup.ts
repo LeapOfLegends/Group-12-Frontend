@@ -1,13 +1,27 @@
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  DestroyRef,
+  computed,
+  inject,
+  signal,
+} from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { firstValueFrom, forkJoin } from 'rxjs';
+import { filter, firstValueFrom, forkJoin, interval } from 'rxjs';
+import { environment } from '../../../environments/environment';
 import { ClientApiService } from '../../core/api/client-api.service';
 import { HoldingsApiService } from '../../core/api/holdings-api.service';
 import { OrdersApiService } from '../../core/api/orders-api.service';
 import { ClientRecord, Holding, Instrument, Order } from '../../core/models/trading.models';
 import { InstrumentCatalogService } from '../../core/services/instrument-catalog.service';
+import { AppVisibilityService } from '../../core/services/app-visibility.service';
 import { describeHttpError, httpStatusOf } from '../../core/utils/http-error';
-import { buildOrderRows, buildPositions, summarizePortfolio } from '../../core/utils/portfolio-math';
+import {
+  buildOrderRows,
+  buildPositions,
+  summarizePortfolio,
+} from '../../core/utils/portfolio-math';
 import { MoneyPipe, ShortDatePipe } from '../../shared/pipes/format.pipes';
 import { HoldingsTableComponent } from '../../shared/ui/holdings-table/holdings-table';
 import { IconComponent } from '../../shared/ui/icon/icon';
@@ -24,7 +38,14 @@ interface LookupResult {
 @Component({
   selector: 'app-client-lookup',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ReactiveFormsModule, HoldingsTableComponent, OrdersTableComponent, IconComponent, MoneyPipe, ShortDatePipe],
+  imports: [
+    ReactiveFormsModule,
+    HoldingsTableComponent,
+    OrdersTableComponent,
+    IconComponent,
+    MoneyPipe,
+    ShortDatePipe,
+  ],
   template: `
     <section class="card" aria-labelledby="client-lookup-title">
       <div class="card-header">
@@ -37,8 +58,16 @@ interface LookupResult {
       <form class="lookup-form" [formGroup]="form" (ngSubmit)="search()" novalidate>
         <label class="visually-hidden" for="client-lookup-input">Client ID or email</label>
         <div class="input-group lookup-input">
-          <span class="input-prefix" aria-hidden="true"><app-icon name="search" [size]="18" /></span>
-          <input id="client-lookup-input" class="input" formControlName="query" placeholder="e.g. 42 or jane@example.com" autocomplete="off" />
+          <span class="input-prefix" aria-hidden="true"
+            ><app-icon name="search" [size]="18"
+          /></span>
+          <input
+            id="client-lookup-input"
+            class="input"
+            formControlName="query"
+            placeholder="e.g. 42 or jane@example.com"
+            autocomplete="off"
+          />
         </div>
         <button type="submit" class="btn btn-primary" [disabled]="loading() || form.invalid">
           @if (loading()) {
@@ -62,15 +91,32 @@ interface LookupResult {
               <span class="avatar" aria-hidden="true">{{ initials() }}</span>
               <div>
                 <strong>{{ found.client.firstName }} {{ found.client.lastName }}</strong>
-                <span class="text-secondary text-sm">{{ found.client.email }} · Client ID {{ found.client.clientId }}</span>
-                <span class="text-secondary text-xs">Member since {{ found.client.createdAt | shortDate }} · {{ found.client.phoneNumber }}</span>
+                <span class="text-secondary text-sm"
+                  >{{ found.client.email }} · Client ID {{ found.client.clientId }}</span
+                >
+                <span class="text-secondary text-xs"
+                  >Member since {{ found.client.createdAt | shortDate }} ·
+                  {{ found.client.phoneNumber }}</span
+                >
               </div>
             </div>
             <dl class="client-stats">
-              <div><dt>Cash balance</dt><dd>{{ found.client.accountBalance | money }}</dd></div>
-              <div><dt>Holdings value</dt><dd>{{ summary().holdingsValue | money }}</dd></div>
-              <div><dt>Reserved cash</dt><dd>{{ summary().reservedCash | money }}</dd></div>
-              <div><dt>Orders</dt><dd>{{ found.orders.length }}</dd></div>
+              <div>
+                <dt>Cash balance</dt>
+                <dd>{{ found.client.accountBalance | money }}</dd>
+              </div>
+              <div>
+                <dt>Holdings value</dt>
+                <dd>{{ summary().holdingsValue | money }}</dd>
+              </div>
+              <div>
+                <dt>Reserved cash</dt>
+                <dd>{{ summary().reservedCash | money }}</dd>
+              </div>
+              <div>
+                <dt>Orders</dt>
+                <dd>{{ found.orders.length }}</dd>
+              </div>
             </dl>
           </div>
 
@@ -78,7 +124,12 @@ interface LookupResult {
           <app-holdings-table [positions]="positions()" [showActions]="false" />
 
           <h4 class="sub-title">Order history</h4>
-          <app-orders-table [rows]="orderRows()" caption="Client order history" emptyTitle="No orders" emptyMessage="This client has not placed any orders." />
+          <app-orders-table
+            [rows]="orderRows()"
+            caption="Client order history"
+            emptyTitle="No orders"
+            emptyMessage="This client has not placed any orders."
+          />
         </div>
       }
     </section>
@@ -202,53 +253,95 @@ export class ClientLookupComponent {
   private readonly holdingsApi = inject(HoldingsApiService);
   private readonly ordersApi = inject(OrdersApiService);
   private readonly catalog = inject(InstrumentCatalogService);
+  private readonly visibility = inject(AppVisibilityService);
+  private readonly destroyRef = inject(DestroyRef);
+  private requestInFlight = false;
 
-  protected readonly form = this.fb.nonNullable.group({ query: ['', [Validators.required, Validators.maxLength(255)]] });
+  protected readonly form = this.fb.nonNullable.group({
+    query: ['', [Validators.required, Validators.maxLength(255)]],
+  });
   protected readonly loading = signal(false);
   protected readonly error = signal<string | null>(null);
   protected readonly result = signal<LookupResult | null>(null);
 
+  private readonly effectiveInstruments = computed(() => {
+    const found = this.result();
+    const merged = new Map(found?.instruments ?? []);
+    for (const instrument of this.catalog.instruments()) {
+      if (merged.has(instrument.instrumentId)) merged.set(instrument.instrumentId, instrument);
+    }
+    return merged;
+  });
   protected readonly positions = computed(() => {
     const found = this.result();
-    return found ? buildPositions(found.holdings, found.instruments) : [];
+    return found ? buildPositions(found.holdings, this.effectiveInstruments()) : [];
   });
   protected readonly orderRows = computed(() => {
     const found = this.result();
-    return found ? buildOrderRows(found.orders, found.instruments) : [];
+    return found ? buildOrderRows(found.orders, this.effectiveInstruments()) : [];
   });
   protected readonly summary = computed(() => {
     const found = this.result();
-    return summarizePortfolio(found?.client.accountBalance ?? 0, this.positions(), found?.orders ?? []);
+    return summarizePortfolio(
+      found?.client.accountBalance ?? 0,
+      this.positions(),
+      found?.orders ?? [],
+    );
   });
   protected readonly initials = computed(() => {
     const client = this.result()?.client;
     return client ? `${client.firstName.charAt(0)}${client.lastName.charAt(0)}`.toUpperCase() : '';
   });
 
-  protected async search(): Promise<void> {
+  constructor() {
+    interval(environment.adminPollIntervalMs)
+      .pipe(
+        filter(() => this.visibility.visible() && this.result() !== null),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe(() => void this.loadLookup(this.form.controls.query.value.trim(), true));
+  }
+
+  protected search(): Promise<void> {
     const query = this.form.controls.query.value.trim();
-    if (!query || this.loading()) {
-      return;
+    return this.loadLookup(query, false);
+  }
+
+  private async loadLookup(query: string, silent: boolean): Promise<void> {
+    if (!query || this.requestInFlight) return;
+    this.requestInFlight = true;
+    if (!silent) {
+      this.loading.set(true);
+      this.error.set(null);
+      this.result.set(null);
     }
-    this.loading.set(true);
-    this.error.set(null);
-    this.result.set(null);
     try {
       const client = /^\d+$/.test(query)
         ? await firstValueFrom(this.clientApi.getClient(Number(query)))
         : await firstValueFrom(this.clientApi.getClientByEmail(query));
       const { holdings, orders } = await firstValueFrom(
-        forkJoin({ holdings: this.holdingsApi.listForClient(client.clientId), orders: this.ordersApi.listForClient(client.clientId) }),
+        forkJoin({
+          holdings: this.holdingsApi.listForClient(client.clientId),
+          orders: this.ordersApi.listForClient(client.clientId),
+        }),
       );
       const instruments = await firstValueFrom(
-        this.catalog.getMany([...holdings.map((holding) => holding.instrumentId), ...orders.map((order) => order.instrumentId)]),
+        this.catalog.getMany([
+          ...holdings.map((holding) => holding.instrumentId),
+          ...orders.map((order) => order.instrumentId),
+        ]),
       );
       this.result.set({ client, holdings, orders, instruments });
     } catch (error: unknown) {
-      this.error.set(
-        httpStatusOf(error) === 404 ? `No client matches “${query}”.` : describeHttpError(error, 'The client could not be loaded.'),
-      );
+      if (!silent) {
+        this.error.set(
+          httpStatusOf(error) === 404
+            ? `No client matches “${query}”.`
+            : describeHttpError(error, 'The client could not be loaded.'),
+        );
+      }
     } finally {
+      this.requestInFlight = false;
       this.loading.set(false);
     }
   }

@@ -1,0 +1,66 @@
+<section class="history-chart" aria-label="Price history chart">
+  <div class="history-controls">
+    <h3>Price history</h3>
+    <div class="segmented" role="group" aria-label="Price history range">
+      @for (range of ranges; track range) {
+        <button
+          type="button"
+          [attr.aria-pressed]="selectedRange() === range"
+          [disabled]="historyUnsupported()"
+          (click)="setRange(range)"
+        >
+          {{ range }}
+        </button>
+      }
+    </div>
+  </div>
+
+  @if (loading()) {
+    <app-loading-skeleton variant="chart" [height]="height()" label="Loading price history" />
+  } @else if (unavailable(); as message) {
+    <div class="history-state history-unavailable" role="status">
+      <app-icon name="info" [size]="18" />
+      <span>{{ message }}</span>
+    </div>
+  } @else if (error(); as message) {
+    <div class="history-state history-error" role="alert">
+      <app-icon name="alert-circle" [size]="18" />
+      <span>{{ message }}</span>
+      <button type="button" class="btn btn-secondary btn-sm" (click)="retry()">Retry</button>
+    </div>
+  } @else if (history(); as result) {
+    @if (result.partial) {
+      <p class="history-notice" role="status">
+        <app-icon name="info" [size]="16" />
+        Only part of this range is cached. The chart shows the available prices.
+      </p>
+    }
+    @if (points().length >= 2) {
+      <app-line-chart
+        [points]="points()"
+        [height]="height()"
+        xScale="index"
+        [xTickFormatter]="formatAxisTime"
+        [tooltipTimeFormatter]="formatTooltipTime"
+        [valueFormatter]="formatValue"
+        [compactFormatter]="formatCompact"
+        [ariaLabel]="result.symbol + ' closing prices for ' + selectedRange()"
+      />
+      <p class="exchange-time-note">Times shown in New York exchange time (ET).</p>
+    } @else if (points().length === 1) {
+      <p class="history-message" role="status">
+        Only one closing price is available for this range:
+        {{ points()[0].value | price: result.currency }}. Choose a longer range to see a chart.
+      </p>
+    } @else {
+      <p class="history-message" role="status">
+        No historical prices are available for this range. Try another range.
+      </p>
+    }
+    @if (result.availableFrom && result.availableTo) {
+      <p class="text-secondary text-sm history-coverage">
+        Available {{ result.availableFrom | dateTime }}–{{ result.availableTo | dateTime }}
+      </p>
+    }
+  }
+</section>

@@ -6,23 +6,62 @@ import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/route
 import { environment } from '../../../environments/environment';
 import { OrdersApiService } from '../../core/api/orders-api.service';
 import { AuthService } from '../../core/auth/auth.service';
-import { CatalogInstrument, MarketAvailability } from '../../core/models/trading.models';
+import {
+  CatalogInstrument,
+  InstrumentHistory,
+  MarketAvailability,
+} from '../../core/models/trading.models';
 import { InstrumentCatalogService } from '../../core/services/instrument-catalog.service';
 import { NotificationService } from '../../core/services/notification.service';
 import { PortfolioService } from '../../core/services/portfolio.service';
 import { TradePage } from './trade';
 
 const INSTRUMENT: CatalogInstrument = {
-  instrumentId: 2, symbol: 'AAPL', instrumentName: 'Apple', assetClass: 'EQUITY',
-  currency: 'USD', tradable: true, bidPrice: 99, askPrice: 100, lastPrice: 100,
-  quoteAsOf: new Date().toISOString(), lastTradeAsOf: null,
+  instrumentId: 2,
+  symbol: 'AAPL',
+  instrumentName: 'Apple',
+  assetClass: 'EQUITY',
+  currency: 'USD',
+  tradable: true,
+  bidPrice: 99,
+  askPrice: 100,
+  lastPrice: 100,
+  quoteAsOf: new Date().toISOString(),
+  lastTradeAsOf: null,
 };
 const statusUrl = (id = 2) => `${environment.tradingApiUrl}/instruments/${id}/market-status`;
+const historyUrl = (id = 2, range = '1D') =>
+  `${environment.tradingApiUrl}/instruments/${id}/history?range=${range}`;
+function history(
+  instrument = INSTRUMENT,
+  range: InstrumentHistory['range'] = '1D',
+): InstrumentHistory {
+  return {
+    instrumentId: instrument.instrumentId,
+    symbol: instrument.symbol,
+    range,
+    timeframe: range === '1D' ? '5Min' : '30Min',
+    currency: instrument.currency,
+    availableFrom: '2026-10-23T14:30:00Z',
+    availableTo: '2026-10-23T14:35:00Z',
+    partial: false,
+    points: [
+      { timestamp: '2026-10-23T14:30:00Z', close: 99.5 },
+      { timestamp: '2026-10-23T14:35:00Z', close: 100 },
+    ],
+  };
+}
 function availability(status: 'OPEN' | 'CLOSED' = 'OPEN'): MarketAvailability {
   return {
-    marketCode: 'IEX', status, tradingAllowed: status === 'OPEN',
-    message: status === 'OPEN' ? 'IEX market is open.' : 'IEX market is closed. Please try again when it reopens.',
-    statusAsOf: new Date().toISOString(), validUntil: new Date(Date.now() + 90000).toISOString(),
+    marketCode: 'IEX',
+    status,
+    tradingAllowed: status === 'OPEN',
+    message:
+      status === 'OPEN'
+        ? 'IEX market is open.'
+        : 'IEX market is closed. Please try again when it reopens.',
+    statusAsOf: new Date().toISOString(),
+    validUntil: new Date(Date.now() + 90000).toISOString(),
     rejectionReason: status === 'OPEN' ? null : 'MARKET_CLOSED',
   };
 }
@@ -32,25 +71,42 @@ describe('TradePage market availability', () => {
   let page: TradePage;
   let http: HttpTestingController;
   const submit = vi.fn();
+  const catalogInstruments = signal([INSTRUMENT]);
 
   beforeEach(async () => {
     submit.mockReset();
+    catalogInstruments.set([INSTRUMENT]);
     await TestBed.configureTestingModule({
       imports: [TradePage],
       providers: [
-        provideRouter([]), provideHttpClient(), provideHttpClientTesting(),
-        { provide: ActivatedRoute, useValue: { snapshot: { queryParamMap: convertToParamMap({}) } } },
+        provideRouter([]),
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        {
+          provide: ActivatedRoute,
+          useValue: { snapshot: { queryParamMap: convertToParamMap({}) } },
+        },
         { provide: AuthService, useValue: { user: signal({ id: 12 }) } },
         { provide: OrdersApiService, useValue: { submit } },
         { provide: NotificationService, useValue: { warning: vi.fn(), error: vi.fn() } },
-        { provide: InstrumentCatalogService, useValue: {
-          loading: signal(false), error: signal(null), instruments: signal([INSTRUMENT]),
-          load: vi.fn().mockResolvedValue([INSTRUMENT]),
-        } },
-        { provide: PortfolioService, useValue: {
-          load: vi.fn().mockResolvedValue(undefined), refresh: vi.fn().mockResolvedValue(undefined),
-          summary: signal({ buyingPower: 10000 }), sellableQuantity: () => 5,
-        } },
+        {
+          provide: InstrumentCatalogService,
+          useValue: {
+            loading: signal(false),
+            error: signal(null),
+            instruments: catalogInstruments,
+            load: vi.fn().mockResolvedValue([INSTRUMENT]),
+          },
+        },
+        {
+          provide: PortfolioService,
+          useValue: {
+            load: vi.fn().mockResolvedValue(undefined),
+            refresh: vi.fn().mockResolvedValue(undefined),
+            summary: signal({ buyingPower: 10000 }),
+            sellableQuantity: () => 5,
+          },
+        },
       ],
     }).compileComponents();
     vi.useFakeTimers();
@@ -60,6 +116,9 @@ describe('TradePage market availability', () => {
     fixture.detectChanges();
     page['choose'](INSTRUMENT);
     page['quantityText'].set('1');
+    fixture.detectChanges();
+    http.expectOne(historyUrl()).flush(history());
+    fixture.detectChanges();
     await vi.advanceTimersByTimeAsync(0);
   });
 
@@ -75,8 +134,9 @@ describe('TradePage market availability', () => {
   }
 
   function button(label: string): HTMLButtonElement {
-    return [...fixture.nativeElement.querySelectorAll('button')]
-      .find((element: HTMLButtonElement) => element.textContent?.includes(label));
+    return [...fixture.nativeElement.querySelectorAll('button')].find(
+      (element: HTMLButtonElement) => element.textContent?.includes(label),
+    );
   }
 
   it('blocks review and direct submission while availability is loading', () => {
@@ -101,7 +161,9 @@ describe('TradePage market availability', () => {
   });
 
   it('replaces the stale-quote warning with market closure in the summary before quantity entry', () => {
-    page['selected'].set({ ...INSTRUMENT, quoteAsOf: new Date(Date.now() - 5280000).toISOString() });
+    catalogInstruments.set([
+      { ...INSTRUMENT, quoteAsOf: new Date(Date.now() - 5280000).toISOString() },
+    ]);
     page['quantityText'].set('');
     flushStatus('CLOSED');
 
@@ -115,7 +177,9 @@ describe('TradePage market availability', () => {
   });
 
   it('keeps the stale-quote warning when the market is open', () => {
-    page['selected'].set({ ...INSTRUMENT, quoteAsOf: new Date(Date.now() - 5280000).toISOString() });
+    catalogInstruments.set([
+      { ...INSTRUMENT, quoteAsOf: new Date(Date.now() - 5280000).toISOString() },
+    ]);
     flushStatus();
     const summary = fixture.nativeElement.querySelector('app-order-summary');
     expect(summary.querySelector('.alert-warning').textContent).toContain('The quote for AAPL');
@@ -128,6 +192,96 @@ describe('TradePage market availability', () => {
     page['reviewOrder']();
     fixture.detectChanges();
     expect(button('Place buy order').disabled).toBe(false);
+  });
+
+  it('keeps the selected instrument attached to canonical catalogue updates', () => {
+    flushStatus();
+    catalogInstruments.set([{ ...INSTRUMENT, lastPrice: 110, bidPrice: 109, askPrice: 111 }]);
+    expect(page['selected']()?.lastPrice).toBe(110);
+    expect(page['estimatedPrice']()).toBe(111);
+  });
+
+  it('shows three quote prices and the embedded 1D chart without legacy controls', () => {
+    flushStatus();
+    const card = fixture.nativeElement.querySelector('.instrument-card') as HTMLElement;
+    expect(card.textContent).toContain('Bid');
+    expect(card.textContent).toContain('Ask');
+    expect(card.textContent).toContain('Last trade');
+    expect(card.textContent).not.toContain('Quote age');
+    expect(card.querySelector('app-line-chart')).not.toBeNull();
+    expect(card.querySelector('[aria-pressed="true"]')?.textContent?.trim()).toBe('1D');
+    expect(card.querySelector('a')).toBeNull();
+  });
+
+  it('shows one execution-price disclosure during entry and review', () => {
+    flushStatus();
+    const disclosure = () =>
+      fixture.nativeElement.querySelectorAll('[aria-label="Execution price information"]');
+    expect(disclosure()).toHaveLength(1);
+    expect(disclosure()[0].textContent).toContain('Market price may change');
+    expect(disclosure()[0].textContent).toContain('not guaranteed');
+
+    page['reviewOrder']();
+    fixture.detectChanges();
+    expect(disclosure()).toHaveLength(1);
+  });
+
+  it('requests a newly selected range from the embedded chart', () => {
+    flushStatus();
+    button('5D').click();
+    fixture.detectChanges();
+    http.expectOne(historyUrl(2, '5D')).flush(history(INSTRUMENT, '5D'));
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('[aria-pressed="true"]')?.textContent.trim()).toBe(
+      '5D',
+    );
+  });
+
+  it('cancels chart requests on instrument changes and clearing', () => {
+    flushStatus();
+    const microsoft: CatalogInstrument = {
+      ...INSTRUMENT,
+      instrumentId: 3,
+      symbol: 'MSFT',
+      instrumentName: 'Microsoft',
+    };
+    catalogInstruments.set([INSTRUMENT, microsoft]);
+
+    page['choose'](microsoft);
+    fixture.detectChanges();
+    const microsoftHistory = http.expectOne(historyUrl(3));
+    page['choose'](INSTRUMENT);
+    fixture.detectChanges();
+    expect(microsoftHistory.cancelled).toBe(true);
+
+    const appleHistory = http.expectOne(historyUrl());
+    page['clearInstrument']();
+    fixture.detectChanges();
+    expect(appleHistory.cancelled).toBe(true);
+    expect(fixture.nativeElement.querySelector('app-instrument-history-chart')).toBeNull();
+  });
+
+  it('keeps trading available when history is unsupported', async () => {
+    flushStatus();
+    const bitcoin: CatalogInstrument = {
+      ...INSTRUMENT,
+      instrumentId: 9,
+      symbol: 'BTCUSD',
+      instrumentName: 'Bitcoin',
+      assetClass: 'CRYPTO',
+    };
+    catalogInstruments.set([INSTRUMENT, bitcoin]);
+    page['choose'](bitcoin);
+    fixture.detectChanges();
+    http.expectNone(historyUrl(9));
+    await vi.advanceTimersByTimeAsync(0);
+    http.expectOne(statusUrl(9)).flush(availability());
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.textContent).toContain(
+      'Price history is currently available only for supported U.S. equities',
+    );
+    expect(button('Review order').disabled).toBe(false);
   });
 
   it('disables confirmation and explains closure if the market closes during review', async () => {
@@ -162,7 +316,9 @@ describe('TradePage market availability', () => {
   });
 
   it('blocks confirmation when backend availability expires between polls', async () => {
-    http.expectOne(statusUrl()).flush({ ...availability(), validUntil: new Date(Date.now() + 1000).toISOString() });
+    http
+      .expectOne(statusUrl())
+      .flush({ ...availability(), validUntil: new Date(Date.now() + 1000).toISOString() });
     page['reviewOrder']();
     await vi.advanceTimersByTimeAsync(1000);
     fixture.detectChanges();
@@ -170,5 +326,62 @@ describe('TradePage market availability', () => {
     expect(fixture.nativeElement.textContent).toContain('Market status has expired');
     page['confirmOrder']();
     expect(submit).not.toHaveBeenCalled();
+  });
+});
+
+describe('TradePage query-parameter selection', () => {
+  it('automatically selects a valid symbol from the URL', async () => {
+    const catalogInstruments = signal([INSTRUMENT]);
+    await TestBed.configureTestingModule({
+      imports: [TradePage],
+      providers: [
+        provideRouter([]),
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        {
+          provide: ActivatedRoute,
+          useValue: {
+            snapshot: { queryParamMap: convertToParamMap({ symbol: 'aapl' }) },
+          },
+        },
+        { provide: AuthService, useValue: { user: signal({ id: 12 }) } },
+        { provide: OrdersApiService, useValue: { submit: vi.fn() } },
+        { provide: NotificationService, useValue: { warning: vi.fn(), error: vi.fn() } },
+        {
+          provide: InstrumentCatalogService,
+          useValue: {
+            loading: signal(false),
+            error: signal(null),
+            instruments: catalogInstruments,
+            load: vi.fn().mockResolvedValue([INSTRUMENT]),
+          },
+        },
+        {
+          provide: PortfolioService,
+          useValue: {
+            load: vi.fn().mockResolvedValue(undefined),
+            refresh: vi.fn().mockResolvedValue(undefined),
+            summary: signal({ buyingPower: 10000 }),
+            sellableQuantity: () => 5,
+          },
+        },
+      ],
+    }).compileComponents();
+    vi.useFakeTimers();
+    const fixture = TestBed.createComponent(TradePage);
+    const http = TestBed.inject(HttpTestingController);
+    fixture.detectChanges();
+    await vi.advanceTimersByTimeAsync(0);
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance['selected']()?.symbol).toBe('AAPL');
+    expect(fixture.componentInstance['query']()).toBe('AAPL');
+
+    http.expectOne(historyUrl()).flush(history());
+    http.expectOne(statusUrl()).flush(availability());
+    fixture.destroy();
+    http.verify({ ignoreCancelled: true });
+    vi.useRealTimers();
+    TestBed.resetTestingModule();
   });
 });

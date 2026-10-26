@@ -13,6 +13,8 @@ import { SeriesPoint } from '../../../core/models/portfolio.models';
 import { formatDate, formatDateTime } from '../../../core/utils/dates';
 
 export type ChartTone = 'positive' | 'negative' | 'neutral';
+export type ChartXScale = 'time' | 'index';
+export type ChartTimeFormatter = (time: number) => string;
 
 interface Tick {
   position: number;
@@ -62,14 +64,40 @@ const PADDING = { top: 18, right: 18, bottom: 32, left: 64 };
 
           <!-- horizontal hairline grid + y labels -->
           @for (tick of yTicks(); track tick.position) {
-            <line class="grid" [attr.x1]="padding.left" [attr.x2]="width() - padding.right" [attr.y1]="tick.position" [attr.y2]="tick.position" />
-            <text class="axis-label" [attr.x]="padding.left - 10" [attr.y]="tick.position + 4" text-anchor="end">{{ tick.label }}</text>
+            <line
+              class="grid"
+              [attr.x1]="padding.left"
+              [attr.x2]="width() - padding.right"
+              [attr.y1]="tick.position"
+              [attr.y2]="tick.position"
+            />
+            <text
+              class="axis-label"
+              [attr.x]="padding.left - 10"
+              [attr.y]="tick.position + 4"
+              text-anchor="end"
+            >
+              {{ tick.label }}
+            </text>
           }
 
           <!-- baseline + x labels -->
-          <line class="axis" [attr.x1]="padding.left" [attr.x2]="width() - padding.right" [attr.y1]="plotBottom()" [attr.y2]="plotBottom()" />
+          <line
+            class="axis"
+            [attr.x1]="padding.left"
+            [attr.x2]="width() - padding.right"
+            [attr.y1]="plotBottom()"
+            [attr.y2]="plotBottom()"
+          />
           @for (tick of xTicks(); track tick.position) {
-            <text class="axis-label" [attr.x]="tick.position" [attr.y]="plotHeight() - 10" [attr.text-anchor]="tick.anchor ?? 'middle'">{{ tick.label }}</text>
+            <text
+              class="axis-label"
+              [attr.x]="tick.position"
+              [attr.y]="plotHeight() - 10"
+              [attr.text-anchor]="tick.anchor ?? 'middle'"
+            >
+              {{ tick.label }}
+            </text>
           }
 
           <path class="area" [attr.d]="areaPath()" [attr.fill]="'url(#' + gradientId + ')'" />
@@ -78,19 +106,42 @@ const PADDING = { top: 18, right: 18, bottom: 32, left: 64 };
           <!-- end marker: >= 8px, with a 2px surface ring -->
           @if (lastPoint(); as last) {
             <circle class="marker-ring" [attr.cx]="last.x" [attr.cy]="last.y" r="6" />
-            <circle class="marker" [attr.cx]="last.x" [attr.cy]="last.y" r="4" [attr.fill]="lineColor()" />
+            <circle
+              class="marker"
+              [attr.cx]="last.x"
+              [attr.cy]="last.y"
+              r="4"
+              [attr.fill]="lineColor()"
+            />
           }
 
           <!-- crosshair -->
           @if (activePoint(); as active) {
-            <line class="crosshair" [attr.x1]="active.x" [attr.x2]="active.x" [attr.y1]="padding.top" [attr.y2]="plotBottom()" />
+            <line
+              class="crosshair"
+              [attr.x1]="active.x"
+              [attr.x2]="active.x"
+              [attr.y1]="padding.top"
+              [attr.y2]="plotBottom()"
+            />
             <circle class="marker-ring" [attr.cx]="active.x" [attr.cy]="active.y" r="7" />
-            <circle class="marker" [attr.cx]="active.x" [attr.cy]="active.y" r="5" [attr.fill]="lineColor()" />
+            <circle
+              class="marker"
+              [attr.cx]="active.x"
+              [attr.cy]="active.y"
+              r="5"
+              [attr.fill]="lineColor()"
+            />
           }
         </svg>
 
         @if (activePoint(); as active) {
-          <div class="tooltip" [style.left.px]="tooltipLeft()" [style.top.px]="active.y" role="presentation">
+          <div
+            class="tooltip"
+            [style.left.px]="tooltipLeft()"
+            [style.top.px]="active.y"
+            role="presentation"
+          >
             <span class="tooltip-value">{{ valueFormatter()(active.value) }}</span>
             <span class="tooltip-date">{{ tooltipDate(active) }}</span>
             @if (active.note) {
@@ -214,6 +265,10 @@ export class LineChartComponent {
   /** Grow the plot to the host's own height (the parent sizes the host, e.g. with flex). */
   readonly fill = input<boolean>(false);
   readonly tone = input<ChartTone>('neutral');
+  /** `index` gives every real observation equal space; useful for exchange-session data. */
+  readonly xScale = input<ChartXScale>('time');
+  readonly xTickFormatter = input<ChartTimeFormatter | null>(null);
+  readonly tooltipTimeFormatter = input<ChartTimeFormatter | null>(null);
   readonly valueFormatter = input<(value: number) => string>((value) => String(value));
   readonly compactFormatter = input<(value: number) => string>((value) => String(value));
   readonly ariaLabel = input<string>('Line chart');
@@ -281,10 +336,19 @@ export class LineChartComponent {
     const width = this.width();
     const innerWidth = Math.max(1, width - PADDING.left - PADDING.right);
     const innerHeight = Math.max(1, this.plotHeight() - PADDING.top - PADDING.bottom);
-    return this.points().map((point) => ({
+    const points = this.points();
+    const lastIndex = Math.max(1, points.length - 1);
+    return points.map((point, index) => ({
       ...point,
-      x: PADDING.left + ((point.time - domain.minTime) / (domain.maxTime - domain.minTime)) * innerWidth,
-      y: PADDING.top + (1 - (point.value - domain.minValue) / (domain.maxValue - domain.minValue)) * innerHeight,
+      x:
+        PADDING.left +
+        (this.xScale() === 'index'
+          ? index / lastIndex
+          : (point.time - domain.minTime) / (domain.maxTime - domain.minTime)) *
+          innerWidth,
+      y:
+        PADDING.top +
+        (1 - (point.value - domain.minValue) / (domain.maxValue - domain.minValue)) * innerHeight,
     }));
   });
 
@@ -293,7 +357,11 @@ export class LineChartComponent {
     if (points.length === 0) {
       return '';
     }
-    return points.map((point, index) => `${index === 0 ? 'M' : 'L'}${point.x.toFixed(1)} ${point.y.toFixed(1)}`).join(' ');
+    return points
+      .map(
+        (point, index) => `${index === 0 ? 'M' : 'L'}${point.x.toFixed(1)} ${point.y.toFixed(1)}`,
+      )
+      .join(' ');
   });
 
   protected readonly areaPath = computed(() => {
@@ -319,7 +387,9 @@ export class LineChartComponent {
     return steps
       .filter((value) => value >= domain.minValue && value <= domain.maxValue)
       .map((value) => ({
-        position: PADDING.top + (1 - (value - domain.minValue) / (domain.maxValue - domain.minValue)) * innerHeight,
+        position:
+          PADDING.top +
+          (1 - (value - domain.minValue) / (domain.maxValue - domain.minValue)) * innerHeight,
         label: this.compactFormatter()(value),
       }));
   });
@@ -331,14 +401,26 @@ export class LineChartComponent {
     }
     const width = this.width();
     const innerWidth = Math.max(1, width - PADDING.left - PADDING.right);
-    const count = Math.max(2, Math.min(6, Math.floor(innerWidth / 120)));
+    const count = Math.max(
+      2,
+      Math.min(6, Math.floor(innerWidth / (this.xTickFormatter() ? 150 : 120))),
+    );
     const span = domain.maxTime - domain.minTime;
     const ticks: Tick[] = [];
     for (let index = 0; index < count; index++) {
-      const time = domain.minTime + (span * index) / (count - 1);
+      const pointIndex = Math.round(((this.points().length - 1) * index) / (count - 1));
+      const time =
+        this.xScale() === 'index'
+          ? this.points()[pointIndex].time
+          : domain.minTime + (span * index) / (count - 1);
       ticks.push({
-        position: PADDING.left + (index / (count - 1)) * innerWidth,
-        label: formatAxisDate(time, span),
+        position:
+          PADDING.left +
+          (this.xScale() === 'index'
+            ? pointIndex / Math.max(1, this.points().length - 1)
+            : index / (count - 1)) *
+            innerWidth,
+        label: this.xTickFormatter()?.(time) ?? formatAxisDate(time, span),
         anchor: index === 0 ? 'start' : index === count - 1 ? 'end' : 'middle',
       });
     }
@@ -389,6 +471,10 @@ export class LineChartComponent {
   }
 
   protected tooltipDate(point: SeriesPoint): string {
+    const formatter = this.tooltipTimeFormatter();
+    if (formatter) {
+      return formatter(point.time);
+    }
     const domain = this.domain();
     const span = domain ? domain.maxTime - domain.minTime : 0;
     return span < 3 * 86_400_000 ? formatDateTime(point.time) : formatDate(point.time);

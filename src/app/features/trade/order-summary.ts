@@ -22,12 +22,22 @@ export interface OrderSummaryModel {
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [MoneyPipe, PricePipe, IconComponent],
   template: `
-    <section class="card summary" [class.summary-review]="step() === 'review'" aria-labelledby="order-summary-title">
+    <section
+      class="card summary"
+      [class.summary-review]="step() === 'review'"
+      aria-labelledby="order-summary-title"
+    >
       <div class="card-header">
         <div>
-          <h2 id="order-summary-title">{{ step() === 'review' ? 'Confirm your order' : 'Order summary' }}</h2>
+          <h2 id="order-summary-title">
+            {{ step() === 'review' ? 'Confirm your order' : 'Order summary' }}
+          </h2>
           <p class="card-subtitle">
-            {{ step() === 'review' ? 'Review the details, then place the order.' : 'Estimates update as you type. Final prices come from the market at execution.' }}
+            {{
+              step() === 'review'
+                ? 'Review the details, then place the order.'
+                : 'Estimates update as you type.'
+            }}
           </p>
         </div>
       </div>
@@ -37,7 +47,8 @@ export interface OrderSummaryModel {
           <dt>Instrument</dt>
           <dd>
             @if (model().instrument; as instrument) {
-              {{ instrument.symbol }} <span class="text-secondary font-medium">· {{ instrument.instrumentName }}</span>
+              {{ instrument.symbol }}
+              <span class="text-secondary font-medium">· {{ instrument.instrumentName }}</span>
             } @else {
               <span class="text-muted">Not selected</span>
             }
@@ -46,7 +57,11 @@ export interface OrderSummaryModel {
         <div>
           <dt>Order type</dt>
           <dd>
-            <span [class.text-positive]="model().side === 'BUY'" [class.text-negative]="model().side === 'SELL'">{{ model().side === 'BUY' ? 'Buy' : 'Sell' }}</span>
+            <span
+              [class.text-positive]="model().side === 'BUY'"
+              [class.text-negative]="model().side === 'SELL'"
+              >{{ model().side === 'BUY' ? 'Buy' : 'Sell' }}</span
+            >
             <span class="text-secondary font-medium"> · Market order</span>
           </dd>
         </div>
@@ -72,6 +87,17 @@ export interface OrderSummaryModel {
         </div>
       </dl>
 
+      <div class="price-disclosure" role="note" aria-label="Execution price information">
+        <app-icon name="info" [size]="18" />
+        <p>
+          <strong>Market price may change</strong>
+          <span
+            >The estimated price is not guaranteed. Your order will be priced when it's executed, so
+            the final price and total may differ.</span
+          >
+        </p>
+      </div>
+
       @if (step() === 'entry') {
         @if (errors().length > 0 && showErrors()) {
           <ul class="issue-list" aria-live="polite">
@@ -86,7 +112,12 @@ export interface OrderSummaryModel {
             <span>{{ warning }}</span>
           </div>
         }
-        <button type="button" class="btn btn-primary btn-lg btn-block" (click)="review.emit()" [disabled]="!canReview()">
+        <button
+          type="button"
+          class="btn btn-primary btn-lg btn-block"
+          (click)="review.emit()"
+          [disabled]="!canReview()"
+        >
           Review order
           <app-icon name="arrow-right" [size]="18" />
         </button>
@@ -98,10 +129,6 @@ export interface OrderSummaryModel {
             }
           </ul>
         }
-        <p class="review-note text-secondary text-sm">
-          You are placing a market order. It will be checked against the trading rules and, if accepted, executed at the current market
-          quote — which may differ from the estimate above.
-        </p>
         @for (warning of warnings(); track warning) {
           <div class="alert alert-warning" role="status">
             <app-icon name="alert-triangle" />
@@ -115,7 +142,14 @@ export interface OrderSummaryModel {
           </div>
         }
         <div class="review-actions">
-          <button type="button" class="btn btn-secondary" (click)="edit.emit()" [disabled]="submitting()">Edit order</button>
+          <button
+            type="button"
+            class="btn btn-secondary"
+            (click)="edit.emit()"
+            [disabled]="submitting()"
+          >
+            Edit order
+          </button>
           <button
             type="button"
             class="btn btn-lg"
@@ -159,6 +193,34 @@ export interface OrderSummaryModel {
       gap: 6px;
     }
 
+    .price-disclosure {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 12px 14px;
+      border-radius: var(--radius-sm);
+      background: var(--color-surface-2);
+      color: var(--color-text-secondary);
+      font-size: var(--text-sm);
+    }
+
+    .price-disclosure app-icon {
+      flex: 0 0 auto;
+      margin-top: 1px;
+      color: var(--color-brand);
+    }
+
+    .price-disclosure p {
+      display: grid;
+      gap: 3px;
+      margin: 0;
+    }
+
+    .price-disclosure strong {
+      color: var(--color-text);
+      font-weight: 600;
+    }
+
     .review-actions {
       display: flex;
       flex-direction: column;
@@ -197,7 +259,12 @@ export class OrderSummaryComponent {
     if (quantity === null || quantity <= 0) {
       return '—';
     }
-    const unit = instrument?.assetClass.toUpperCase() === 'EQUITY' ? (quantity === 1 ? 'share' : 'shares') : 'units';
+    const unit =
+      instrument?.assetClass.toUpperCase() === 'EQUITY'
+        ? quantity === 1
+          ? 'share'
+          : 'shares'
+        : 'units';
     return `${formatQuantity(quantity)} ${unit}`;
   });
 }

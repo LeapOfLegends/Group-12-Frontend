@@ -35,16 +35,6 @@
         <p class="page-subtitle">Here is where your money stands today.</p>
       </div>
       <div class="page-actions">
-        <button
-          type="button"
-          class="btn btn-ghost"
-          (click)="refresh()"
-          [disabled]="refreshing() || portfolio.loading()"
-          aria-label="Refresh portfolio data"
-        >
-          <app-icon name="refresh" [size]="18" />
-          Refresh
-        </button>
         <a class="btn btn-secondary" routerLink="/transfer">
           <app-icon name="transfer" [size]="18" />
           Transfer Money
@@ -60,7 +50,11 @@
       <div class="alert alert-error" role="alert">
         <app-icon name="alert-circle" />
         <span>{{ error }}</span>
-        <button type="button" class="btn btn-sm btn-secondary alert-action" (click)="refresh()">
+        <button
+          type="button"
+          class="btn btn-sm btn-secondary alert-action"
+          (click)="portfolio.refresh()"
+        >
           Try again
         </button>
       </div>

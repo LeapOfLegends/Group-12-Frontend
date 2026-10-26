@@ -1,0 +1,67 @@
+<div class="page history-page">
+  <a class="back-link" routerLink="/dashboard">
+    <app-icon name="arrow-left" [size]="18" /> Back to Dashboard
+  </a>
+
+  @if (instrumentLoading()) {
+    <div class="stock-header-loading">
+      <app-loading-skeleton variant="text" [lines]="3" label="Loading instrument" />
+    </div>
+  } @else if (instrumentError(); as error) {
+    <div class="alert alert-error" role="alert">
+      <span>{{ error }}</span>
+      <button type="button" class="btn btn-secondary btn-sm" (click)="retry()">Retry</button>
+    </div>
+  } @else if (instrument(); as item) {
+    <header class="stock-header">
+      <div class="stock-header-top">
+        <div class="stock-identity">
+          <p class="stock-name">{{ item.instrumentName }}</p>
+          <h1>{{ item.symbol }}</h1>
+        </div>
+        @if (auth.isClient()) {
+          @if (item.tradable) {
+            <a
+              class="btn btn-primary history-trade"
+              routerLink="/trade"
+              [queryParams]="{ symbol: item.symbol }"
+            >
+              Trade {{ item.symbol }}
+              <app-icon name="arrow-right" [size]="18" />
+            </a>
+          } @else {
+            <div class="trade-unavailable">
+              <button
+                type="button"
+                class="btn btn-primary history-trade"
+                disabled
+                title="This instrument is not currently tradable"
+              >
+                Trade {{ item.symbol }}
+              </button>
+              <span>This instrument is not currently tradable.</span>
+            </div>
+          }
+        }
+      </div>
+      <p class="stock-price">{{ item.lastPrice | price: item.currency }}</p>
+      <p class="stock-meta">
+        {{ item.currency }}
+        @if (item.lastPrice !== null && item.lastTradeAsOf) {
+          <span>· Last trade {{ item.lastTradeAsOf | dateTime }}</span>
+        } @else if (item.lastPrice !== null) {
+          <span>· Trade time unavailable</span>
+        } @else {
+          <span>· No stored trade price</span>
+        }
+      </p>
+    </header>
+
+    <app-instrument-history-chart
+      class="history-panel"
+      [instrument]="item"
+      [instrumentId]="historyInstrumentId()"
+      [height]="360"
+    />
+  }
+</div>

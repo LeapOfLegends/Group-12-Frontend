@@ -223,28 +223,12 @@
                       instrument.lastPrice | price: instrument.currency
                     }}</span>
                   </div>
-                  <div>
-                    <span class="quote-label">Quote age</span>
-                    <span
-                      class="quote-value quote-age"
-                      [class.text-negative]="quoteStale()"
-                      [class.text-positive]="!quoteStale()"
-                    >
-                      {{ quoteAgeLabel() }}
-                    </span>
-                  </div>
                 </div>
-                <div class="instrument-actions">
-                  <button
-                    type="button"
-                    class="btn btn-ghost btn-sm"
-                    (click)="refreshQuote()"
-                    [disabled]="refreshingQuote()"
-                  >
-                    <app-icon name="refresh" [size]="16" />
-                    {{ refreshingQuote() ? 'Refreshing…' : 'Refresh quote' }}
-                  </button>
-                </div>
+                <app-instrument-history-chart
+                  [instrument]="instrument"
+                  [instrumentId]="instrument.instrumentId"
+                  [height]="280"
+                />
               </div>
             }
 
@@ -344,14 +328,6 @@
                 </button>
               </div>
             </div>
-
-            @if (estimatedPrice() !== null && selected(); as instrument) {
-              <p class="price-note text-secondary text-sm">
-                Estimated at the current {{ side() === 'BUY' ? 'ask' : 'bid' }} of
-                {{ estimatedPrice() | price: instrument.currency }}. The platform prices the order
-                again at execution.
-              </p>
-            }
           </fieldset>
 
           @if (step() === 'review') {

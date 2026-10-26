@@ -2,7 +2,8 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable, map } from 'rxjs';
 import { environment } from '../../../environments/environment';
-import { Instrument, MarketAvailability } from '../models/trading.models';
+import { Instrument, InstrumentHistory, InstrumentHistoryRange } from '../models/trading.models';
+import { MarketAvailability } from '../models/trading.models';
 import { toNumber } from '../utils/money';
 
 /** Group-12-Backend `/instruments` - symbols, names and the latest stored quotes. */
@@ -12,7 +13,9 @@ export class InstrumentsApiService {
   private readonly baseUrl = `${environment.tradingApiUrl}/instruments`;
 
   list(): Observable<Instrument[]> {
-    return this.http.get<Record<string, unknown>[]>(this.baseUrl).pipe(map((rows) => rows.map((row) => toInstrument(row))));
+    return this.http
+      .get<Record<string, unknown>[]>(this.baseUrl)
+      .pipe(map((rows) => rows.map((row) => toInstrument(row))));
   }
 
   getById(instrumentId: number): Observable<Instrument> {
@@ -21,13 +24,32 @@ export class InstrumentsApiService {
       .pipe(map((row) => toInstrument(row, instrumentId)));
   }
 
+
+  getHistory(instrumentId: number, range: InstrumentHistoryRange): Observable<InstrumentHistory> {
+    return this.http.get<InstrumentHistory>(`${this.baseUrl}/${instrumentId}/history`, {
+      params: { range },
+    });
+  }
+
+  /** The backend also accepts symbols, which the search result provides when its DTO omits the id. */
+  getHistoryBySymbol(symbol: string, range: InstrumentHistoryRange): Observable<InstrumentHistory> {
+    return this.http.get<InstrumentHistory>(
+      `${this.baseUrl}/${encodeURIComponent(symbol.trim().toUpperCase())}/history`,
+      {
+        params: { range },
+      },
+    );
+  }
+
   getMarketStatus(instrumentId: number): Observable<MarketAvailability> {
     return this.http.get<MarketAvailability>(`${this.baseUrl}/${instrumentId}/market-status`);
   }
 
   getBySymbol(symbol: string): Observable<Instrument> {
     return this.http
-      .get<Record<string, unknown>>(`${this.baseUrl}/symbol/${encodeURIComponent(symbol.trim().toUpperCase())}`)
+      .get<Record<string, unknown>>(
+        `${this.baseUrl}/symbol/${encodeURIComponent(symbol.trim().toUpperCase())}`,
+      )
       .pipe(map((row) => toInstrument(row)));
   }
 }
