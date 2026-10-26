@@ -105,6 +105,17 @@ export interface CatalogInstrument extends Instrument {
   instrumentId: number;
 }
 
+/** Computed by the backend; the browser never decides exchange trading hours. */
+export interface MarketAvailability {
+  marketCode: string | null;
+  status: 'OPEN' | 'CLOSED' | 'UNAVAILABLE';
+  tradingAllowed: boolean;
+  message: string;
+  statusAsOf: string | null;
+  validUntil: string | null;
+  rejectionReason: string | null;
+}
+
 export type OrderType = 'BUY' | 'SELL';
 
 export type OrderStatus = 'SUBMITTED' | 'ACCEPTED' | 'REJECTED' | 'FILLED' | 'FAILED';
@@ -121,6 +132,8 @@ export const ORDER_STATUSES: readonly OrderStatus[] = [
 export type OrderRejectionReason =
   | 'INSTRUMENT_NOT_FOUND'
   | 'INSTRUMENT_NOT_TRADABLE'
+  | 'MARKET_CLOSED'
+  | 'MARKET_STATUS_UNAVAILABLE'
   | 'MISSING_QUOTE'
   | 'STALE_QUOTE'
   | 'INSUFFICIENT_FUNDS'

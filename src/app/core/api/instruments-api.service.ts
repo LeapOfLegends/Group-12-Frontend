@@ -3,6 +3,7 @@ import { Injectable, inject } from '@angular/core';
 import { Observable, map } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { Instrument, InstrumentHistory, InstrumentHistoryRange } from '../models/trading.models';
+import { MarketAvailability } from '../models/trading.models';
 import { toNumber } from '../utils/money';
 
 /** Group-12-Backend `/instruments` - symbols, names and the latest stored quotes. */
@@ -23,6 +24,7 @@ export class InstrumentsApiService {
       .pipe(map((row) => toInstrument(row, instrumentId)));
   }
 
+
   getHistory(instrumentId: number, range: InstrumentHistoryRange): Observable<InstrumentHistory> {
     return this.http.get<InstrumentHistory>(`${this.baseUrl}/${instrumentId}/history`, {
       params: { range },
@@ -37,6 +39,10 @@ export class InstrumentsApiService {
         params: { range },
       },
     );
+  }
+
+  getMarketStatus(instrumentId: number): Observable<MarketAvailability> {
+    return this.http.get<MarketAvailability>(`${this.baseUrl}/${instrumentId}/market-status`);
   }
 
   getBySymbol(symbol: string): Observable<Instrument> {
