@@ -1,13 +1,124 @@
-.dashboard-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 2fr) minmax(300px, 1fr);
-  gap: var(--space-4);
-  /* Both cards share the row's height: the chart card grows its plot into the extra space. */
-  align-items: stretch;
+/* Widget grid ----------------------------------------------------------------
+   GridStack lays the widgets out (see widget-grid.ts). Its margins give the 24px row gap and the
+   16px column gap the static layout had; the negative margin cancels them at the grid's edges. */
+.dashboard-widgets {
+  margin: -12px -8px;
 }
 
-.dashboard-chart {
-  min-width: 0;
+/* Widgets are sized to their content, so nothing scrolls inside an item, and the handle on the
+   corner must not be clipped. */
+.dashboard-widgets > .grid-stack-item > .grid-stack-item-content {
+  overflow: visible;
+  border-radius: var(--radius-lg);
+  transition:
+    transform 220ms cubic-bezier(0.2, 0.7, 0.2, 1),
+    box-shadow 220ms ease;
+}
+
+.dashboard-widget {
+  position: relative;
+}
+
+/* Cards in a height group stretch to the height the grid gives the widget. */
+.dashboard-widget-stretch > app-financial-summary-card,
+.dashboard-widget-stretch > app-portfolio-chart,
+.dashboard-widget-stretch > .overview-card {
+  height: 100%;
+}
+
+/* Edit mode ------------------------------------------------------------------ */
+.dashboard-edit-hint {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--color-brand-soft);
+  border: 1px solid var(--color-brand-soft-strong);
+  color: var(--color-on-brand-soft);
+  font-size: var(--text-sm);
+  animation: dashboard-hint-in 180ms ease-out;
+
+  app-icon {
+    flex: none;
+    margin-top: 2px;
+  }
+}
+
+@keyframes dashboard-hint-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+
+/* The handle sits on the widget's top-left corner, like the badge on an app icon in iOS edit mode. */
+.widget-drag-handle {
+  position: absolute;
+  top: -14px;
+  left: -14px;
+  z-index: 3;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--color-brand);
+  color: var(--color-text-on-brand);
+  box-shadow: var(--shadow-md);
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  opacity: 0;
+  transform: scale(0.5);
+  pointer-events: none;
+  transition:
+    opacity 180ms ease,
+    transform 180ms cubic-bezier(0.2, 0.7, 0.2, 1),
+    background-color var(--transition-fast);
+
+  &:hover {
+    background: var(--color-brand-hover);
+  }
+}
+
+.dashboard-editing .widget-drag-handle {
+  opacity: 1;
+  transform: none;
+  pointer-events: auto;
+}
+
+/* A dashed outline marks each widget as movable; it turns solid on the one being carried. */
+.dashboard-widget::after {
+  content: '';
+  position: absolute;
+  inset: -5px;
+  border-radius: calc(var(--radius-lg) + 5px);
+  border: 1.5px dashed transparent;
+  pointer-events: none;
+  transition: border-color 180ms ease;
+}
+
+.dashboard-editing .dashboard-widget::after {
+  border-color: color-mix(in srgb, var(--color-brand) 55%, transparent);
+}
+
+.dashboard-editing .grid-stack-item:hover .dashboard-widget::after {
+  border-color: var(--color-brand);
+}
+
+/* The widget being carried: lifted, a touch larger and above everything else. */
+.dashboard-widgets > .grid-stack-item.ui-draggable-dragging > .grid-stack-item-content {
+  transform: scale(1.02);
+  box-shadow:
+    0 18px 44px color-mix(in srgb, var(--color-brand-deep) 28%, transparent),
+    var(--shadow-lg);
+  opacity: 1;
+}
+
+.ui-draggable-dragging .dashboard-widget::after {
+  border-style: solid;
+  border-color: var(--color-brand);
 }
 
 /* Buying Power & Asset Allocation ------------------------------------------ */
@@ -100,11 +211,6 @@
 }
 
 @media (max-width: 1100px) {
-  .dashboard-grid {
-    grid-template-columns: minmax(0, 1fr);
-    align-items: start;
-  }
-
   .overview-allocation {
     flex: none;
   }
