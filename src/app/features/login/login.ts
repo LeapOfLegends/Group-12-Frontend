@@ -7,12 +7,19 @@ import { ThemeService } from '../../core/services/theme.service';
 import { describeHttpError, httpStatusOf, isUnreachable } from '../../core/utils/http-error';
 import { BrandLogoComponent } from '../../shared/ui/brand-logo/brand-logo';
 import { IconComponent } from '../../shared/ui/icon/icon';
+import { MarketBackdropComponent } from '../../shared/ui/market-backdrop/market-backdrop';
 
 /** One sign-in page for clients and administrators; the email domain decides on the server. */
 @Component({
   selector: 'app-login-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ReactiveFormsModule, RouterLink, BrandLogoComponent, IconComponent],
+  imports: [
+    ReactiveFormsModule,
+    RouterLink,
+    BrandLogoComponent,
+    IconComponent,
+    MarketBackdropComponent,
+  ],
   templateUrl: './login.html',
   styleUrl: './login.scss',
 })
