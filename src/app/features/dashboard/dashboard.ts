@@ -1,7 +1,6 @@
 import { ChangeDetectionStrategy, Component, OnInit, computed, inject } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { AuthService } from '../../core/auth/auth.service';
-import { ADMIN_ROLE_LABELS } from '../../core/models/auth.models';
 import { PortfolioService } from '../../core/services/portfolio.service';
 import { formatDate, greetingForHour } from '../../core/utils/dates';
 import { formatMoney, formatPercent, formatSignedMoney } from '../../core/utils/money';
@@ -47,10 +46,6 @@ export class DashboardPage implements OnInit {
   protected readonly greeting = computed(
     () => `${greetingForHour(new Date().getHours())}, ${this.auth.user()?.firstName || 'there'}`,
   );
-  protected readonly roleLabel = computed(() => {
-    const role = this.auth.role();
-    return role ? ADMIN_ROLE_LABELS[role] : '';
-  });
 
   protected readonly initialLoading = computed(
     () => this.portfolio.loading() && !this.portfolio.hasLoaded(),

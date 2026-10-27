@@ -1,6 +1,6 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
-import { signal } from '@angular/core';
+import { computed, signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
 import { ActivatedRoute, Router, convertToParamMap, provideRouter } from '@angular/router';
@@ -62,6 +62,7 @@ describe('InstrumentHistoryPage', () => {
   let router: Router;
   let navigate: ReturnType<typeof vi.spyOn>;
   const isClient = signal(true);
+  const homeUrl = computed(() => (isClient() ? '/dashboard' : '/admin'));
   const params = new BehaviorSubject(convertToParamMap({ instrumentId: '7' }));
 
   async function setup(options: { client?: boolean; tradable?: boolean } = {}): Promise<void> {
@@ -75,7 +76,7 @@ describe('InstrumentHistoryPage', () => {
         provideHttpClient(),
         provideHttpClientTesting(),
         { provide: ActivatedRoute, useValue: { paramMap: params.asObservable() } },
-        { provide: AuthService, useValue: { isClient } },
+        { provide: AuthService, useValue: { isClient, homeUrl } },
       ],
     }).compileComponents();
     http = TestBed.inject(HttpTestingController);
@@ -142,6 +143,7 @@ describe('InstrumentHistoryPage', () => {
     await setup({ client: false });
     expect(text()).not.toContain('Trade AAPL');
     expect(fixture.nativeElement.querySelector('a[href^="/trade"]')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.back-link')?.getAttribute('href')).toBe('/admin');
     load('1D', history('1D'));
   });
 

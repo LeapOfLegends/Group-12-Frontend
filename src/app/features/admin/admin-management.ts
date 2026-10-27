@@ -12,6 +12,12 @@ import { EmptyStateComponent } from '../../shared/ui/empty-state/empty-state';
 import { IconComponent } from '../../shared/ui/icon/icon';
 import { LoadingSkeletonComponent } from '../../shared/ui/loading-skeleton/loading-skeleton';
 import { StatusBadgeComponent } from '../../shared/ui/status-badge/status-badge';
+import { TablePagerComponent, pagedRows } from '../../shared/ui/table-pager/table-pager';
+import { TableScrollDirective } from '../../shared/ui/table-scroll';
+
+const PAGE_SIZE = 10;
+/** Rows in view before the page scrolls; the rest of the page is a scroll away. */
+const VISIBLE_ROWS = 5;
 
 const ROLE_TONES: Record<AdminRole, 'accent' | 'info' | 'brand'> = {
   super_admin: 'accent',
@@ -23,7 +29,7 @@ const ROLE_TONES: Record<AdminRole, 'accent' | 'info' | 'brand'> = {
 @Component({
   selector: 'app-admin-management',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ReactiveFormsModule, ShortDatePipe, ConfirmationDialogComponent, EmptyStateComponent, IconComponent, LoadingSkeletonComponent, StatusBadgeComponent],
+  imports: [ReactiveFormsModule, ShortDatePipe, ConfirmationDialogComponent, EmptyStateComponent, IconComponent, LoadingSkeletonComponent, StatusBadgeComponent, TablePagerComponent, TableScrollDirective],
   template: `
     <section class="card" aria-labelledby="admin-table-title">
       <div class="card-header">
@@ -56,7 +62,7 @@ const ROLE_TONES: Record<AdminRole, 'accent' | 'info' | 'brand'> = {
       } @else if (filtered().length === 0) {
         <app-empty-state icon="shield" title="No administrators match" message="Adjust the search or role filter." />
       } @else {
-        <div class="table-wrap">
+        <div class="table-wrap" #scroller [appTableScroll]="visibleRows" tableScrollLabel="Administrator accounts">
           <table class="table">
             <caption class="visually-hidden">Administrator accounts</caption>
             <thead>
@@ -69,7 +75,7 @@ const ROLE_TONES: Record<AdminRole, 'accent' | 'info' | 'brand'> = {
               </tr>
             </thead>
             <tbody>
-              @for (admin of filtered(); track admin.adminId) {
+              @for (admin of paging.rows(); track admin.adminId) {
                 <tr>
                   <td>
                     <span class="cell-primary">{{ admin.firstName }} {{ admin.lastName }}</span>
@@ -101,6 +107,13 @@ const ROLE_TONES: Record<AdminRole, 'accent' | 'info' | 'brand'> = {
             </tbody>
           </table>
         </div>
+        <app-table-pager
+          [page]="paging.page()"
+          [pageSize]="pageSize"
+          [total]="filtered().length"
+          label="Administrator pages"
+          (pageChange)="paging.goTo($event); scroller.scrollTop = 0"
+        />
       }
     </section>
 
@@ -259,6 +272,8 @@ export class AdminManagementComponent {
   protected readonly roles = ADMIN_ROLES;
   protected readonly roleLabels = ADMIN_ROLE_LABELS;
   protected readonly roleTones = ROLE_TONES;
+  protected readonly pageSize = PAGE_SIZE;
+  protected readonly visibleRows = VISIBLE_ROWS;
 
   protected readonly query = signal('');
   protected readonly roleFilter = signal<'all' | AdminRole>('all');
@@ -288,6 +303,8 @@ export class AdminManagementComponent {
         (!term || `${admin.firstName} ${admin.lastName}`.toLowerCase().includes(term) || admin.email.toLowerCase().includes(term)),
     );
   });
+
+  protected readonly paging = pagedRows(this.filtered, PAGE_SIZE, () => [this.query(), this.roleFilter()]);
 
   protected readonly roleDescription = computed(() => {
     switch (this.roleValue()) {

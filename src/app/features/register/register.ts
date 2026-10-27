@@ -8,6 +8,7 @@ import { ThemeService } from '../../core/services/theme.service';
 import { describeHttpError, extractServerMessages, httpStatusOf, isUnreachable } from '../../core/utils/http-error';
 import { BrandLogoComponent } from '../../shared/ui/brand-logo/brand-logo';
 import { IconComponent } from '../../shared/ui/icon/icon';
+import { MarketBackdropComponent } from '../../shared/ui/market-backdrop/market-backdrop';
 
 export type RegisterField = 'firstName' | 'lastName' | 'email' | 'password' | 'confirmPassword' | 'ssn' | 'phoneNumber' | 'dateOfBirth';
 
@@ -165,7 +166,7 @@ function friendlyServerMessage(field: RegisterField, message: string): string {
 @Component({
   selector: 'app-register-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ReactiveFormsModule, RouterLink, BrandLogoComponent, IconComponent],
+  imports: [ReactiveFormsModule, RouterLink, BrandLogoComponent, IconComponent, MarketBackdropComponent],
   templateUrl: './register.html',
   styleUrl: './register.scss',
 })

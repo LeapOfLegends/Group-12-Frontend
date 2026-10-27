@@ -4,18 +4,13 @@ import { formatOrderId, formatTransactionId } from '../../../core/utils/display-
 import { DateTimePipe, MoneyPipe, SignedMoneyPipe } from '../../pipes/format.pipes';
 import { EmptyStateComponent } from '../empty-state/empty-state';
 import { LoadingSkeletonComponent } from '../loading-skeleton/loading-skeleton';
+import { TableScrollDirective } from '../table-scroll';
 
 /** Recent account funding and filled-order cash movements. */
 @Component({
   selector: 'app-transactions-table',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [
-    DateTimePipe,
-    MoneyPipe,
-    SignedMoneyPipe,
-    EmptyStateComponent,
-    LoadingSkeletonComponent,
-  ],
+  imports: [DateTimePipe, MoneyPipe, SignedMoneyPipe, EmptyStateComponent, LoadingSkeletonComponent, TableScrollDirective],
   template: `
     @if (loading()) {
       <app-loading-skeleton variant="table" [lines]="4" label="Loading transactions" />
@@ -26,7 +21,7 @@ import { LoadingSkeletonComponent } from '../loading-skeleton/loading-skeleton';
         message="Funding and completed trade activity will appear here."
       />
     } @else {
-      <div class="table-wrap">
+      <div class="table-wrap" [appTableScroll]="visibleRows()" tableScrollLabel="Recent transactions">
         <table class="table">
           <caption class="visually-hidden">
             Recent account transactions
@@ -119,6 +114,7 @@ import { LoadingSkeletonComponent } from '../loading-skeleton/loading-skeleton';
 export class TransactionsTableComponent {
   readonly rows = input<AccountTransaction[]>([]);
   readonly loading = input<boolean>(false);
+  readonly visibleRows = input<number | null>(null);
   protected readonly formatOrderId = formatOrderId;
   protected readonly formatTransactionId = formatTransactionId;
 

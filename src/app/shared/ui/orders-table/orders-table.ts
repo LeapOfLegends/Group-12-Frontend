@@ -6,27 +6,20 @@ import { DateTimePipe, MoneyPipe, PricePipe, QuantityPipe } from '../../pipes/fo
 import { EmptyStateComponent } from '../empty-state/empty-state';
 import { LoadingSkeletonComponent } from '../loading-skeleton/loading-skeleton';
 import { StatusBadgeComponent } from '../status-badge/status-badge';
+import { TableScrollDirective } from '../table-scroll';
 
 /** Chronological order blotter with backend status and outcome details. */
 @Component({
   selector: 'app-orders-table',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [
-    MoneyPipe,
-    PricePipe,
-    QuantityPipe,
-    DateTimePipe,
-    EmptyStateComponent,
-    LoadingSkeletonComponent,
-    StatusBadgeComponent,
-  ],
+  imports: [MoneyPipe, PricePipe, QuantityPipe, DateTimePipe, EmptyStateComponent, LoadingSkeletonComponent, StatusBadgeComponent, TableScrollDirective],
   template: `
     @if (loading()) {
       <app-loading-skeleton variant="table" [lines]="4" label="Loading orders" />
     } @else if (rows().length === 0) {
       <app-empty-state icon="activity" [title]="emptyTitle()" [message]="emptyMessage()" />
     } @else {
-      <div class="table-wrap">
+      <div class="table-wrap" [appTableScroll]="visibleRows()" [tableScrollLabel]="caption()">
         <table class="table">
           <caption class="visually-hidden">
             {{
@@ -113,6 +106,7 @@ import { StatusBadgeComponent } from '../status-badge/status-badge';
 export class OrdersTableComponent {
   readonly rows = input<OrderRow[]>([]);
   readonly loading = input<boolean>(false);
+  readonly visibleRows = input<number | null>(null);
   readonly caption = input<string>('Orders');
   readonly emptyTitle = input<string>('No orders yet');
   readonly emptyMessage = input<string>(

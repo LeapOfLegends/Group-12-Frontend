@@ -107,7 +107,6 @@ import { IconComponent } from '../../shared/ui/icon/icon';
               [value]="money(volume.value, volume.currency)"
               hint="Filled in period"
               icon="dollar"
-              [accent]="true"
             />
           } @empty {
             <app-financial-summary-card

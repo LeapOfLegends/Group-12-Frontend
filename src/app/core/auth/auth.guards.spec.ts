@@ -5,7 +5,7 @@ import { ActivatedRouteSnapshot, RouterStateSnapshot, UrlTree, provideRouter } f
 import { environment } from '../../../environments/environment';
 import { NotificationService } from '../services/notification.service';
 import { makeToken } from '../../testing/jwt-fixtures';
-import { adminGuard, authGuard, clientGuard, guestGuard } from './auth.guards';
+import { adminGuard, authGuard, clientDashboardGuard, clientGuard, guestGuard } from './auth.guards';
 import { AuthService } from './auth.service';
 
 const FUTURE = Math.floor(Date.now() / 1000) + 3600;
@@ -82,6 +82,20 @@ describe('route guards', () => {
     seedSession('admin');
     TestBed.inject(AuthService);
     expect(run(adminGuard, '/admin')).toBe(true);
+  });
+
+  it('clientDashboardGuard sends administrators to /admin without a warning', () => {
+    seedSession('admin');
+    TestBed.inject(AuthService);
+    const warn = vi.spyOn(TestBed.inject(NotificationService), 'warning');
+    expect(urlOf(run(clientDashboardGuard, '/dashboard'))).toBe('/admin');
+    expect(warn).not.toHaveBeenCalled();
+  });
+
+  it('clientDashboardGuard admits clients', () => {
+    seedSession('client');
+    TestBed.inject(AuthService);
+    expect(run(clientDashboardGuard, '/dashboard')).toBe(true);
   });
 
   it('clientGuard sends administrators back to the admin dashboard', () => {

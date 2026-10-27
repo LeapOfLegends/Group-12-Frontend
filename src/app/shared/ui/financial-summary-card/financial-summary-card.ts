@@ -14,7 +14,7 @@ export type DeltaTone = 'up' | 'down' | 'flat';
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [RouterLink, IconComponent, LoadingSkeletonComponent],
   template: `
-    <article class="card summary-card" [class.summary-card-accent]="accent()">
+    <article class="card summary-card">
       @if (loading()) {
         <app-loading-skeleton variant="tile" />
       } @else {
@@ -66,14 +66,6 @@ export type DeltaTone = 'up' | 'down' | 'flat';
       min-height: 150px;
       position: relative;
       overflow: hidden;
-    }
-
-    .summary-card-accent::before {
-      content: '';
-      position: absolute;
-      inset: 0 0 auto 0;
-      height: 4px;
-      background: linear-gradient(90deg, var(--color-brand), var(--color-accent));
     }
 
     .summary-top {
@@ -149,7 +141,6 @@ export class FinancialSummaryCardComponent {
   readonly hint = input<string>('');
   readonly icon = input<string>('');
   readonly loading = input<boolean>(false);
-  readonly accent = input<boolean>(false);
   readonly linkLabel = input<string>('');
   readonly linkRoute = input<string | null>(null);
 }

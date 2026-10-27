@@ -5,16 +5,20 @@ import { MoneyPipe, ShortDatePipe } from '../../shared/pipes/format.pipes';
 import { EmptyStateComponent } from '../../shared/ui/empty-state/empty-state';
 import { IconComponent } from '../../shared/ui/icon/icon';
 import { LoadingSkeletonComponent } from '../../shared/ui/loading-skeleton/loading-skeleton';
+import { TablePagerComponent, pagedRows } from '../../shared/ui/table-pager/table-pager';
+import { TableScrollDirective } from '../../shared/ui/table-scroll';
 
 type SortKey = 'balance' | 'name' | 'created';
 
-const PAGE_SIZE = 25;
+const PAGE_SIZE = 10;
+/** Rows in view before the page scrolls; the rest of the page is a scroll away. */
+const VISIBLE_ROWS = 5;
 
 /** Searchable, sortable table of client cash balances with summary figures. */
 @Component({
   selector: 'app-cash-positions',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [MoneyPipe, ShortDatePipe, EmptyStateComponent, IconComponent, LoadingSkeletonComponent],
+  imports: [MoneyPipe, ShortDatePipe, EmptyStateComponent, IconComponent, LoadingSkeletonComponent, TablePagerComponent, TableScrollDirective],
   template: `
     <section class="card" aria-labelledby="cash-positions-title">
       <div class="card-header">
@@ -49,10 +53,10 @@ const PAGE_SIZE = 25;
         <app-loading-skeleton variant="table" [lines]="6" label="Loading client balances" />
       } @else if (clients().length === 0) {
         <app-empty-state icon="users" title="No client cash positions" message="No client accounts have been returned." />
-      } @else if (visible().length === 0) {
+      } @else if (filtered().length === 0) {
         <app-empty-state icon="users" title="No clients match" message="Try a different name or email address." />
       } @else {
-        <div class="table-wrap">
+        <div class="table-wrap" #scroller [appTableScroll]="visibleRows" tableScrollLabel="Client cash positions">
           <table class="table">
             <caption class="visually-hidden">Client cash positions</caption>
             <thead>
@@ -65,7 +69,7 @@ const PAGE_SIZE = 25;
               </tr>
             </thead>
             <tbody>
-              @for (client of visible(); track client.clientId) {
+              @for (client of paging.rows(); track client.clientId) {
                 <tr>
                   <td>
                     <span class="cell-primary">{{ client.firstName }} {{ client.lastName }}</span>
@@ -80,12 +84,13 @@ const PAGE_SIZE = 25;
             </tbody>
           </table>
         </div>
-        <div class="table-footer">
-          <span class="text-secondary text-sm">Showing {{ visible().length }} of {{ filtered().length }}</span>
-          @if (visible().length < filtered().length) {
-            <button type="button" class="btn btn-secondary btn-sm" (click)="limit.set(limit() + pageSize)">Show more</button>
-          }
-        </div>
+        <app-table-pager
+          [page]="paging.page()"
+          [pageSize]="pageSize"
+          [total]="filtered().length"
+          label="Client cash positions pages"
+          (pageChange)="paging.goTo($event); scroller.scrollTop = 0"
+        />
       }
     </section>
   `,
@@ -108,14 +113,6 @@ const PAGE_SIZE = 25;
       width: auto;
       min-width: 170px;
     }
-
-    .table-footer {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 12px;
-      margin-top: var(--space-3);
-    }
   `,
 })
 export class CashPositionsComponent {
@@ -125,9 +122,9 @@ export class CashPositionsComponent {
   readonly retry = output<void>();
 
   protected readonly pageSize = PAGE_SIZE;
+  protected readonly visibleRows = VISIBLE_ROWS;
   protected readonly query = signal('');
   protected readonly sort = signal<SortKey>('balance');
-  protected readonly limit = signal(PAGE_SIZE);
 
   protected readonly totalCash = computed(() => this.clients().reduce((sum, client) => sum + client.accountBalance, 0));
   protected readonly averageCash = computed(() => (this.clients().length ? this.totalCash() / this.clients().length : 0));
@@ -147,7 +144,7 @@ export class CashPositionsComponent {
     }
   });
 
-  protected readonly visible = computed(() => this.filtered().slice(0, this.limit()));
+  protected readonly paging = pagedRows(this.filtered, PAGE_SIZE, () => [this.query(), this.sort()]);
 
   protected share(client: ClientRecord): string {
     const total = this.totalCash();
