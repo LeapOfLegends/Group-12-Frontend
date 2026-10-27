@@ -55,6 +55,24 @@ async function heightsOf(page, selector) {
 
 const sameHeight = (heights) => heights.length > 1 && heights.every((height) => Math.abs(height - heights[0]) <= 1);
 
+const WIDGET = '.dashboard-widgets .grid-stack-item';
+const widgetOrder = (page) => page.$$eval(WIDGET, (items) => items.map((item) => item.getAttribute('gs-id')));
+
+/** Picks a widget up by its handle and drops it with its top-left corner just inside the target widget. */
+async function dragWidget(page, fromId, toId) {
+  const handle = await page.$(`${WIDGET}[gs-id="${fromId}"] .widget-drag-handle`);
+  await handle.scrollIntoViewIfNeeded();
+  const from = await handle.boundingBox();
+  const to = await (await page.$(`${WIDGET}[gs-id="${toId}"]`)).boundingBox();
+  await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(from.x + from.width / 2 + 8, from.y + from.height / 2 + 8, { steps: 4 });
+  await page.mouse.move(to.x + 8, to.y + 8, { steps: 16 });
+  await page.waitForTimeout(150);
+  await page.mouse.up();
+  await page.waitForTimeout(450);
+}
+
 /** Polls a page-side predicate: zoneless Angular renders a tick after the event, so instant reads can race it. */
 async function eventually(page, predicate, timeout = 2000) {
   try {
@@ -174,7 +192,7 @@ try {
   check('empty allocation is explained instead of invented', newClientDashboard.includes('No holdings yet'));
   check('dashboard header offers Place Trade, not New Trade', newClientDashboard.includes('Place Trade') && !newClientDashboard.includes('New Trade'));
   check('the sidebar is gone and the navbar carries the navigation', !(await page.$('app-sidebar')) && !!(await page.$('app-navbar nav.navbar-links a[href="/trade"]')));
-  const emptyRow = await heightsOf(page, '.dashboard-grid > *');
+  const emptyRow = await heightsOf(page, '.dashboard-widgets .grid-stack-item[gs-id="performance"] .grid-stack-item-content, .dashboard-widgets .grid-stack-item[gs-id="allocation"] .grid-stack-item-content');
   check('empty chart card still matches the card beside it', sameHeight(emptyRow), emptyRow.join(' vs '));
   await shot(page, '05-dashboard-new-client');
 
@@ -217,14 +235,39 @@ try {
   check('navbar keeps the theme toggle and profile card on the right', !!(await page.$('app-navbar .navbar-right button[aria-label="Switch to dark theme"]')) && (await page.textContent('app-navbar .navbar-account')).includes('Jane Doe'));
   const aaplRow = page.locator('app-holdings-table tbody tr', { hasText: 'AAPL' }).first();
   const startingAapl = Number((await aaplRow.locator('td').nth(1).textContent()).replace(/,/g, ''));
-  const summaryRow = await heightsOf(page, '.grid-3 > *');
+  const summaryRow = await heightsOf(page, '.dashboard-widgets .grid-stack-item[gs-id="cash"] .grid-stack-item-content, .dashboard-widgets .grid-stack-item[gs-id="portfolio"] .grid-stack-item-content, .dashboard-widgets .grid-stack-item[gs-id="return"] .grid-stack-item-content');
   check('summary cards in the same row share one height', sameHeight(summaryRow), summaryRow.join(', '));
-  const chartRow = await heightsOf(page, '.dashboard-grid > *');
+  const chartRow = await heightsOf(page, '.dashboard-widgets .grid-stack-item[gs-id="performance"] .grid-stack-item-content, .dashboard-widgets .grid-stack-item[gs-id="allocation"] .grid-stack-item-content');
   check('portfolio performance card matches the height of the card beside it', sameHeight(chartRow), chartRow.join(' vs '));
   const searchBox = await (await page.$('app-instrument-search')).boundingBox();
   const dateBox = await (await page.$('.page-title .eyebrow')).boundingBox();
   check('search bar sits above the date, sharing its left edge', searchBox.y + searchBox.height <= dateBox.y && Math.abs(searchBox.x - dateBox.x) <= 1, `${searchBox.x},${searchBox.y} vs ${dateBox.x},${dateBox.y}`);
   await shot(page, '07-dashboard-desktop');
+
+  // --- Widget layout: edit mode, drag, persistence, reset --------------------------
+  check('dashboard offers Edit widgets', (await page.textContent('#dashboard-edit-widgets')).trim() === 'Edit widgets' && !(await page.$('#dashboard-reset-layout')));
+  check('widgets start in the default order', (await widgetOrder(page)).join(',') === 'cash,portfolio,return,performance,allocation,holdings,orders,transactions');
+  await page.click('#dashboard-edit-widgets');
+  check('edit mode shows Done, Reset layout, a hint and the drag handles', await eventually(page, () => document.querySelector('#dashboard-edit-widgets').textContent.trim() === 'Done' && !!document.querySelector('#dashboard-reset-layout') && !!document.querySelector('.dashboard-edit-hint') && getComputedStyle(document.querySelector('.widget-drag-handle')).opacity === '1'));
+  await shot(page, '07b-dashboard-edit-widgets');
+  await dragWidget(page, 'return', 'cash');
+  const draggedOrder = await widgetOrder(page);
+  check('dragging Total return onto Account cash balance puts it first and shifts the others along', draggedOrder.slice(0, 3).join(',') === 'return,cash,portfolio', draggedOrder.join(','));
+  const draggedRow = await heightsOf(page, '.dashboard-widgets .grid-stack-item[gs-id="cash"] .grid-stack-item-content, .dashboard-widgets .grid-stack-item[gs-id="portfolio"] .grid-stack-item-content, .dashboard-widgets .grid-stack-item[gs-id="return"] .grid-stack-item-content');
+  check('the moved tile keeps its size and the row stays level', sameHeight(draggedRow), draggedRow.join(', '));
+  await page.click('#dashboard-edit-widgets');
+  const savedLayout = await page.evaluate(() => JSON.parse(localStorage.getItem('jetzy.dashboardLayout.12') || 'null'));
+  check('Done locks the widgets and saves the order for this client only', savedLayout?.order?.[0] === 'return' && (await eventually(page, () => !document.querySelector('#dashboard-reset-layout') && getComputedStyle(document.querySelector('.widget-drag-handle')).opacity === '0')), JSON.stringify(savedLayout));
+  await page.reload();
+  await page.waitForSelector('app-holdings-table table');
+  await page.waitForTimeout(500);
+  check('the saved arrangement survives a refresh', (await widgetOrder(page))[0] === 'return', (await widgetOrder(page)).join(','));
+  await page.click('#dashboard-edit-widgets');
+  await page.waitForSelector('#dashboard-reset-layout');
+  await page.click('#dashboard-reset-layout');
+  check('Reset layout restores the original arrangement', await eventually(page, () => [...document.querySelectorAll('.dashboard-widgets .grid-stack-item')].map((item) => item.getAttribute('gs-id')).join(',') === 'cash,portfolio,return,performance,allocation,holdings,orders,transactions'));
+  await page.click('#dashboard-edit-widgets');
+  await page.waitForTimeout(300);
 
   // --- Instrument price search --------------------------------------------------
   const searchInput = page.locator('app-instrument-search input');
