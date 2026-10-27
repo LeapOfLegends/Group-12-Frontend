@@ -290,9 +290,7 @@ describe('TradePage market availability', () => {
     fixture.detectChanges();
 
     expect(fixture.nativeElement.querySelector('app-line-chart')).not.toBeNull();
-    expect(fixture.nativeElement.textContent).toContain(
-      'Times shown in Coordinated Universal Time (UTC).',
-    );
+    expect(fixture.nativeElement.textContent).toContain('Times shown in Eastern Time (ET).');
     http.expectNone((request) => request.url.includes('BTC%2FUSD'));
   });
 

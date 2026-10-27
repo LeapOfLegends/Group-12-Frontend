@@ -5,6 +5,7 @@ import { provideRouter } from '@angular/router';
 import { environment } from '../../../environments/environment';
 import { makeToken } from '../../testing/jwt-fixtures';
 import { DashboardPage } from './dashboard';
+import { DEFAULT_WIDGET_ORDER, layoutStorageKey, serializeWidgetOrder } from './dashboard-layout';
 
 const FUTURE = Math.floor(Date.now() / 1000) + 3600;
 const API = environment.tradingApiUrl;
@@ -38,9 +39,11 @@ describe('DashboardPage', () => {
   let fixture: ComponentFixture<DashboardPage>;
   let http: HttpTestingController;
 
-  async function setup(kind: 'client' | 'admin'): Promise<void> {
+  /** `prepare` runs after storage is cleared and the session seeded, before the page is created. */
+  async function setup(kind: 'client' | 'admin', prepare?: () => void): Promise<void> {
     localStorage.clear();
     seedSession(kind);
+    prepare?.();
     await TestBed.configureTestingModule({
       imports: [DashboardPage],
       providers: [provideRouter([]), provideHttpClient(), provideHttpClientTesting()],
@@ -183,5 +186,103 @@ describe('DashboardPage', () => {
     const header = fixture.nativeElement.querySelector('.page-header .page-title') as HTMLElement;
     expect(header.firstElementChild?.tagName.toLowerCase()).toBe('app-instrument-search');
     http.expectNone(`${API}/instruments`);
+  });
+
+  describe('widget layout', () => {
+    const layoutKey = layoutStorageKey(12);
+    const reversed = [...DEFAULT_WIDGET_ORDER].reverse();
+    const element = () => fixture.nativeElement as HTMLElement;
+    const button = (id: string) => element().querySelector<HTMLButtonElement>(`#${id}`);
+    const widgetOrder = () =>
+      Array.from(element().querySelectorAll('.dashboard-widgets .grid-stack-item')).map((item) =>
+        item.getAttribute('gs-id'),
+      );
+
+    function flushEmptyPortfolio(): void {
+      http.expectOne(`${API}/api/clients/me/balance`).flush({ clientId: 12, accountBalance: 0 });
+      http.expectOne(`${API}/api/clients/me/holdings`).flush([]);
+      http.expectOne(`${API}/api/clients/me/orders`).flush([]);
+      http.expectOne(`${API}/api/clients/me/transactions`).flush([]);
+    }
+
+    async function render(prepare?: () => void): Promise<void> {
+      await setup('client', prepare);
+      flushEmptyPortfolio();
+      await fixture.whenStable();
+      fixture.detectChanges();
+    }
+
+    async function click(id: string): Promise<void> {
+      button(id)?.click();
+      await fixture.whenStable();
+      fixture.detectChanges();
+    }
+
+    it('renders the eight widgets in the default order inside a live grid, locked', async () => {
+      await render();
+      expect(widgetOrder()).toEqual([...DEFAULT_WIDGET_ORDER]);
+      expect(element().querySelector('.dashboard-widgets')?.classList.contains('grid-stack')).toBe(
+        true,
+      );
+      expect(button('dashboard-edit-widgets')?.textContent?.trim()).toBe('Edit widgets');
+      expect(button('dashboard-reset-layout')).toBeNull();
+      expect(element().querySelector('.dashboard-edit-hint')).toBeNull();
+      expect(
+        element().querySelector('.grid-stack-item')?.classList.contains('ui-draggable-disabled'),
+      ).toBe(true);
+    });
+
+    it('edit mode shows Done, Reset layout and a hint, unlocks dragging, and Done saves the order', async () => {
+      await render();
+      await click('dashboard-edit-widgets');
+      const item = element().querySelector('.grid-stack-item[gs-id="cash"]') as HTMLElement & {
+        ddElement?: { ddDraggable?: unknown };
+      };
+      expect(button('dashboard-edit-widgets')?.textContent?.trim()).toBe('Done');
+      expect(button('dashboard-reset-layout')).not.toBeNull();
+      // Only the layout controls while editing: no Transfer Money or Place Trade.
+      expect(element().querySelector('.page-actions a[href="/transfer"]')).toBeNull();
+      expect(element().querySelector('.page-actions a[href="/trade"]')).toBeNull();
+      expect(element().querySelector('.dashboard-edit-hint')?.textContent).toContain(
+        'Drag a widget',
+      );
+      expect(
+        element().querySelector('.dashboard-widgets')?.classList.contains('dashboard-editing'),
+      ).toBe(true);
+      expect(item.classList.contains('ui-draggable-disabled')).toBe(false);
+      expect(item.ddElement?.ddDraggable).toBeDefined();
+
+      await click('dashboard-edit-widgets');
+      expect(button('dashboard-edit-widgets')?.textContent?.trim()).toBe('Edit widgets');
+      expect(button('dashboard-reset-layout')).toBeNull();
+      expect(element().querySelector('.page-actions a[href="/transfer"]')).not.toBeNull();
+      expect(element().querySelector('.page-actions a[href="/trade"]')).not.toBeNull();
+      expect(item.classList.contains('ui-draggable-disabled')).toBe(true);
+      expect(localStorage.getItem(layoutKey)).toBe(serializeWidgetOrder(DEFAULT_WIDGET_ORDER));
+    });
+
+    it("restores the signed-in client's saved order", async () => {
+      await render(() => localStorage.setItem(layoutKey, serializeWidgetOrder(reversed)));
+      expect(widgetOrder()).toEqual(reversed);
+    });
+
+    it('falls back to the default order when the saved layout is invalid or belongs to someone else', async () => {
+      await render(() => {
+        localStorage.setItem(layoutKey, JSON.stringify({ version: 1, order: ['cash', 'cash'] }));
+        localStorage.setItem(layoutStorageKey(99), serializeWidgetOrder(reversed));
+      });
+      expect(widgetOrder()).toEqual([...DEFAULT_WIDGET_ORDER]);
+    });
+
+    it('Reset layout returns to the default arrangement, which Done then saves', async () => {
+      await render(() => localStorage.setItem(layoutKey, serializeWidgetOrder(reversed)));
+      expect(widgetOrder()).toEqual(reversed);
+      await click('dashboard-edit-widgets');
+      await click('dashboard-reset-layout');
+      expect(widgetOrder()).toEqual([...DEFAULT_WIDGET_ORDER]);
+      expect(localStorage.getItem(layoutKey)).toBe(serializeWidgetOrder(reversed)); // not saved yet
+      await click('dashboard-edit-widgets');
+      expect(localStorage.getItem(layoutKey)).toBe(serializeWidgetOrder(DEFAULT_WIDGET_ORDER));
+    });
   });
 });

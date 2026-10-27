@@ -10,7 +10,7 @@ import {
   signal,
 } from '@angular/core';
 import { SeriesPoint } from '../../../core/models/portfolio.models';
-import { formatDate, formatDateTime } from '../../../core/utils/dates';
+import { EASTERN_TIME_ZONE, formatDate, formatDateTime } from '../../../core/utils/dates';
 
 export type ChartTone = 'positive' | 'negative' | 'neutral';
 export type ChartXScale = 'time' | 'index';
@@ -573,10 +573,22 @@ export function niceTicks(min: number, max: number, count: number): number[] {
 function formatAxisDate(time: number, spanMs: number): string {
   const date = new Date(time);
   if (spanMs <= 2 * 86_400_000) {
-    return new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit' }).format(date);
+    return new Intl.DateTimeFormat('en-US', {
+      hour: 'numeric',
+      minute: '2-digit',
+      timeZone: EASTERN_TIME_ZONE,
+    }).format(date);
   }
   if (spanMs <= 200 * 86_400_000) {
-    return new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' }).format(date);
+    return new Intl.DateTimeFormat('en-US', {
+      month: 'short',
+      day: 'numeric',
+      timeZone: EASTERN_TIME_ZONE,
+    }).format(date);
   }
-  return new Intl.DateTimeFormat('en-US', { month: 'short', year: 'numeric' }).format(date);
+  return new Intl.DateTimeFormat('en-US', {
+    month: 'short',
+    year: 'numeric',
+    timeZone: EASTERN_TIME_ZONE,
+  }).format(date);
 }

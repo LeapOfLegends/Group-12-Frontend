@@ -105,4 +105,16 @@ describe('LineChartComponent', () => {
       formatter.mock.calls.every(([time]) => points.some((point) => point.time === time)),
     ).toBe(true);
   });
+
+  it('formats fallback time-axis labels in Eastern Time', () => {
+    fixture.componentRef.setInput('points', [
+      { time: Date.parse('2026-10-21T14:30:00Z'), value: 100 },
+      { time: Date.parse('2026-10-21T15:30:00Z'), value: 101 },
+    ]);
+    fixture.detectChanges();
+
+    const labels = (fixture.componentInstance as any).xTicks().map((tick: any) => tick.label);
+    expect(labels[0]).toBe('10:30 AM');
+    expect(labels.at(-1)).toBe('11:30 AM');
+  });
 });

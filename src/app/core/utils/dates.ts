@@ -1,4 +1,5 @@
 const LOCALE = 'en-US';
+export const EASTERN_TIME_ZONE = 'America/New_York';
 
 const dateTimeFormatter = new Intl.DateTimeFormat(LOCALE, {
   year: 'numeric',
@@ -6,18 +7,23 @@ const dateTimeFormatter = new Intl.DateTimeFormat(LOCALE, {
   day: 'numeric',
   hour: 'numeric',
   minute: '2-digit',
+  timeZone: EASTERN_TIME_ZONE,
+  timeZoneName: 'short',
 });
 
 const dateFormatter = new Intl.DateTimeFormat(LOCALE, {
   year: 'numeric',
   month: 'short',
   day: 'numeric',
+  timeZone: EASTERN_TIME_ZONE,
 });
 
 const timeFormatter = new Intl.DateTimeFormat(LOCALE, {
   hour: 'numeric',
   minute: '2-digit',
   second: '2-digit',
+  timeZone: EASTERN_TIME_ZONE,
+  timeZoneName: 'short',
 });
 
 export function toDate(value: string | number | Date | null | undefined): Date | null {
@@ -44,7 +50,10 @@ export function formatTime(value: string | number | Date | null | undefined): st
 }
 
 /** Age of a timestamp in whole seconds, or null when the value is missing. */
-export function ageInSeconds(value: string | number | Date | null | undefined, nowMs: number = Date.now()): number | null {
+export function ageInSeconds(
+  value: string | number | Date | null | undefined,
+  nowMs: number = Date.now(),
+): number | null {
   const date = toDate(value);
   if (!date) {
     return null;
@@ -53,7 +62,10 @@ export function ageInSeconds(value: string | number | Date | null | undefined, n
 }
 
 /** Human-friendly relative age: "just now", "45s ago", "3m ago", "2h ago", "5d ago". */
-export function formatRelativeAge(value: string | number | Date | null | undefined, nowMs: number = Date.now()): string {
+export function formatRelativeAge(
+  value: string | number | Date | null | undefined,
+  nowMs: number = Date.now(),
+): string {
   const seconds = ageInSeconds(value, nowMs);
   if (seconds === null) {
     return 'unknown';

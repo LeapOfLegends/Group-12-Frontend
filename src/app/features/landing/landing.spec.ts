@@ -30,9 +30,7 @@ describe('LandingPage', () => {
     const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
     expect(text).toContain('Trade directly. See every position. Know every outcome.');
     expect(text).toContain('What you can do');
-    expect(text).toContain('How it works');
-    expect(text).toContain('Look up any price');
-
+    expect(text).toContain('Place a trade today!');    expect(text).toContain('Look up any price');
     expect(element('app-navbar a[href="/login"]')).not.toBeNull();
     expect(element('app-navbar a[href="/register"]')).not.toBeNull();
     expect(element('app-navbar .navbar-account')).toBeNull();

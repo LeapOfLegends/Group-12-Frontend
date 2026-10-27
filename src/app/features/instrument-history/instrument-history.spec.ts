@@ -392,7 +392,7 @@ describe('InstrumentHistoryPage', () => {
     expect(text()).toContain('$250.00');
     expect(text()).toContain('Last trade');
     expect(text()).not.toContain('Mid-market rate');
-    expect(text()).toContain('Times shown in Coordinated Universal Time (UTC).');
+    expect(text()).toContain('Times shown in Eastern Time (ET).');
     expect(fixture.nativeElement.querySelector('app-line-chart')).not.toBeNull();
   });
 });
@@ -482,7 +482,7 @@ describe('InstrumentHistoryChartComponent multi-asset history', () => {
   it.each([
     ['crypto', crypto],
     ['FX', fx],
-  ])('loads slash-containing %s history by numeric ID and presents it in UTC', async (_, item) => {
+  ])('loads slash-containing %s history by numeric ID and presents it in ET', async (_, item) => {
     await setup(item);
     http
       .expectOne(`${environment.tradingApiUrl}/instruments/${item.instrumentId}/history?range=1D`)
@@ -490,7 +490,7 @@ describe('InstrumentHistoryChartComponent multi-asset history', () => {
     fixture.detectChanges();
 
     expect(fixture.nativeElement.querySelector('app-line-chart')).not.toBeNull();
-    expect(chartText()).toContain('Times shown in Coordinated Universal Time (UTC).');
+    expect(chartText()).toContain('Times shown in Eastern Time (ET).');
     http.expectNone((request) => request.url.includes(encodeURIComponent(item.symbol)));
   });
 
@@ -598,9 +598,9 @@ describe('InstrumentHistoryChartComponent multi-asset history', () => {
 });
 
 describe('crypto and FX history time formatting', () => {
-  it('formats UTC timestamps without applying a New York offset', () => {
+  it('formats timestamps in Eastern Time', () => {
     const time = Date.parse('2026-10-21T14:30:00Z');
-    expect(formatHistoryAxisTime(time, '5D', 'UTC')).toMatch(/Oct 21.*2:30 PM/);
-    expect(formatHistoryTooltipTime(time, '5D', 'UTC')).toMatch(/Oct 21, 2026.*2:30 PM.*UTC/);
+    expect(formatHistoryAxisTime(time, '5D')).toMatch(/Oct 21.*10:30 AM/);
+    expect(formatHistoryTooltipTime(time, '5D')).toMatch(/Oct 21, 2026.*10:30 AM.*EDT/);
   });
 });

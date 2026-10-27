@@ -20,6 +20,7 @@ const ICONS: Record<string, string> = {
     '<path d="M10 17l5-5-5-5"/><path d="M15 12H3"/><path d="M13 4h5a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-5"/>',
   sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M4.9 4.9l1.4 1.4m11.4 11.4 1.4 1.4M2 12h2m16 0h2M4.9 19.1l1.4-1.4m11.4-11.4 1.4-1.4"/>',
   moon: '<path d="M20 14.5A8 8 0 0 1 9.5 4 8 8 0 1 0 20 14.5z"/>',
+  grip: '<circle cx="9" cy="5" r="1.6" fill="currentColor" stroke="none"/><circle cx="15" cy="5" r="1.6" fill="currentColor" stroke="none"/><circle cx="9" cy="12" r="1.6" fill="currentColor" stroke="none"/><circle cx="15" cy="12" r="1.6" fill="currentColor" stroke="none"/><circle cx="9" cy="19" r="1.6" fill="currentColor" stroke="none"/><circle cx="15" cy="19" r="1.6" fill="currentColor" stroke="none"/>',
   menu: '<path d="M4 7h16M4 12h16M4 17h16"/>',
   close: '<path d="M6 6l12 12M18 6 6 18"/>',
   'chevron-down': '<path d="m6 9 6 6 6-6"/>',

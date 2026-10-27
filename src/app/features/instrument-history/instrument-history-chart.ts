@@ -22,6 +22,7 @@ import {
   InstrumentHistoryRange,
 } from '../../core/models/trading.models';
 import { AppVisibilityService } from '../../core/services/app-visibility.service';
+import { EASTERN_TIME_ZONE } from '../../core/utils/dates';
 import { describeHttpError } from '../../core/utils/http-error';
 import { formatCompactMoney, formatPrice } from '../../core/utils/money';
 import { LineChartComponent } from '../../shared/charts/line-chart/line-chart';
@@ -72,16 +73,7 @@ export class InstrumentHistoryChartComponent {
     );
   });
 
-  private readonly historyTimeZone = computed(() =>
-    this.instrument().assetClass.trim().toUpperCase() === 'EQUITY'
-      ? EXCHANGE_TIME_ZONE
-      : UTC_TIME_ZONE,
-  );
-  protected readonly historyTimeZoneLabel = computed(() =>
-    this.historyTimeZone() === EXCHANGE_TIME_ZONE
-      ? 'Times shown in New York exchange time (ET).'
-      : 'Times shown in Coordinated Universal Time (UTC).',
-  );
+  protected readonly historyTimeZoneLabel = 'Times shown in Eastern Time (ET).';
 
   protected readonly points = computed<SeriesPoint[]>(() =>
     (this.history()?.points ?? [])
@@ -95,9 +87,9 @@ export class InstrumentHistoryChartComponent {
   protected readonly formatCompact = (value: number): string =>
     formatCompactMoney(value, this.instrument().currency || this.history()?.currency || 'USD');
   protected readonly formatAxisTime = (time: number): string =>
-    formatHistoryAxisTime(time, this.selectedRange(), this.historyTimeZone());
+    formatHistoryAxisTime(time, this.selectedRange());
   protected readonly formatTooltipTime = (time: number): string =>
-    formatHistoryTooltipTime(time, this.selectedRange(), this.historyTimeZone());
+    formatHistoryTooltipTime(time, this.selectedRange());
 
   constructor() {
     effect(() => {
@@ -239,43 +231,32 @@ export class InstrumentHistoryChartComponent {
   }
 }
 
-const EXCHANGE_TIME_ZONE = 'America/New_York';
-const UTC_TIME_ZONE = 'UTC';
-
-export function formatHistoryAxisTime(
-  time: number,
-  range: InstrumentHistoryRange,
-  timeZone = EXCHANGE_TIME_ZONE,
-): string {
+export function formatHistoryAxisTime(time: number, range: InstrumentHistoryRange): string {
   const options: Intl.DateTimeFormatOptions =
     range === '1D'
-      ? { hour: 'numeric', minute: '2-digit', timeZone }
+      ? { hour: 'numeric', minute: '2-digit', timeZone: EASTERN_TIME_ZONE }
       : range === '5D'
         ? {
             month: 'short',
             day: 'numeric',
             hour: 'numeric',
             minute: '2-digit',
-            timeZone,
+            timeZone: EASTERN_TIME_ZONE,
           }
         : range === '5Y'
-          ? { month: 'short', year: '2-digit', timeZone }
-          : { month: 'short', day: 'numeric', timeZone };
+          ? { month: 'short', year: '2-digit', timeZone: EASTERN_TIME_ZONE }
+          : { month: 'short', day: 'numeric', timeZone: EASTERN_TIME_ZONE };
   return new Intl.DateTimeFormat('en-US', options).format(new Date(time));
 }
 
-export function formatHistoryTooltipTime(
-  time: number,
-  range: InstrumentHistoryRange,
-  timeZone = EXCHANGE_TIME_ZONE,
-): string {
+export function formatHistoryTooltipTime(time: number, range: InstrumentHistoryRange): string {
   const intraday = range === '1D' || range === '5D';
   return new Intl.DateTimeFormat('en-US', {
     month: 'short',
     day: 'numeric',
     year: 'numeric',
     ...(intraday ? { hour: 'numeric', minute: '2-digit' } : {}),
-    timeZone,
+    timeZone: EASTERN_TIME_ZONE,
     timeZoneName: 'short',
   }).format(new Date(time));
 }

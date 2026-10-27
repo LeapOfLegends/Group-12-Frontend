@@ -1,4 +1,17 @@
-import { ChangeDetectionStrategy, Component, OnInit, computed, inject } from '@angular/core';
+import { DOCUMENT } from '@angular/common';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  DestroyRef,
+  ElementRef,
+  OnInit,
+  afterEveryRender,
+  afterNextRender,
+  computed,
+  inject,
+  signal,
+  viewChild,
+} from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { AuthService } from '../../core/auth/auth.service';
 import { PortfolioService } from '../../core/services/portfolio.service';
@@ -17,8 +30,24 @@ import { InstrumentSearchComponent } from '../../shared/ui/instrument-search/ins
 import { LoadingSkeletonComponent } from '../../shared/ui/loading-skeleton/loading-skeleton';
 import { OrdersTableComponent } from '../../shared/ui/orders-table/orders-table';
 import { TransactionsTableComponent } from '../../shared/ui/transactions-table/transactions-table';
+import {
+  DEFAULT_WIDGET_ORDER,
+  DashboardWidget,
+  GRID_BREAKPOINTS,
+  GridColumns,
+  layoutStorageKey,
+  loadWidgetOrder,
+  orderWidgets,
+  saveWidgetOrder,
+  widgetWidth,
+} from './dashboard-layout';
+import { WidgetGrid } from './widget-grid';
 
-/** Client home: price search, cash, portfolio value, return, performance chart, holdings, orders and actions. */
+/**
+ * Client home: price search, cash, portfolio value, return, performance chart, holdings, orders
+ * and actions. The eight widgets can be rearranged in edit mode; the order is kept per client in
+ * localStorage (see dashboard-layout.ts).
+ */
 @Component({
   selector: 'app-dashboard-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -41,6 +70,17 @@ import { TransactionsTableComponent } from '../../shared/ui/transactions-table/t
 export class DashboardPage implements OnInit {
   protected readonly auth = inject(AuthService);
   protected readonly portfolio = inject(PortfolioService);
+  private readonly document = inject(DOCUMENT);
+  private readonly destroyRef = inject(DestroyRef);
+  private readonly gridElement = viewChild.required<ElementRef<HTMLElement>>('widgetGrid');
+
+  /** The widgets in the saved order, which is also the order they are rendered in. */
+  protected readonly widgets: readonly DashboardWidget[];
+  protected readonly editing = signal(false);
+  /** Column count when the page rendered; later breakpoint changes go straight to the grid. */
+  private readonly initialColumns: GridColumns;
+  private readonly layoutKey = layoutStorageKey(this.auth.user()?.id);
+  private grid: WidgetGrid | null = null;
 
   protected readonly today = formatDate(new Date());
   protected readonly greeting = computed(
@@ -92,7 +132,61 @@ export class DashboardPage implements OnInit {
 
   protected readonly formatMoneyValue = (value: number): string => formatMoney(value);
 
+  constructor() {
+    this.widgets = orderWidgets(loadWidgetOrder(this.layoutKey) ?? DEFAULT_WIDGET_ORDER);
+
+    // The same breakpoints as the page's media queries; smallest first, so the first match wins.
+    const view = this.document.defaultView;
+    const queries = GRID_BREAKPOINTS.map((breakpoint) => ({
+      columns: breakpoint.columns,
+      media: view?.matchMedia?.(`(max-width: ${breakpoint.maxWidth}px)`),
+    }));
+    const columns = (): GridColumns => queries.find((query) => query.media?.matches)?.columns ?? 12;
+    const onMediaChange = () => this.grid?.setColumns(columns());
+    queries.forEach((query) => query.media?.addEventListener?.('change', onMediaChange));
+    this.initialColumns = columns();
+
+    afterNextRender(() => {
+      this.grid = new WidgetGrid(this.gridElement().nativeElement, this.widgets, columns());
+    });
+    // Widget contents change with their data (skeleton to table, more rows), so re-measure after renders.
+    afterEveryRender(() => this.grid?.scheduleRefresh());
+    this.destroyRef.onDestroy(() => {
+      queries.forEach((query) => query.media?.removeEventListener?.('change', onMediaChange));
+      this.grid?.destroy();
+      this.grid = null;
+    });
+  }
+
   ngOnInit(): void {
     void this.portfolio.load();
+  }
+
+  protected widgetWidth(widget: DashboardWidget): number {
+    return widgetWidth(widget, this.initialColumns);
+  }
+
+  protected toggleEditing(): void {
+    if (this.editing()) {
+      this.finishEditing();
+    } else {
+      this.startEditing();
+    }
+  }
+
+  protected startEditing(): void {
+    this.editing.set(true);
+    this.grid?.setMovable(true);
+  }
+
+  /** Locks the widgets again and keeps the arrangement for this client's next visit. */
+  protected finishEditing(): void {
+    this.editing.set(false);
+    this.grid?.setMovable(false);
+    saveWidgetOrder(this.layoutKey, this.grid?.order() ?? this.widgets.map((widget) => widget.id));
+  }
+
+  protected resetLayout(): void {
+    this.grid?.applyOrder(DEFAULT_WIDGET_ORDER);
   }
 }
