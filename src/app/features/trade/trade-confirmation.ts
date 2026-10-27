@@ -17,6 +17,7 @@ import { InstrumentCatalogService } from '../../core/services/instrument-catalog
 import { NotificationService } from '../../core/services/notification.service';
 import { PortfolioService } from '../../core/services/portfolio.service';
 import { describeHttpError, httpStatusOf } from '../../core/utils/http-error';
+import { formatOrderId } from '../../core/utils/display-ids';
 import { formatMoney, formatPrice } from '../../core/utils/money';
 import { describeOrderOutcome, isSettled } from '../../core/utils/order-reasons';
 import { DateTimePipe, MoneyPipe, PricePipe, QuantityPipe } from '../../shared/pipes/format.pipes';
@@ -76,6 +77,7 @@ export class TradeConfirmationPage implements OnInit {
   protected readonly error = signal<string | null>(null);
   protected readonly polling = signal(false);
   protected readonly pollTimedOut = signal(false);
+  protected readonly formatOrderId = formatOrderId;
 
   protected readonly status = computed(() => this.order()?.status ?? null);
   protected readonly isBuy = computed(() => this.order()?.orderType === 'BUY');
@@ -195,7 +197,7 @@ export class TradeConfirmationPage implements OnInit {
         this.loading.set(false);
         this.error.set(
           httpStatusOf(error) === 404
-            ? `We could not find order #${orderId}.`
+            ? `We could not find order ${formatOrderId(orderId)}.`
             : describeHttpError(error, 'The order could not be loaded.'),
         );
       },
@@ -240,12 +242,12 @@ export class TradeConfirmationPage implements OnInit {
             if (order.status === 'FILLED') {
               this.notifications.success(
                 `Executed at ${formatPrice(order.executionPrice)} for ${formatMoney(order.tradeValue)}.`,
-                `Order #${order.orderId} filled`,
+                `Order ${formatOrderId(order.orderId)} filled`,
               );
             } else {
               this.notifications.error(
                 describeOrderOutcome(order),
-                `Order #${order.orderId} ${order.status === 'FAILED' ? 'failed' : 'rejected'}`,
+                `Order ${formatOrderId(order.orderId)} ${order.status === 'FAILED' ? 'failed' : 'rejected'}`,
               );
             }
           }

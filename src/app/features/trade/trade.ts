@@ -24,6 +24,7 @@ import { InstrumentCatalogService } from '../../core/services/instrument-catalog
 import { NotificationService } from '../../core/services/notification.service';
 import { PortfolioService } from '../../core/services/portfolio.service';
 import { ageInSeconds } from '../../core/utils/dates';
+import { formatOrderId } from '../../core/utils/display-ids';
 import { describeHttpError } from '../../core/utils/http-error';
 import {
   decimalPlaces,
@@ -78,6 +79,7 @@ export class TradePage implements OnInit {
   protected readonly portfolio = inject(PortfolioService);
 
   protected readonly quoteMaxAge = environment.quoteMaxAgeSeconds;
+  protected readonly formatOrderId = formatOrderId;
 
   // Order entry state
   protected readonly side = signal<OrderType>('BUY');
@@ -473,7 +475,7 @@ export class TradePage implements OnInit {
             this.step.set('result');
             this.notifications.warning(
               describeOrderOutcome(order),
-              `Order #${order.orderId} rejected`,
+              `Order ${formatOrderId(order.orderId)} rejected`,
             );
             return;
           }

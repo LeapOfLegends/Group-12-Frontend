@@ -62,12 +62,12 @@ export class PortfolioService {
   readonly positions = computed(() => buildPositions(this.holdingsState(), this.instrumentsById()));
   readonly orderRows = computed(() => buildOrderRows(this.ordersState(), this.instrumentsById()));
   readonly recentOrders = computed(() => this.orderRows().slice(0, 8));
-  readonly recentMoneyTransactions = computed(() => this.transactionsState()
-    .filter((transaction) => transaction.transactionType === 'DEPOSIT' || transaction.transactionType === 'WITHDRAWAL')
-    .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))
-    .slice(0, 8));
-  readonly moneyTransactionCount = computed(() => this.transactionsState()
-    .filter((transaction) => transaction.transactionType === 'DEPOSIT' || transaction.transactionType === 'WITHDRAWAL').length);
+  readonly recentTransactions = computed(() =>
+    [...this.transactionsState()]
+      .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))
+      .slice(0, 8),
+  );
+  readonly transactionCount = computed(() => this.transactionsState().length);
   readonly summary = computed(() =>
     summarizePortfolio(this.cashState() ?? 0, this.positions(), this.ordersState()),
   );
@@ -111,7 +111,10 @@ export class PortfolioService {
             orders: this.ordersApi.listMine(),
             transactions: this.clientApi.listMyTransactions().pipe(
               catchError((error: unknown) => {
-                transactionError = describeHttpError(error, 'Your transaction history could not be loaded.');
+                transactionError = describeHttpError(
+                  error,
+                  'Your transaction history could not be loaded.',
+                );
                 return of([] as AccountTransaction[]);
               }),
             ),

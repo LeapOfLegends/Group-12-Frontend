@@ -44,7 +44,10 @@ describe('PortfolioService synchronization', () => {
       providers: [
         PortfolioService,
         { provide: AuthService, useValue: { user, accessToken: () => token() } },
-        { provide: ClientApiService, useValue: { getBalance: () => balance$, listMyTransactions: () => transactions$ } },
+        {
+          provide: ClientApiService,
+          useValue: { getBalance: () => balance$, listMyTransactions: () => transactions$ },
+        },
         { provide: HoldingsApiService, useValue: { listMine: () => holdings$ } },
         { provide: OrdersApiService, useValue: { listMine: () => orders$ } },
         {
@@ -100,26 +103,50 @@ describe('PortfolioService synchronization', () => {
     expect(service.holdings()).toEqual([]);
   });
 
-  it('loads transaction history alongside the portfolio', async () => {
+  it('loads funding and filled-order transaction history alongside the portfolio', async () => {
     const service = TestBed.inject(PortfolioService);
-    const transaction: AccountTransaction = {
-      transactionId: 1,
-      clientId: 12,
-      orderId: null,
-      transactionType: 'DEPOSIT',
-      amount: 1000,
-      balanceAfter: 1000,
-      createdAt: '2026-10-23T14:00:00Z',
-    };
+    const transactions: AccountTransaction[] = [
+      {
+        transactionId: 1,
+        clientId: 12,
+        orderId: null,
+        transactionType: 'DEPOSIT',
+        amount: 1000,
+        balanceAfter: 1000,
+        createdAt: '2026-10-23T14:00:00Z',
+      },
+      {
+        transactionId: 2,
+        clientId: 12,
+        orderId: 20,
+        transactionType: 'BUY',
+        amount: -250,
+        balanceAfter: 750,
+        createdAt: '2026-10-23T15:00:00Z',
+      },
+      {
+        transactionId: 3,
+        clientId: 12,
+        orderId: 21,
+        transactionType: 'SELL',
+        amount: 125,
+        balanceAfter: 875,
+        createdAt: '2026-10-23T16:00:00Z',
+      },
+    ];
     const loading = service.load();
-    transactions$.next([transaction]);
+    transactions$.next(transactions);
     transactions$.complete();
     finishLoad();
     await loading;
 
-    expect(service.transactions()).toEqual([transaction]);
-    expect(service.recentMoneyTransactions()).toEqual([transaction]);
-    expect(service.moneyTransactionCount()).toBe(1);
+    expect(service.transactions()).toEqual(transactions);
+    expect(service.recentTransactions()).toEqual([
+      transactions[2],
+      transactions[1],
+      transactions[0],
+    ]);
+    expect(service.transactionCount()).toBe(3);
     expect(service.transactionError()).toBeNull();
   });
 

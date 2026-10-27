@@ -3,6 +3,7 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
+import { of } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { OrdersApiService } from '../../core/api/orders-api.service';
 import { AuthService } from '../../core/auth/auth.service';
@@ -10,6 +11,7 @@ import {
   CatalogInstrument,
   InstrumentHistory,
   MarketAvailability,
+  Order,
 } from '../../core/models/trading.models';
 import { InstrumentCatalogService } from '../../core/services/instrument-catalog.service';
 import { NotificationService } from '../../core/services/notification.service';
@@ -192,6 +194,38 @@ describe('TradePage market availability', () => {
     page['reviewOrder']();
     fixture.detectChanges();
     expect(button('Place buy order').disabled).toBe(false);
+  });
+
+  it('uses the standardized order ID in rejected results and notifications', () => {
+    const rejected: Order = {
+      orderId: 47,
+      clientId: 12,
+      instrumentId: 2,
+      orderType: 'BUY',
+      quantity: 1,
+      status: 'REJECTED',
+      reservedCash: null,
+      submittedAt: '2026-10-24T14:00:00Z',
+      acceptedAt: null,
+      rejectedAt: '2026-10-24T14:00:01Z',
+      failedAt: null,
+      filledAt: null,
+      executionPrice: null,
+      executionQuoteAsOf: null,
+      tradeValue: null,
+      rejectionReason: 'INSUFFICIENT_FUNDS',
+      failureReason: null,
+    };
+    submit.mockReturnValue(of(rejected));
+    flushStatus();
+
+    page['reviewOrder']();
+    page['confirmOrder']();
+    fixture.detectChanges();
+
+    const notifications = TestBed.inject(NotificationService);
+    expect(notifications.warning).toHaveBeenCalledWith(expect.any(String), 'Order ORD-47 rejected');
+    expect(fixture.nativeElement.textContent).toContain('Order ORD-47');
   });
 
   it('keeps the selected instrument attached to canonical catalogue updates', () => {

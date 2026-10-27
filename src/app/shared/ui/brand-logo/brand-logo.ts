@@ -2,8 +2,7 @@ import { ChangeDetectionStrategy, Component, input } from '@angular/core';
 import { RouterLink } from '@angular/router';
 
 /**
- * JetZy Trading mark: a paper airplane folded from a dollar bill, taking off across a
- * deep-green tile, with the wordmark beside it. public/favicon.svg carries the same artwork.
+ * JetZy paper-airplane mark with a responsive, theme-aware HTML wordmark.
  */
 @Component({
   selector: 'app-brand-logo',
@@ -17,56 +16,14 @@ import { RouterLink } from '@angular/router';
       [routerLink]="homeLink()"
       aria-label="JetZy Trading home"
     >
-      <svg
-        class="brand-mark"
-        viewBox="0 0 64 64"
-        [attr.width]="markSize()"
-        [attr.height]="markSize()"
+      <img
+        class="brand-image"
+        src="jetzy-logo.png"
+        alt=""
+        [style.width.px]="markSize()"
+        [style.height.px]="markSize()"
         aria-hidden="true"
-        focusable="false"
-      >
-        <rect width="64" height="64" rx="16" fill="#073B2A" />
-        <!-- jet trail -->
-        <path
-          d="M6 50c5 0 9-2 13-6"
-          fill="none"
-          stroke="#C8A46B"
-          stroke-width="2.4"
-          stroke-linecap="round"
-          opacity="0.85"
-        />
-        <path
-          d="M10 57c4 0 7-1.5 10-4.5"
-          fill="none"
-          stroke="#C8A46B"
-          stroke-width="2.4"
-          stroke-linecap="round"
-          opacity="0.5"
-        />
-        <!-- lower wing: the shaded side of the fold -->
-        <path d="M57 9 29 36l-4 21z" fill="#2FB071" />
-        <!-- upper wing: the dollar bill -->
-        <path d="M57 9 7 29l22 7z" fill="#DDF3E6" />
-        <text
-          x="27.5"
-          y="31.5"
-          font-family="Inter, Arial, sans-serif"
-          font-size="14"
-          font-weight="800"
-          fill="#073B2A"
-          text-anchor="middle"
-        >
-          $
-        </text>
-        <!-- centre crease -->
-        <path
-          d="M57 9 29 36"
-          fill="none"
-          stroke="#C8A46B"
-          stroke-width="2"
-          stroke-linecap="round"
-        />
-      </svg>
+      />
       @if (!compact()) {
         <span class="brand-text">
           <span class="brand-name">JetZy</span>
@@ -79,28 +36,30 @@ import { RouterLink } from '@angular/router';
     .brand {
       display: inline-flex;
       align-items: center;
-      gap: 12px;
-      text-decoration: none;
+      justify-content: center;
+      gap: 10px;
       color: var(--color-text);
+      line-height: 1;
+      text-decoration: none;
     }
 
     .brand:hover {
       text-decoration: none;
     }
 
-    .brand-mark {
+    .brand-image {
+      display: block;
       flex: none;
-      box-shadow: 0 2px 6px rgba(7, 59, 42, 0.25);
-      border-radius: 10px;
+      object-fit: contain;
+      filter: drop-shadow(0 2px 5px rgba(7, 59, 42, 0.2));
     }
 
     .brand-text {
       display: flex;
       align-items: baseline;
-      gap: 6px;
-      font-size: 1.25rem;
+      gap: 5px;
+      font-size: 1.2rem;
       letter-spacing: -0.02em;
-      line-height: 1;
       white-space: nowrap;
     }
 
@@ -109,8 +68,8 @@ import { RouterLink } from '@angular/router';
     }
 
     .brand-suffix {
-      font-weight: 500;
       color: var(--color-text-secondary);
+      font-weight: 500;
     }
 
     .brand-on-dark {
@@ -121,8 +80,8 @@ import { RouterLink } from '@angular/router';
       color: rgba(255, 255, 255, 0.72);
     }
 
-    .brand-on-dark .brand-mark {
-      box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.12);
+    .brand-on-dark .brand-image {
+      filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.3));
     }
   `,
 })

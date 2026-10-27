@@ -58,8 +58,8 @@ export class DashboardPage implements OnInit {
   protected readonly summary = this.portfolio.summary;
   protected readonly positions = this.portfolio.positions;
   protected readonly recentOrders = this.portfolio.recentOrders;
-  protected readonly recentMoneyTransactions = this.portfolio.recentMoneyTransactions;
-  protected readonly moneyTransactionCount = this.portfolio.moneyTransactionCount;
+  protected readonly recentTransactions = this.portfolio.recentTransactions;
+  protected readonly transactionCount = this.portfolio.transactionCount;
   protected readonly transactionError = this.portfolio.transactionError;
   protected readonly allocation = this.portfolio.allocation;
   protected readonly investedSeries = this.portfolio.investedSeries;

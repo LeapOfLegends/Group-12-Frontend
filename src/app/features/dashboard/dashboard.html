@@ -218,7 +218,10 @@
       <div class="card-header">
         <div>
           <h2 id="transactions-title">Recent transactions</h2>
-          <p class="card-subtitle">Showing your latest {{ recentMoneyTransactions().length }} of {{ moneyTransactionCount() }} deposits and withdrawals.</p>
+          <p class="card-subtitle">
+            Showing your latest {{ recentTransactions().length }} of
+            {{ transactionCount() }} funding and trade transactions.
+          </p>
         </div>
         <a class="btn btn-soft btn-sm" routerLink="/transfer">Transfer money</a>
       </div>
@@ -228,7 +231,7 @@
           <span>{{ error }}</span>
         </div>
       } @else {
-        <app-transactions-table [rows]="recentMoneyTransactions()" [loading]="initialLoading()" />
+        <app-transactions-table [rows]="recentTransactions()" [loading]="initialLoading()" />
       }
     </section>
   }

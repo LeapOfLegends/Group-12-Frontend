@@ -118,6 +118,24 @@ describe('DashboardPage', () => {
         balanceAfter: 500,
         createdAt: '2026-10-01T10:00:00Z',
       },
+      {
+        transactionId: 4,
+        clientId: 12,
+        orderId: 9,
+        transactionType: 'BUY',
+        amount: -1000,
+        balanceAfter: 0,
+        createdAt: '2026-10-01T10:00:05Z',
+      },
+      {
+        transactionId: 5,
+        clientId: 12,
+        orderId: 10,
+        transactionType: 'SELL',
+        amount: 120,
+        balanceAfter: 120,
+        createdAt: '2026-10-03T10:00:00Z',
+      },
     ]);
     await fixture.whenStable();
     http.expectOne(`${API}/instruments/2`).flush({
@@ -149,6 +167,19 @@ describe('DashboardPage', () => {
     expect(text).toContain('Withdrawal');
     expect(text).toContain('+$500.00');
     expect(text).toContain('-$50.00');
+    const transactions = fixture.nativeElement.querySelector(
+      'app-transactions-table',
+    ) as HTMLElement;
+    expect(transactions.textContent).toContain('Buy');
+    expect(transactions.textContent).toContain('Sell');
+    expect(transactions.textContent).toContain('TXN-3');
+    expect(transactions.textContent).toContain('TXN-2');
+    expect(transactions.textContent).toContain('TXN-4');
+    expect(transactions.textContent).toContain('TXN-5');
+    expect(transactions.textContent).toContain('ORD-9');
+    expect(transactions.textContent).toContain('ORD-10');
+    expect(transactions.textContent).toContain('-$1,000.00');
+    expect(transactions.textContent).toContain('+$120.00');
     expect(text).toContain('Buying Power & Asset Allocation');
     expect(text).toContain('Buying power');
     expect(text).toContain('Asset allocation');
