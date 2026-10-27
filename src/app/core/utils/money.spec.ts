@@ -4,6 +4,7 @@ import {
   formatCompactMoney,
   formatForexRate,
   formatMoney,
+  formatPercentagePoints,
   formatPercent,
   formatPrice,
   formatQuantity,
@@ -52,6 +53,13 @@ describe('money formatting', () => {
     expect(formatPercent(0.0523, { signed: true })).toBe('+5.23%');
     expect(formatPercent(-0.1, { signed: true, digits: 1 })).toBe('-10.0%');
     expect(formatPercent(null)).toBe('—');
+  });
+
+  it('formats backend percentage points without multiplying by 100', () => {
+    expect(formatPercentagePoints(6.67, { signed: true })).toBe('+6.67%');
+    expect(formatPercentagePoints(-2.5, { signed: true })).toBe('-2.50%');
+    expect(formatPercentagePoints(0, { signed: true })).toBe('0.00%');
+    expect(formatPercentagePoints(null, { signed: true })).toBe('—');
   });
 
   it('trims trailing zeros from quantities', () => {

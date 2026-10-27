@@ -359,7 +359,8 @@ export class LineChartComponent {
     }
     return points
       .map(
-        (point, index) => `${index === 0 ? 'M' : 'L'}${point.x.toFixed(1)} ${point.y.toFixed(1)}`,
+        (point, index) =>
+          `${index === 0 || point.breakBefore ? 'M' : 'L'}${point.x.toFixed(1)} ${point.y.toFixed(1)}`,
       )
       .join(' ');
   });
@@ -367,6 +368,10 @@ export class LineChartComponent {
   protected readonly areaPath = computed(() => {
     const points = this.plotted();
     if (points.length === 0) {
+      return '';
+    }
+    // A single filled polygon would visually bridge unknown observations, so gaps have no area wash.
+    if (points.some((point) => point.breakBefore)) {
       return '';
     }
     const first = points[0];

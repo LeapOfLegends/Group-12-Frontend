@@ -14,10 +14,15 @@ import {
 } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { AuthService } from '../../core/auth/auth.service';
+import { PortfolioPerformanceRange } from '../../core/models/trading.models';
+import { PortfolioHistoryService } from '../../core/services/portfolio-history.service';
 import { PortfolioService } from '../../core/services/portfolio.service';
 import { formatDate, greetingForHour } from '../../core/utils/dates';
 import { formatMoney, formatPercent, formatSignedMoney } from '../../core/utils/money';
-import { PortfolioChartComponent } from '../../shared/charts/portfolio-chart/portfolio-chart';
+import {
+  PortfolioChartComponent,
+  PortfolioChartMetric,
+} from '../../shared/charts/portfolio-chart/portfolio-chart';
 import { BarListComponent } from '../../shared/charts/bar-list/bar-list';
 import { MoneyPipe } from '../../shared/pipes/format.pipes';
 import {
@@ -70,6 +75,7 @@ import { WidgetGrid } from './widget-grid';
 export class DashboardPage implements OnInit {
   protected readonly auth = inject(AuthService);
   protected readonly portfolio = inject(PortfolioService);
+  protected readonly portfolioHistory = inject(PortfolioHistoryService);
   private readonly document = inject(DOCUMENT);
   private readonly destroyRef = inject(DestroyRef);
   private readonly gridElement = viewChild.required<ElementRef<HTMLElement>>('widgetGrid');
@@ -97,11 +103,11 @@ export class DashboardPage implements OnInit {
   protected readonly transactionCount = this.portfolio.transactionCount;
   protected readonly transactionError = this.portfolio.transactionError;
   protected readonly allocation = this.portfolio.allocation;
-  protected readonly investedSeries = this.portfolio.investedSeries;
   protected readonly pendingCount = computed(() => this.portfolio.pendingOrders().length);
+  protected readonly chartMetric = signal<PortfolioChartMetric>('VALUE');
 
   protected readonly cashValue = computed(() => formatMoney(this.portfolio.cash()));
-  protected readonly holdingsValue = computed(() => formatMoney(this.summary().holdingsValue));
+  protected readonly portfolioValue = computed(() => formatMoney(this.summary().totalAccountValue));
   protected readonly returnValue = computed(() => formatSignedMoney(this.summary().totalReturn));
   protected readonly returnDelta = computed(() => {
     const pct = this.summary().totalReturnPct;
@@ -117,8 +123,8 @@ export class DashboardPage implements OnInit {
     const base =
       count === 1 ? '1 holding at current prices' : `${count} holdings at current prices`;
     return summary.unpricedHoldings > 0
-      ? `${base} · ${summary.unpricedHoldings} without a quote`
-      : base;
+      ? `Includes cash and ${base} · ${summary.unpricedHoldings} without a quote`
+      : `Includes cash and ${base}`;
   });
   protected readonly returnHint = computed(() => {
     const summary = this.summary();
@@ -126,10 +132,6 @@ export class DashboardPage implements OnInit {
       ? `vs. ${formatMoney(summary.costBasis)} cost basis`
       : 'No priced holdings yet';
   });
-  protected readonly chartSubtitle = 'Net capital invested through filled orders';
-  protected readonly chartCaption =
-    'Built from your executed orders at their execution prices. Historical portfolio valuations are not yet available from the platform, so market moves between fills are not shown.';
-
   protected readonly formatMoneyValue = (value: number): string => formatMoney(value);
 
   constructor() {
@@ -160,6 +162,11 @@ export class DashboardPage implements OnInit {
 
   ngOnInit(): void {
     void this.portfolio.load();
+    this.portfolioHistory.load();
+  }
+
+  protected selectHistoryRange(range: PortfolioPerformanceRange): void {
+    this.portfolioHistory.load(range);
   }
 
   protected widgetWidth(widget: DashboardWidget): number {

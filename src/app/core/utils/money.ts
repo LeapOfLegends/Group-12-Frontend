@@ -165,6 +165,23 @@ export function formatPercent(
   return value;
 }
 
+/** Formats percentage points without multiplying by 100 (6.67 -> "+6.67%"). */
+export function formatPercentagePoints(
+  value: number | null | undefined,
+  options: { signed?: boolean; digits?: number } = {},
+): string {
+  if (!isFiniteNumber(value)) {
+    return '—';
+  }
+  const digits = options.digits ?? 2;
+  const formatted = new Intl.NumberFormat(DEFAULT_LOCALE, {
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
+  }).format(Math.abs(value));
+  const sign = options.signed && value > 0 ? '+' : value < 0 ? '-' : '';
+  return `${sign}${formatted}%`;
+}
+
 /** Quantities keep up to 8 decimals (backend NUMERIC(20,8)) with trailing zeros trimmed. */
 export function formatQuantity(value: number | null | undefined, maxDecimals = 8): string {
   if (!isFiniteNumber(value)) {

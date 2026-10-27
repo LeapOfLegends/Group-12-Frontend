@@ -100,7 +100,7 @@
               @case ('portfolio') {
                 <app-financial-summary-card
                   label="Total portfolio value"
-                  [value]="holdingsValue()"
+                  [value]="portfolioValue()"
                   [hint]="holdingsHint()"
                   icon="briefcase"
                   [loading]="initialLoading()"
@@ -108,7 +108,7 @@
               }
               @case ('return') {
                 <app-financial-summary-card
-                  label="Total return"
+                  label="Unrealized P/L"
                   [value]="returnValue()"
                   [delta]="returnDelta()"
                   [deltaTone]="returnTone()"
@@ -119,16 +119,15 @@
               }
               @case ('performance') {
                 <app-portfolio-chart
-                  title="Portfolio performance"
-                  [subtitle]="chartSubtitle"
-                  [series]="investedSeries()"
+                  [history]="portfolioHistory.history()"
+                  [range]="portfolioHistory.selectedRange()"
+                  [metric]="chartMetric()"
                   [height]="300"
-                  [loading]="initialLoading()"
-                  [deltaColoring]="false"
-                  [caption]="chartCaption"
-                  emptyTitle="No filled orders yet"
-                  emptyMessage="Your invested capital over time appears here after your first order is executed."
-                  ariaLabel="Net invested capital over time"
+                  [loading]="portfolioHistory.loading()"
+                  [error]="portfolioHistory.error()"
+                  (rangeChange)="selectHistoryRange($event)"
+                  (metricChange)="chartMetric.set($event)"
+                  (retry)="portfolioHistory.retry()"
                 />
               }
               @case ('allocation') {
@@ -263,8 +262,8 @@
                     <div>
                       <h2 id="transactions-title">Recent transactions</h2>
                       <p class="card-subtitle">
-                        Showing your latest {{ recentMoneyTransactions().length }} of
-                        {{ moneyTransactionCount() }} deposits and withdrawals.
+                        Showing your latest {{ recentTransactions().length }} of
+                        {{ transactionCount() }} transactions.
                       </p>
                     </div>
                     <a class="btn btn-soft btn-sm" routerLink="/transfer">Transfer money</a>
@@ -276,7 +275,7 @@
                     </div>
                   } @else {
                     <app-transactions-table
-                      [rows]="recentMoneyTransactions()"
+                      [rows]="recentTransactions()"
                       [loading]="initialLoading()"
                       [visibleRows]="3"
                     />

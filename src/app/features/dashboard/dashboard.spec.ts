@@ -9,6 +9,22 @@ import { DEFAULT_WIDGET_ORDER, layoutStorageKey, serializeWidgetOrder } from './
 
 const FUTURE = Math.floor(Date.now() / 1000) + 3600;
 const API = environment.tradingApiUrl;
+const HISTORY_API = `${API}/api/clients/me/portfolio/history`;
+
+function portfolioHistory(range = '1M', points: unknown[] = []): Record<string, unknown> {
+  return {
+    range,
+    timeframe: range === '1D' ? '5Min' : '1Day',
+    currency: 'USD',
+    availableFrom: points.length ? '2026-10-01T00:00:00Z' : null,
+    availableTo: points.length ? '2026-10-26T00:00:00Z' : null,
+    partial: false,
+    returnMethod: 'TWR',
+    unavailablePointCount: 0,
+    limitations: [],
+    points,
+  };
+}
 
 function seedSession(kind: 'client' | 'admin'): void {
   const token =
@@ -131,6 +147,26 @@ describe('DashboardPage', () => {
         createdAt: '2026-10-03T10:00:00Z',
       },
     ]);
+    http.expectOne(`${HISTORY_API}?range=1M`).flush(
+      portfolioHistory('1M', [
+        {
+          timestamp: '2026-10-01T00:00:00Z',
+          cashValue: 1000,
+          holdingsValue: 1000,
+          totalValue: 2000,
+          cumulativeReturnPercent: 0,
+          valuationStatus: 'COMPLETE',
+        },
+        {
+          timestamp: '2026-10-26T00:00:00Z',
+          cashValue: 1000,
+          holdingsValue: 1200,
+          totalValue: 2200,
+          cumulativeReturnPercent: 6.67,
+          valuationStatus: 'COMPLETE',
+        },
+      ]),
+    );
     await fixture.whenStable();
     http.expectOne(`${API}/instruments/2`).flush({
       symbol: 'AAPL',
@@ -154,6 +190,12 @@ describe('DashboardPage', () => {
     expect(text).toContain('+$200.00'); // return vs 1,000 cost basis
     expect(text).toContain('+20.00%');
     expect(text).toContain('$2,200.00'); // total account value
+    expect(text).toContain('Unrealized P/L');
+    expect(text).toContain('Latest historical value');
+    const portfolioCard = [
+      ...(fixture.nativeElement as HTMLElement).querySelectorAll('app-financial-summary-card'),
+    ].find((card) => card.textContent?.includes('Total portfolio value'));
+    expect(portfolioCard?.textContent).toContain('$2,200.00');
     expect(text).toContain('AAPL');
     expect(text).toContain('Filled');
     expect(text).toContain('Recent transactions');
@@ -203,6 +245,7 @@ describe('DashboardPage', () => {
       http.expectOne(`${API}/api/clients/me/holdings`).flush([]);
       http.expectOne(`${API}/api/clients/me/orders`).flush([]);
       http.expectOne(`${API}/api/clients/me/transactions`).flush([]);
+      http.expectOne(`${HISTORY_API}?range=1M`).flush(portfolioHistory());
     }
 
     async function render(prepare?: () => void): Promise<void> {
@@ -283,6 +326,25 @@ describe('DashboardPage', () => {
       expect(localStorage.getItem(layoutKey)).toBe(serializeWidgetOrder(reversed)); // not saved yet
       await click('dashboard-edit-widgets');
       expect(localStorage.getItem(layoutKey)).toBe(serializeWidgetOrder(DEFAULT_WIDGET_ORDER));
+    });
+
+    it('requests backend history for each range without refetching when the metric changes', async () => {
+      await render();
+      for (const range of ['1D', '5D', '1Y', '5Y']) {
+        element().querySelector<HTMLButtonElement>(`button[data-range="${range}"]`)!.click();
+        fixture.detectChanges();
+        http.expectOne(`${HISTORY_API}?range=${range}`).flush(portfolioHistory(range));
+        fixture.detectChanges();
+      }
+
+      element().querySelector<HTMLButtonElement>('button[data-metric="TWR"]')!.click();
+      fixture.detectChanges();
+      http.expectNone((request) => request.url === HISTORY_API);
+      expect(
+        element()
+          .querySelector<HTMLButtonElement>('button[data-metric="TWR"]')
+          ?.getAttribute('aria-pressed'),
+      ).toBe('true');
     });
   });
 });

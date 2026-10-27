@@ -51,6 +51,8 @@ export interface SeriesPoint {
   value: number;
   /** Optional caption shown in tooltips (for example the order that moved the value). */
   note?: string;
+  /** Starts a new SVG segment so an unavailable observation is rendered as a gap. */
+  breakBefore?: boolean;
 }
 
 export type ChartRange = '1D' | '1W' | '1M' | '3M' | '1Y' | 'ALL';

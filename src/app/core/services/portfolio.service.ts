@@ -15,6 +15,7 @@ import {
   summarizePortfolio,
 } from '../utils/portfolio-math';
 import { InstrumentCatalogService } from './instrument-catalog.service';
+import { PortfolioHistoryService } from './portfolio-history.service';
 
 /**
  * Facade for everything the signed-in client owns: cash, holdings and orders, plus
@@ -28,6 +29,7 @@ export class PortfolioService {
   private readonly holdingsApi = inject(HoldingsApiService);
   private readonly ordersApi = inject(OrdersApiService);
   private readonly catalog = inject(InstrumentCatalogService);
+  private readonly portfolioHistory = inject(PortfolioHistoryService);
 
   private readonly cashState = signal<number | null>(null);
   private readonly holdingsState = signal<Holding[]>([]);
@@ -146,6 +148,7 @@ export class PortfolioService {
         this.instrumentsState.set(instruments);
         this.loadedAtState.set(Date.now());
         this.loadedForClientId = clientId;
+        if (force) this.portfolioHistory.refreshActive(true);
       } catch (error: unknown) {
         if (!silent || !this.hasLoaded()) {
           this.errorState.set(describeHttpError(error, 'Your portfolio could not be loaded.'));
@@ -174,6 +177,7 @@ export class PortfolioService {
   /** Applies a backend-confirmed balance without a full reload (after a deposit or withdrawal). */
   applyBalance(accountBalance: number): void {
     this.cashState.set(accountBalance);
+    this.portfolioHistory.refreshActive(true);
   }
 
   /** Quantity of an instrument that can still be sold (holding minus accepted sells). */
@@ -195,5 +199,6 @@ export class PortfolioService {
     this.errorState.set(null);
     this.loadedAtState.set(null);
     this.loadedForClientId = null;
+    this.portfolioHistory.reset();
   }
 }
