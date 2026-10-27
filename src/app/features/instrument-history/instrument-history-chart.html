@@ -46,7 +46,7 @@
         [compactFormatter]="formatCompact"
         [ariaLabel]="result.symbol + ' closing prices for ' + selectedRange()"
       />
-      <p class="exchange-time-note">Times shown in New York exchange time (ET).</p>
+      <p class="exchange-time-note">{{ historyTimeZoneLabel() }}</p>
     } @else if (points().length === 1) {
       <p class="history-message" role="status">
         Only one closing price is available for this range:

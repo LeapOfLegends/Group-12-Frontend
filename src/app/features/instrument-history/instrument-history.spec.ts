@@ -7,14 +7,18 @@ import { ActivatedRoute, Router, convertToParamMap, provideRouter } from '@angul
 import { BehaviorSubject } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { AuthService } from '../../core/auth/auth.service';
-import { InstrumentHistory } from '../../core/models/trading.models';
+import { Instrument, InstrumentHistory } from '../../core/models/trading.models';
+import { AppVisibilityService } from '../../core/services/app-visibility.service';
 import { InstrumentCatalogService } from '../../core/services/instrument-catalog.service';
 import { LineChartComponent } from '../../shared/charts/line-chart/line-chart';
 import {
   InstrumentHistoryPage,
   formatEquityAxisTime,
   formatEquityTooltipTime,
+  formatHistoryAxisTime,
+  formatHistoryTooltipTime,
 } from './instrument-history';
+import { InstrumentHistoryChartComponent } from './instrument-history-chart';
 
 const API = `${environment.tradingApiUrl}/instruments/7`;
 const instrument = {
@@ -248,6 +252,32 @@ describe('InstrumentHistoryPage', () => {
     expect(text()).toContain('$255.00');
     http.expectNone(`${API}/history?range=1D`);
   });
+
+  it('reloads the history page with a numeric ID when navigating to crypto', async () => {
+    await setup();
+    load('1D', history('1D'));
+
+    params.next(convertToParamMap({ instrumentId: '73' }));
+    fixture.detectChanges();
+    http.expectOne(`${environment.tradingApiUrl}/instruments/73`).flush({
+      ...instrument,
+      instrumentId: 73,
+      symbol: 'BTC/USD',
+      instrumentName: 'Bitcoin',
+      assetClass: 'CRYPTO',
+    });
+    fixture.detectChanges();
+    http.expectOne(`${environment.tradingApiUrl}/instruments/73/history?range=1D`).flush({
+      ...history('1D'),
+      instrumentId: 73,
+      symbol: 'BTC/USD',
+    });
+    fixture.detectChanges();
+
+    expect(text()).toContain('BTC/USD');
+    expect(text()).toContain('Times shown in Coordinated Universal Time (UTC).');
+    expect(fixture.nativeElement.querySelector('app-line-chart')).not.toBeNull();
+  });
 });
 
 describe('US equity history time formatting', () => {
@@ -260,5 +290,200 @@ describe('US equity history time formatting', () => {
   it('uses New York daylight-saving offsets supplied by Intl', () => {
     expect(formatEquityTooltipTime(Date.parse('2026-10-30T13:30:00Z'), '5D')).toContain('EDT');
     expect(formatEquityTooltipTime(Date.parse('2026-11-02T14:30:00Z'), '5D')).toContain('EST');
+  });
+});
+
+describe('InstrumentHistoryChartComponent multi-asset history', () => {
+  let fixture: ComponentFixture<InstrumentHistoryChartComponent>;
+  let http: HttpTestingController;
+  const visible = signal(true);
+  const resumeRevision = signal(0);
+
+  const crypto: Instrument = {
+    ...instrument,
+    instrumentId: 73,
+    symbol: 'BTC/USD',
+    instrumentName: 'Bitcoin',
+    assetClass: 'CRYPTO',
+  };
+  const fx: Instrument = {
+    ...instrument,
+    instrumentId: 67,
+    symbol: 'USD/JPY',
+    instrumentName: 'US Dollar / Japanese Yen',
+    assetClass: 'FOREX',
+    currency: 'JPY',
+  };
+
+  async function setup(
+    item: Instrument,
+    id: number | null = item.instrumentId ?? null,
+  ): Promise<void> {
+    await TestBed.configureTestingModule({
+      imports: [InstrumentHistoryChartComponent],
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        { provide: AppVisibilityService, useValue: { visible, resumeRevision } },
+      ],
+    }).compileComponents();
+    http = TestBed.inject(HttpTestingController);
+    fixture = TestBed.createComponent(InstrumentHistoryChartComponent);
+    fixture.componentRef.setInput('instrument', item);
+    fixture.componentRef.setInput('instrumentId', id);
+    fixture.detectChanges();
+  }
+
+  function historyFor(item: Instrument, range: InstrumentHistory['range']): InstrumentHistory {
+    return {
+      ...history(range),
+      instrumentId: item.instrumentId!,
+      symbol: item.symbol,
+      currency: item.currency,
+    };
+  }
+
+  function chartText(): string {
+    return (fixture.nativeElement as HTMLElement).textContent ?? '';
+  }
+
+  function chartButton(range: InstrumentHistory['range']): HTMLButtonElement {
+    return [...(fixture.nativeElement as HTMLElement).querySelectorAll('button')].find(
+      (button) => button.textContent?.trim() === range,
+    )!;
+  }
+
+  afterEach(() => {
+    fixture?.destroy();
+    http?.verify({ ignoreCancelled: true });
+    TestBed.resetTestingModule();
+    vi.useRealTimers();
+    visible.set(true);
+    resumeRevision.set(0);
+  });
+
+  it.each([
+    ['crypto', crypto],
+    ['FX', fx],
+  ])('loads slash-containing %s history by numeric ID and presents it in UTC', async (_, item) => {
+    await setup(item);
+    http
+      .expectOne(`${environment.tradingApiUrl}/instruments/${item.instrumentId}/history?range=1D`)
+      .flush(historyFor(item, '1D'));
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('app-line-chart')).not.toBeNull();
+    expect(chartText()).toContain('Times shown in Coordinated Universal Time (UTC).');
+    http.expectNone((request) => request.url.includes(encodeURIComponent(item.symbol)));
+  });
+
+  it.each([
+    ['crypto', crypto],
+    ['FX', fx],
+  ])('supports all five ranges for %s through the shared controls', async (_, item) => {
+    await setup(item);
+    http
+      .expectOne(`${environment.tradingApiUrl}/instruments/${item.instrumentId}/history?range=1D`)
+      .flush(historyFor(item, '1D'));
+    fixture.detectChanges();
+
+    for (const range of ['5D', '1M', '1Y', '5Y'] as const) {
+      chartButton(range).click();
+      fixture.detectChanges();
+      http
+        .expectOne(
+          `${environment.tradingApiUrl}/instruments/${item.instrumentId}/history?range=${range}`,
+        )
+        .flush(historyFor(item, range));
+      fixture.detectChanges();
+      expect(fixture.nativeElement.querySelector('[aria-pressed="true"]')?.textContent.trim()).toBe(
+        range,
+      );
+    }
+  });
+
+  it('resets the range and reloads when a different eligible instrument is selected', async () => {
+    await setup(crypto);
+    http
+      .expectOne(`${environment.tradingApiUrl}/instruments/73/history?range=1D`)
+      .flush(historyFor(crypto, '1D'));
+    fixture.detectChanges();
+    chartButton('5D').click();
+    fixture.detectChanges();
+    http
+      .expectOne(`${environment.tradingApiUrl}/instruments/73/history?range=5D`)
+      .flush(historyFor(crypto, '5D'));
+
+    fixture.componentRef.setInput('instrument', fx);
+    fixture.componentRef.setInput('instrumentId', 67);
+    fixture.detectChanges();
+    http
+      .expectOne(`${environment.tradingApiUrl}/instruments/67/history?range=1D`)
+      .flush(historyFor(fx, '1D'));
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('[aria-pressed="true"]')?.textContent.trim()).toBe(
+      '1D',
+    );
+  });
+
+  it('does not construct a symbol history URL when a slash-containing instrument has no ID', async () => {
+    await setup({ ...crypto, instrumentId: undefined }, null);
+
+    http.expectNone((request) => request.url.includes('/history'));
+    expect(chartText()).toContain('instrument ID could not be resolved');
+  });
+
+  it('keeps unsupported asset classes restricted', async () => {
+    await setup({ ...instrument, instrumentId: 90, assetClass: 'OPTION' }, 90);
+
+    http.expectNone((request) => request.url.includes('/history'));
+    expect(chartText()).toContain('Price history is not available for this instrument type.');
+    expect(fixture.nativeElement.querySelector('button[disabled]')).not.toBeNull();
+  });
+
+  it('polls short crypto history while visible and preserves partial-history presentation', async () => {
+    vi.useFakeTimers();
+    await setup(crypto);
+    http
+      .expectOne(`${environment.tradingApiUrl}/instruments/73/history?range=1D`)
+      .flush({ ...historyFor(crypto, '1D'), partial: true });
+    fixture.detectChanges();
+    expect(chartText()).toContain('Only part of this range is cached');
+
+    await vi.advanceTimersByTimeAsync(environment.historyPollIntervalMs);
+    http
+      .expectOne(`${environment.tradingApiUrl}/instruments/73/history?range=1D`)
+      .flush(historyFor(crypto, '1D'));
+    fixture.detectChanges();
+    expect(chartText()).not.toContain('Only part of this range is cached');
+  });
+
+  it('reuses loading, error, and retry states for crypto', async () => {
+    await setup(crypto);
+    expect(fixture.nativeElement.querySelector('app-loading-skeleton')).not.toBeNull();
+    http
+      .expectOne(`${environment.tradingApiUrl}/instruments/73/history?range=1D`)
+      .flush({}, { status: 503, statusText: 'Unavailable' });
+    fixture.detectChanges();
+    expect(chartText()).toContain('temporarily unavailable');
+
+    [...(fixture.nativeElement as HTMLElement).querySelectorAll('button')]
+      .find((button) => button.textContent?.trim() === 'Retry')!
+      .click();
+    fixture.detectChanges();
+    http
+      .expectOne(`${environment.tradingApiUrl}/instruments/73/history?range=1D`)
+      .flush(historyFor(crypto, '1D'));
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('app-line-chart')).not.toBeNull();
+  });
+});
+
+describe('crypto and FX history time formatting', () => {
+  it('formats UTC timestamps without applying a New York offset', () => {
+    const time = Date.parse('2026-10-21T14:30:00Z');
+    expect(formatHistoryAxisTime(time, '5D', 'UTC')).toMatch(/Oct 21.*2:30 PM/);
+    expect(formatHistoryTooltipTime(time, '5D', 'UTC')).toMatch(/Oct 21, 2026.*2:30 PM.*UTC/);
   });
 });

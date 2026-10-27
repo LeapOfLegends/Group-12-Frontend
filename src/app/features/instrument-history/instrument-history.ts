@@ -21,7 +21,12 @@ import { IconComponent } from '../../shared/ui/icon/icon';
 import { LoadingSkeletonComponent } from '../../shared/ui/loading-skeleton/loading-skeleton';
 import { InstrumentHistoryChartComponent } from './instrument-history-chart';
 
-export { formatEquityAxisTime, formatEquityTooltipTime } from './instrument-history-chart';
+export {
+  formatEquityAxisTime,
+  formatEquityTooltipTime,
+  formatHistoryAxisTime,
+  formatHistoryTooltipTime,
+} from './instrument-history-chart';
 
 @Component({
   selector: 'app-instrument-history-page',

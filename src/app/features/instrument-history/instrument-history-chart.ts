@@ -64,11 +64,24 @@ export class InstrumentHistoryChartComponent {
 
   private readonly historyEligible = computed(() => {
     const instrument = this.instrument();
+    const assetClass = instrument.assetClass.trim().toUpperCase();
+    const currency = instrument.currency.trim().toUpperCase();
     return (
-      instrument.assetClass.trim().toUpperCase() === 'EQUITY' &&
-      instrument.currency.trim().toUpperCase() === 'USD'
+      ((assetClass === 'EQUITY' || assetClass === 'CRYPTO') && currency === 'USD') ||
+      assetClass === 'FOREX'
     );
   });
+
+  private readonly historyTimeZone = computed(() =>
+    this.instrument().assetClass.trim().toUpperCase() === 'EQUITY'
+      ? EXCHANGE_TIME_ZONE
+      : UTC_TIME_ZONE,
+  );
+  protected readonly historyTimeZoneLabel = computed(() =>
+    this.historyTimeZone() === EXCHANGE_TIME_ZONE
+      ? 'Times shown in New York exchange time (ET).'
+      : 'Times shown in Coordinated Universal Time (UTC).',
+  );
 
   protected readonly points = computed<SeriesPoint[]>(() =>
     (this.history()?.points ?? [])
@@ -82,9 +95,9 @@ export class InstrumentHistoryChartComponent {
   protected readonly formatCompact = (value: number): string =>
     formatCompactMoney(value, this.instrument().currency || this.history()?.currency || 'USD');
   protected readonly formatAxisTime = (time: number): string =>
-    formatEquityAxisTime(time, this.selectedRange());
+    formatHistoryAxisTime(time, this.selectedRange(), this.historyTimeZone());
   protected readonly formatTooltipTime = (time: number): string =>
-    formatEquityTooltipTime(time, this.selectedRange());
+    formatHistoryTooltipTime(time, this.selectedRange(), this.historyTimeZone());
 
   constructor() {
     effect(() => {
@@ -152,9 +165,7 @@ export class InstrumentHistoryChartComponent {
 
     if (!eligible) {
       this.historyUnsupported.set(true);
-      this.unavailable.set(
-        'Price history is currently available only for supported U.S. equities.',
-      );
+      this.unavailable.set('Price history is not available for this instrument type.');
       return;
     }
     this.loadHistory();
@@ -176,6 +187,14 @@ export class InstrumentHistoryChartComponent {
 
     const instrument = this.instrument();
     const id = this.instrumentId() ?? instrument.instrumentId ?? null;
+    const assetClass = instrument.assetClass.trim().toUpperCase();
+    if (id === null && (assetClass === 'CRYPTO' || assetClass === 'FOREX')) {
+      this.loading.set(false);
+      this.unavailable.set(
+        'Price history is unavailable because this instrument ID could not be resolved.',
+      );
+      return;
+    }
     this.historyRequest = (
       id !== null
         ? this.api.getHistory(id, requestRange)
@@ -221,33 +240,48 @@ export class InstrumentHistoryChartComponent {
 }
 
 const EXCHANGE_TIME_ZONE = 'America/New_York';
+const UTC_TIME_ZONE = 'UTC';
 
-export function formatEquityAxisTime(time: number, range: InstrumentHistoryRange): string {
+export function formatHistoryAxisTime(
+  time: number,
+  range: InstrumentHistoryRange,
+  timeZone = EXCHANGE_TIME_ZONE,
+): string {
   const options: Intl.DateTimeFormatOptions =
     range === '1D'
-      ? { hour: 'numeric', minute: '2-digit', timeZone: EXCHANGE_TIME_ZONE }
+      ? { hour: 'numeric', minute: '2-digit', timeZone }
       : range === '5D'
         ? {
             month: 'short',
             day: 'numeric',
             hour: 'numeric',
             minute: '2-digit',
-            timeZone: EXCHANGE_TIME_ZONE,
+            timeZone,
           }
         : range === '5Y'
-          ? { month: 'short', year: '2-digit', timeZone: EXCHANGE_TIME_ZONE }
-          : { month: 'short', day: 'numeric', timeZone: EXCHANGE_TIME_ZONE };
+          ? { month: 'short', year: '2-digit', timeZone }
+          : { month: 'short', day: 'numeric', timeZone };
   return new Intl.DateTimeFormat('en-US', options).format(new Date(time));
 }
 
-export function formatEquityTooltipTime(time: number, range: InstrumentHistoryRange): string {
+export function formatHistoryTooltipTime(
+  time: number,
+  range: InstrumentHistoryRange,
+  timeZone = EXCHANGE_TIME_ZONE,
+): string {
   const intraday = range === '1D' || range === '5D';
   return new Intl.DateTimeFormat('en-US', {
     month: 'short',
     day: 'numeric',
     year: 'numeric',
     ...(intraday ? { hour: 'numeric', minute: '2-digit' } : {}),
-    timeZone: EXCHANGE_TIME_ZONE,
+    timeZone,
     timeZoneName: 'short',
   }).format(new Date(time));
 }
+
+/** @deprecated Use the asset-aware history formatter instead. */
+export const formatEquityAxisTime = formatHistoryAxisTime;
+
+/** @deprecated Use the asset-aware history formatter instead. */
+export const formatEquityTooltipTime = formatHistoryTooltipTime;

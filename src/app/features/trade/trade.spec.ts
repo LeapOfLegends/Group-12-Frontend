@@ -271,6 +271,31 @@ describe('TradePage market availability', () => {
     );
   });
 
+  it('shows slash-containing crypto history in the trade page using its numeric ID', async () => {
+    flushStatus();
+    const bitcoin: CatalogInstrument = {
+      ...INSTRUMENT,
+      instrumentId: 73,
+      symbol: 'BTC/USD',
+      instrumentName: 'Bitcoin',
+      assetClass: 'CRYPTO',
+    };
+    catalogInstruments.set([INSTRUMENT, bitcoin]);
+    page['choose'](bitcoin);
+    fixture.detectChanges();
+    http.expectOne(historyUrl(73)).flush(history(bitcoin));
+    fixture.detectChanges();
+    await vi.advanceTimersByTimeAsync(0);
+    http.expectOne(statusUrl(73)).flush({ ...availability(), marketCode: 'CRYPTO' });
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('app-line-chart')).not.toBeNull();
+    expect(fixture.nativeElement.textContent).toContain(
+      'Times shown in Coordinated Universal Time (UTC).',
+    );
+    http.expectNone((request) => request.url.includes('BTC%2FUSD'));
+  });
+
   it('cancels chart requests on instrument changes and clearing', () => {
     flushStatus();
     const microsoft: CatalogInstrument = {
@@ -297,15 +322,15 @@ describe('TradePage market availability', () => {
 
   it('keeps trading available when history is unsupported', async () => {
     flushStatus();
-    const bitcoin: CatalogInstrument = {
+    const option: CatalogInstrument = {
       ...INSTRUMENT,
       instrumentId: 9,
-      symbol: 'BTCUSD',
-      instrumentName: 'Bitcoin',
-      assetClass: 'CRYPTO',
+      symbol: 'AAPL-CALL',
+      instrumentName: 'Apple Call Option',
+      assetClass: 'OPTION',
     };
-    catalogInstruments.set([INSTRUMENT, bitcoin]);
-    page['choose'](bitcoin);
+    catalogInstruments.set([INSTRUMENT, option]);
+    page['choose'](option);
     fixture.detectChanges();
     http.expectNone(historyUrl(9));
     await vi.advanceTimersByTimeAsync(0);
@@ -313,7 +338,7 @@ describe('TradePage market availability', () => {
     fixture.detectChanges();
 
     expect(fixture.nativeElement.textContent).toContain(
-      'Price history is currently available only for supported U.S. equities',
+      'Price history is not available for this instrument type',
     );
     expect(button('Review order').disabled).toBe(false);
   });
