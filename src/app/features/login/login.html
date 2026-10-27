@@ -1,61 +1,6 @@
 <div class="login-shell">
-  <section class="login-visual" aria-hidden="true">
-    <div class="visual-inner">
-      <app-brand-logo [onDark]="true" [markSize]="44" />
-      <div class="visual-copy">
-        <p class="visual-eyebrow">Direct trading platform</p>
-        <h2 class="visual-title">See your positions. Place a trade. Know the outcome.</h2>
-        <p class="visual-text">
-          Cash, holdings and every order you have ever placed, in one trustworthy view — no dealer
-          in the loop.
-        </p>
-      </div>
-
-      <figure class="visual-chart">
-        <svg viewBox="0 0 520 220" preserveAspectRatio="none">
-          <defs>
-            <linearGradient id="login-area" x1="0" x2="0" y1="0" y2="1">
-              <stop offset="0%" stop-color="#C8A46B" stop-opacity="0.35" />
-              <stop offset="100%" stop-color="#C8A46B" stop-opacity="0" />
-            </linearGradient>
-          </defs>
-          <g stroke="rgba(255,255,255,0.08)" stroke-width="1">
-            <line x1="0" x2="520" y1="55" y2="55" />
-            <line x1="0" x2="520" y1="110" y2="110" />
-            <line x1="0" x2="520" y1="165" y2="165" />
-          </g>
-          <path
-            d="M0 170 C 40 160, 70 150, 100 140 S 160 150, 190 120 S 250 90, 290 100 S 350 70, 390 60 S 460 50, 520 28 L520 220 L0 220 Z"
-            fill="url(#login-area)"
-          />
-          <path
-            d="M0 170 C 40 160, 70 150, 100 140 S 160 150, 190 120 S 250 90, 290 100 S 350 70, 390 60 S 460 50, 520 28"
-            fill="none"
-            stroke="#C8A46B"
-            stroke-width="3"
-            stroke-linecap="round"
-          />
-          <circle cx="520" cy="28" r="6" fill="#C8A46B" stroke="#073B2A" stroke-width="3" />
-        </svg>
-        <figcaption class="visual-stats">
-          <div>
-            <span class="stat-label">Market quotes</span
-            ><span class="stat-value">Live, stored securely</span>
-          </div>
-          <div>
-            <span class="stat-label">Every order</span
-            ><span class="stat-value">Permanently recorded</span>
-          </div>
-          <div>
-            <span class="stat-label">Your balance</span
-            ><span class="stat-value">Always current</span>
-          </div>
-        </figcaption>
-      </figure>
-    </div>
-  </section>
-
   <main class="login-main">
+    <app-market-backdrop />
     <div class="login-top">
       <span class="login-brand"><app-brand-logo [markSize]="34" /></span>
       <button
@@ -69,6 +14,7 @@
     </div>
 
     <div class="login-card">
+      <p class="login-eyebrow">Your next move starts here</p>
       <h1>Sign in</h1>
       <p class="login-lead">
         Welcome back. Use the email and password for your JetZy Trading account.

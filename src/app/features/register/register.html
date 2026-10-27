@@ -1,22 +1,6 @@
 <div class="auth-shell">
-  <section class="auth-visual" aria-hidden="true">
-    <div class="visual-inner">
-      <app-brand-logo [onDark]="true" [markSize]="44" />
-      <div class="visual-copy">
-        <p class="visual-eyebrow">Client registration</p>
-        <h2 class="visual-title">Open your JetZy Trading account in minutes.</h2>
-        <p class="visual-text">One secure form, then you are ready to fund your cash account and place your first trade.</p>
-        <ul class="visual-points">
-          <li><span class="visual-point-icon"><app-icon name="wallet" [size]="18" /></span><span>Deposit into your cash account as soon as you sign in.</span></li>
-          <li><span class="visual-point-icon"><app-icon name="trade" [size]="18" /></span><span>Buy and sell supported instruments at the platform's market quotes.</span></li>
-          <li><span class="visual-point-icon"><app-icon name="shield" [size]="18" /></span><span>Every order and transfer is confirmed by the platform before your balance changes.</span></li>
-        </ul>
-      </div>
-      <p class="visual-foot">Already registered? Sign in with your email and password.</p>
-    </div>
-  </section>
-
   <main class="auth-main">
+    <app-market-backdrop />
     <div class="auth-top">
       <span class="auth-brand"><app-brand-logo [markSize]="34" /></span>
       <button
@@ -187,8 +171,6 @@
         </fieldset>
 
         <fieldset class="form-section">
-          <legend>Password</legend>
-
           <div class="field">
             <label class="field-label" for="register-password">Password</label>
             <div class="input-group input-group-secret">
