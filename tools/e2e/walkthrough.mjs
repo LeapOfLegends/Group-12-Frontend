@@ -406,12 +406,10 @@ try {
   await page.goto(`${BASE}/register`);
   await page.waitForURL(/\/admin$/);
   check('signed-in admins are sent from /register to /admin', page.url().endsWith('/admin'));
-  await page.click('app-navbar nav.navbar-links a[href="/dashboard"]');
-  await page.waitForURL(/\/dashboard$/);
-  await page.waitForSelector('text=Administrator account');
-  check('the Dashboard link shows admins the administrator state', true);
-  check('administrator state keeps the price search above the date', !!(await page.$('app-dashboard-page app-instrument-search')));
-  await shot(page, '17-admin-landing');
+  check('navbar offers admins no client Dashboard link', !(await page.$('app-navbar a[href="/dashboard"]')));
+  await page.goto(`${BASE}/dashboard`);
+  await page.waitForURL(/\/admin$/);
+  check('admins opening /dashboard land on /admin', page.url().endsWith('/admin'));
   await page.click('app-navbar nav.navbar-links a[href="/admin"]');
   await page.waitForURL(/\/admin$/);
   await page.waitForSelector('app-admin-management table');

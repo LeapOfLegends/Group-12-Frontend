@@ -87,12 +87,10 @@ describe('NavbarComponent', () => {
     expect(element('app-brand-logo a')?.getAttribute('href')).toBe('/');
   });
 
-  it('shows Dashboard and Admin Dashboard for administrators and hides money movement', async () => {
+  it('shows only the Admin Dashboard to administrators, without the client dashboard or money movement', async () => {
     await setup('admin');
-    expect(links()).toEqual([
-      ['/dashboard', 'Dashboard'],
-      ['/admin', 'Admin Dashboard'],
-    ]);
+    expect(links()).toEqual([['/admin', 'Admin Dashboard']]);
+    expect(element('a[href="/dashboard"]')).toBeNull();
     expect(element('a[href="/transfer"]')).toBeNull();
     expect(element('a[href="/trade"]')).toBeNull();
     expect(element('.navbar-account')?.textContent).toContain('Operations Admin');

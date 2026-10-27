@@ -55,15 +55,6 @@ describe('DashboardPage', () => {
     localStorage.clear();
   });
 
-  it('shows the administrator state without requesting a portfolio', async () => {
-    await setup('admin');
-    fixture.detectChanges();
-    expect(fixture.nativeElement.textContent).toContain('Administrator account');
-    expect(fixture.nativeElement.textContent).toContain('Open the admin dashboard');
-    expect(fixture.nativeElement.querySelector('app-instrument-search')).not.toBeNull();
-    http.expectNone(`${API}/api/clients/me/balance`);
-  });
-
   it('loads cash, holdings and orders for a client and derives the summary figures', async () => {
     await setup('client');
 

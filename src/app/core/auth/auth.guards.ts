@@ -24,6 +24,12 @@ export const guestGuard: CanActivateFn = () => {
   return auth.isAuthenticated() ? router.createUrlTree([auth.homeUrl()]) : true;
 };
 
+/** /dashboard is the client portfolio; administrators have none, so they go to /admin. */
+export const clientDashboardGuard: CanActivateFn = () => {
+  const auth = inject(AuthService);
+  return auth.isAdmin() ? inject(Router).createUrlTree([auth.homeUrl()]) : true;
+};
+
 /** /admin is only for administrators. The backend still enforces roles on every API call. */
 export const adminGuard: CanActivateFn = (_route, state) => {
   const auth = inject(AuthService);

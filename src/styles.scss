@@ -264,6 +264,14 @@ svg {
   background: var(--color-brand-soft-strong);
 }
 
+/* Set by ThemeService for the frame that paints a new theme, so every colour switches at once. */
+.theme-switching,
+.theme-switching *,
+.theme-switching *::before,
+.theme-switching *::after {
+  transition: none !important;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

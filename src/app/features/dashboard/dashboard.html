@@ -1,236 +1,206 @@
 <div class="page">
-  @if (auth.isAdmin()) {
-    <!-- Administrators have no client account, so there is no portfolio to fabricate. -->
-    <header class="page-header">
-      <div class="page-title">
-        <app-instrument-search class="page-search" />
-        <span class="eyebrow">{{ today }}</span>
-        <h1>{{ greeting() }}</h1>
-        <p class="page-subtitle">You are signed in as {{ roleLabel() }}.</p>
-      </div>
-    </header>
+  <header class="page-header">
+    <div class="page-title">
+      <app-instrument-search class="page-search" />
+      <span class="eyebrow">{{ today }}</span>
+      <h1>{{ greeting() }}</h1>
+      <p class="page-subtitle">Here is where your money stands today.</p>
+    </div>
+    <div class="page-actions">
+      <a class="btn btn-secondary" routerLink="/transfer">
+        <app-icon name="transfer" [size]="18" />
+        Transfer Money
+      </a>
+      <a class="btn btn-primary" routerLink="/trade">
+        <app-icon name="trade" [size]="18" />
+        Place Trade
+      </a>
+    </div>
+  </header>
 
-    <section class="card admin-landing" aria-labelledby="admin-landing-title">
-      <div class="admin-landing-icon"><app-icon name="shield" [size]="28" /></div>
-      <div class="admin-landing-body">
-        <h2 id="admin-landing-title">Administrator account</h2>
-        <p class="text-secondary">
-          Administrator accounts do not hold a client portfolio, so there is no cash balance,
-          holdings or orders to show here. Transfers and trades are reserved for client accounts.
-        </p>
-        <div class="cluster">
-          <a class="btn btn-primary" routerLink="/admin">
-            <app-icon name="shield" [size]="18" />
-            Open the admin dashboard
-          </a>
+  @if (portfolio.error(); as error) {
+    <div class="alert alert-error" role="alert">
+      <app-icon name="alert-circle" />
+      <span>{{ error }}</span>
+      <button
+        type="button"
+        class="btn btn-sm btn-secondary alert-action"
+        (click)="portfolio.refresh()"
+      >
+        Try again
+      </button>
+    </div>
+  }
+
+  <section class="grid grid-3" aria-label="Financial summary">
+    <app-financial-summary-card
+      label="Account cash balance"
+      [value]="cashValue()"
+      hint="Available cash"
+      icon="wallet"
+      linkLabel="Transfer funds"
+      linkRoute="/transfer"
+      [loading]="initialLoading()"
+    />
+    <app-financial-summary-card
+      label="Total portfolio value"
+      [value]="holdingsValue()"
+      [hint]="holdingsHint()"
+      icon="briefcase"
+      [loading]="initialLoading()"
+    />
+    <app-financial-summary-card
+      label="Total return"
+      [value]="returnValue()"
+      [delta]="returnDelta()"
+      [deltaTone]="returnTone()"
+      [hint]="returnHint()"
+      [icon]="returnTone() === 'down' ? 'trend-down' : 'trend-up'"
+      [loading]="initialLoading()"
+    />
+  </section>
+
+  <div class="dashboard-grid">
+    <app-portfolio-chart
+      class="dashboard-chart"
+      title="Portfolio performance"
+      [subtitle]="chartSubtitle"
+      [series]="investedSeries()"
+      [height]="300"
+      [loading]="initialLoading()"
+      [deltaColoring]="false"
+      [caption]="chartCaption"
+      emptyTitle="No filled orders yet"
+      emptyMessage="Your invested capital over time appears here after your first order is executed."
+      ariaLabel="Net invested capital over time"
+    />
+
+    <section class="card overview-card" aria-labelledby="overview-title">
+      <div class="card-header">
+        <div>
+          <h2 id="overview-title">Buying Power &amp; Asset Allocation</h2>
+          <p class="card-subtitle">What you can spend now, and how your holdings are spread.</p>
         </div>
       </div>
-    </section>
-  } @else {
-    <header class="page-header">
-      <div class="page-title">
-        <app-instrument-search class="page-search" />
-        <span class="eyebrow">{{ today }}</span>
-        <h1>{{ greeting() }}</h1>
-        <p class="page-subtitle">Here is where your money stands today.</p>
-      </div>
-      <div class="page-actions">
-        <a class="btn btn-secondary" routerLink="/transfer">
-          <app-icon name="transfer" [size]="18" />
-          Transfer Money
-        </a>
-        <a class="btn btn-primary" routerLink="/trade">
-          <app-icon name="trade" [size]="18" />
-          Place Trade
-        </a>
-      </div>
-    </header>
+      @if (initialLoading()) {
+        <app-loading-skeleton
+          variant="text"
+          [lines]="6"
+          label="Loading buying power and allocation"
+        />
+      } @else {
+        <div class="overview-section overview-power" aria-labelledby="buying-power-title">
+          <h3 id="buying-power-title" class="overview-section-title">
+            <app-icon name="wallet" [size]="16" />
+            Buying power
+          </h3>
+          <p
+            class="overview-figure"
+            [attr.aria-label]="'Buying power ' + (summary().buyingPower | money)"
+          >
+            {{ summary().buyingPower | money }}
+          </p>
+          <p class="overview-hint">
+            @if (summary().reservedCash > 0) {
+              Cash minus {{ summary().reservedCash | money }} reserved for buy orders still
+              executing.
+            } @else {
+              Cash available for new buy orders.
+            }
+          </p>
+          <dl class="summary-list overview-list">
+            <div>
+              <dt>Cash</dt>
+              <dd>{{ summary().cash | money }}</dd>
+            </div>
+            @if (summary().reservedCash > 0) {
+              <div>
+                <dt>Reserved for open buy orders</dt>
+                <dd class="text-secondary">{{ summary().reservedCash | money }}</dd>
+              </div>
+            }
+            <div>
+              <dt>Holdings value</dt>
+              <dd>{{ summary().holdingsValue | money }}</dd>
+            </div>
+            <div class="summary-total">
+              <dt>Total account value</dt>
+              <dd>{{ summary().totalAccountValue | money }}</dd>
+            </div>
+          </dl>
+        </div>
 
-    @if (portfolio.error(); as error) {
+        <div class="overview-section overview-allocation" aria-labelledby="allocation-title">
+          <h3 id="allocation-title" class="overview-section-title">
+            <app-icon name="layers" [size]="16" />
+            Asset allocation
+          </h3>
+          @if (allocation().length > 0) {
+            <app-bar-list
+              [items]="allocation()"
+              [formatter]="formatMoneyValue"
+              ariaLabel="Allocation by asset class"
+            />
+          } @else {
+            <p class="overview-empty text-secondary">
+              No holdings yet. Your allocation by asset class appears here after your first buy
+              order is filled.
+            </p>
+          }
+        </div>
+      }
+    </section>
+  </div>
+
+  <section class="card" aria-labelledby="holdings-title">
+    <div class="card-header">
+      <div>
+        <h2 id="holdings-title">Current holdings</h2>
+        <p class="card-subtitle">
+          Valued at the latest price the platform holds for each instrument.
+        </p>
+      </div>
+      <a class="btn btn-soft btn-sm" routerLink="/trade">Place trade</a>
+    </div>
+    <app-holdings-table [positions]="positions()" [loading]="initialLoading()" [visibleRows]="3" />
+  </section>
+
+  <section class="card" aria-labelledby="orders-title">
+    <div class="card-header">
+      <div>
+        <h2 id="orders-title">Recent orders</h2>
+        <p class="card-subtitle">
+          @if (pendingCount() > 0) {
+            {{ pendingCount() }} order{{ pendingCount() === 1 ? '' : 's' }} still executing ·
+          }
+          Showing your latest {{ recentOrders().length }} of
+          {{ portfolio.orders().length }} orders.
+        </p>
+      </div>
+    </div>
+    <app-orders-table
+      [rows]="recentOrders()"
+      [loading]="initialLoading()"
+      [visibleRows]="3"
+      caption="Recent orders"
+    />
+  </section>
+
+  <section class="card" aria-labelledby="transactions-title">
+    <div class="card-header">
+      <div>
+        <h2 id="transactions-title">Recent transactions</h2>
+        <p class="card-subtitle">Showing your latest {{ recentMoneyTransactions().length }} of {{ moneyTransactionCount() }} deposits and withdrawals.</p>
+      </div>
+      <a class="btn btn-soft btn-sm" routerLink="/transfer">Transfer money</a>
+    </div>
+    @if (transactionError(); as error) {
       <div class="alert alert-error" role="alert">
         <app-icon name="alert-circle" />
         <span>{{ error }}</span>
-        <button
-          type="button"
-          class="btn btn-sm btn-secondary alert-action"
-          (click)="portfolio.refresh()"
-        >
-          Try again
-        </button>
       </div>
+    } @else {
+      <app-transactions-table [rows]="recentMoneyTransactions()" [loading]="initialLoading()" [visibleRows]="3" />
     }
-
-    <section class="grid grid-3" aria-label="Financial summary">
-      <app-financial-summary-card
-        label="Account cash balance"
-        [value]="cashValue()"
-        hint="Available cash"
-        icon="wallet"
-        linkLabel="Transfer funds"
-        linkRoute="/transfer"
-        [loading]="initialLoading()"
-      />
-      <app-financial-summary-card
-        label="Total portfolio value"
-        [value]="holdingsValue()"
-        [hint]="holdingsHint()"
-        icon="briefcase"
-        [accent]="true"
-        [loading]="initialLoading()"
-      />
-      <app-financial-summary-card
-        label="Total return"
-        [value]="returnValue()"
-        [delta]="returnDelta()"
-        [deltaTone]="returnTone()"
-        [hint]="returnHint()"
-        [icon]="returnTone() === 'down' ? 'trend-down' : 'trend-up'"
-        [loading]="initialLoading()"
-      />
-    </section>
-
-    <div class="dashboard-grid">
-      <app-portfolio-chart
-        class="dashboard-chart"
-        title="Portfolio performance"
-        [subtitle]="chartSubtitle"
-        [series]="investedSeries()"
-        [height]="300"
-        [loading]="initialLoading()"
-        [deltaColoring]="false"
-        [caption]="chartCaption"
-        emptyTitle="No filled orders yet"
-        emptyMessage="Your invested capital over time appears here after your first order is executed."
-        ariaLabel="Net invested capital over time"
-      />
-
-      <section class="card overview-card" aria-labelledby="overview-title">
-        <div class="card-header">
-          <div>
-            <h2 id="overview-title">Buying Power &amp; Asset Allocation</h2>
-            <p class="card-subtitle">What you can spend now, and how your holdings are spread.</p>
-          </div>
-        </div>
-        @if (initialLoading()) {
-          <app-loading-skeleton
-            variant="text"
-            [lines]="6"
-            label="Loading buying power and allocation"
-          />
-        } @else {
-          <div class="overview-section overview-power" aria-labelledby="buying-power-title">
-            <h3 id="buying-power-title" class="overview-section-title">
-              <app-icon name="wallet" [size]="16" />
-              Buying power
-            </h3>
-            <p
-              class="overview-figure"
-              [attr.aria-label]="'Buying power ' + (summary().buyingPower | money)"
-            >
-              {{ summary().buyingPower | money }}
-            </p>
-            <p class="overview-hint">
-              @if (summary().reservedCash > 0) {
-                Cash minus {{ summary().reservedCash | money }} reserved for buy orders still
-                executing.
-              } @else {
-                Cash available for new buy orders.
-              }
-            </p>
-            <dl class="summary-list overview-list">
-              <div>
-                <dt>Cash</dt>
-                <dd>{{ summary().cash | money }}</dd>
-              </div>
-              @if (summary().reservedCash > 0) {
-                <div>
-                  <dt>Reserved for open buy orders</dt>
-                  <dd class="text-secondary">{{ summary().reservedCash | money }}</dd>
-                </div>
-              }
-              <div>
-                <dt>Holdings value</dt>
-                <dd>{{ summary().holdingsValue | money }}</dd>
-              </div>
-              <div class="summary-total">
-                <dt>Total account value</dt>
-                <dd>{{ summary().totalAccountValue | money }}</dd>
-              </div>
-            </dl>
-          </div>
-
-          <div class="overview-section overview-allocation" aria-labelledby="allocation-title">
-            <h3 id="allocation-title" class="overview-section-title">
-              <app-icon name="layers" [size]="16" />
-              Asset allocation
-            </h3>
-            @if (allocation().length > 0) {
-              <app-bar-list
-                [items]="allocation()"
-                [formatter]="formatMoneyValue"
-                ariaLabel="Allocation by asset class"
-              />
-            } @else {
-              <p class="overview-empty text-secondary">
-                No holdings yet. Your allocation by asset class appears here after your first buy
-                order is filled.
-              </p>
-            }
-          </div>
-        }
-      </section>
-    </div>
-
-    <section class="card" aria-labelledby="holdings-title">
-      <div class="card-header">
-        <div>
-          <h2 id="holdings-title">Current holdings</h2>
-          <p class="card-subtitle">
-            Valued at the latest price the platform holds for each instrument.
-          </p>
-        </div>
-        <a class="btn btn-soft btn-sm" routerLink="/trade">Place trade</a>
-      </div>
-      <app-holdings-table [positions]="positions()" [loading]="initialLoading()" [visibleRows]="3" />
-    </section>
-
-    <section class="card" aria-labelledby="orders-title">
-      <div class="card-header">
-        <div>
-          <h2 id="orders-title">Recent orders</h2>
-          <p class="card-subtitle">
-            @if (pendingCount() > 0) {
-              {{ pendingCount() }} order{{ pendingCount() === 1 ? '' : 's' }} still executing ·
-            }
-            Showing your latest {{ recentOrders().length }} of
-            {{ portfolio.orders().length }} orders.
-          </p>
-        </div>
-      </div>
-      <app-orders-table
-        [rows]="recentOrders()"
-        [loading]="initialLoading()"
-        [visibleRows]="3"
-        caption="Recent orders"
-      />
-    </section>
-
-    <section class="card" aria-labelledby="transactions-title">
-      <div class="card-header">
-        <div>
-          <h2 id="transactions-title">Recent transactions</h2>
-          <p class="card-subtitle">Showing your latest {{ recentMoneyTransactions().length }} of {{ moneyTransactionCount() }} deposits and withdrawals.</p>
-        </div>
-        <a class="btn btn-soft btn-sm" routerLink="/transfer">Transfer money</a>
-      </div>
-      @if (transactionError(); as error) {
-        <div class="alert alert-error" role="alert">
-          <app-icon name="alert-circle" />
-          <span>{{ error }}</span>
-        </div>
-      } @else {
-        <app-transactions-table [rows]="recentMoneyTransactions()" [loading]="initialLoading()" [visibleRows]="3" />
-      }
-    </section>
-  }
+  </section>
 </div>
