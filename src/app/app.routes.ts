@@ -1,5 +1,11 @@
 import { Routes } from '@angular/router';
-import { adminGuard, authGuard, clientGuard, guestGuard } from './core/auth/auth.guards';
+import {
+  adminGuard,
+  authGuard,
+  clientDashboardGuard,
+  clientGuard,
+  guestGuard,
+} from './core/auth/auth.guards';
 
 /**
  * | Route                   | Page                          | Access                    |
@@ -7,7 +13,7 @@ import { adminGuard, authGuard, clientGuard, guestGuard } from './core/auth/auth
  * | /                       | Public landing page           | Public                    |
  * | /login                  | Login                         | Public (signed-out only)  |
  * | /register               | Client registration           | Public (signed-out only)  |
- * | /dashboard              | Client dashboard              | Authenticated             |
+ * | /dashboard              | Client dashboard              | Clients (admin -> /admin) |
  * | /admin                  | Administrator dashboard       | Authorised administrators |
  * | /transfer               | Transfer money                | Authorised clients        |
  * | /transfer/confirmation  | Transfer receipt              | Authorised clients        |
@@ -46,6 +52,7 @@ export const routes: Routes = [
     children: [
       {
         path: 'dashboard',
+        canActivate: [clientDashboardGuard],
         loadComponent: () => import('./features/dashboard/dashboard').then((m) => m.DashboardPage),
         title: 'Dashboard · JetZy Trading',
       },

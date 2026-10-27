@@ -347,11 +347,10 @@ export class NavbarComponent {
 
   /** The links the sidebar used to show: by account kind, with the backend enforcing every call. */
   protected readonly items = computed<NavItem[]>(() => {
-    const items: NavItem[] = [
-      { label: 'Dashboard', route: '/dashboard', icon: 'dashboard', description: 'Your portfolio at a glance' },
-    ];
+    const items: NavItem[] = [];
     if (this.auth.isClient()) {
       items.push(
+        { label: 'Dashboard', route: '/dashboard', icon: 'dashboard', description: 'Your portfolio at a glance' },
         { label: 'Transfer Money', route: '/transfer', icon: 'transfer', description: 'Deposit or withdraw cash' },
         { label: 'Place Trade', route: '/trade', icon: 'trade', description: 'Buy or sell an instrument' },
       );
