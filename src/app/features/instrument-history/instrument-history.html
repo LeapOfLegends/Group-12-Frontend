@@ -44,17 +44,33 @@
           }
         }
       </div>
-      <p class="stock-price">{{ item.lastPrice | price: item.currency }}</p>
-      <p class="stock-meta">
-        {{ item.currency }}
-        @if (item.lastPrice !== null && item.lastTradeAsOf) {
-          <span>· Last trade {{ item.lastTradeAsOf | dateTime }}</span>
-        } @else if (item.lastPrice !== null) {
-          <span>· Trade time unavailable</span>
-        } @else {
-          <span>· No stored trade price</span>
-        }
-      </p>
+      @if (item.assetClass === 'FOREX') {
+        <p class="stock-price">{{ forexRate() }}</p>
+        <p class="stock-meta">
+          @if (forexMidpoint() !== null) {
+            <span>Mid-market rate</span>
+            @if (item.quoteAsOf) {
+              <span> · As of {{ item.quoteAsOf | dateTime }}</span>
+            } @else {
+              <span> · Quote time unavailable</span>
+            }
+          } @else {
+            <span>Mid-market rate unavailable.</span>
+          }
+        </p>
+      } @else {
+        <p class="stock-price">{{ item.lastPrice | price: item.currency }}</p>
+        <p class="stock-meta">
+          {{ item.currency }}
+          @if (item.lastPrice !== null && item.lastTradeAsOf) {
+            <span>· Last trade {{ item.lastTradeAsOf | dateTime }}</span>
+          } @else if (item.lastPrice !== null) {
+            <span>· Trade time unavailable</span>
+          } @else {
+            <span>· No stored trade price</span>
+          }
+        </p>
+      }
     </header>
 
     <app-instrument-history-chart

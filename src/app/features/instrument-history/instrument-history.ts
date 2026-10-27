@@ -16,6 +16,7 @@ import { AuthService } from '../../core/auth/auth.service';
 import { Instrument } from '../../core/models/trading.models';
 import { InstrumentCatalogService } from '../../core/services/instrument-catalog.service';
 import { describeHttpError } from '../../core/utils/http-error';
+import { calculateForexMidpoint, formatForexRate } from '../../core/utils/money';
 import { DateTimePipe, PricePipe } from '../../shared/pipes/format.pipes';
 import { IconComponent } from '../../shared/ui/icon/icon';
 import { LoadingSkeletonComponent } from '../../shared/ui/loading-skeleton/loading-skeleton';
@@ -57,6 +58,16 @@ export class InstrumentHistoryPage implements OnInit {
   protected readonly instrument = computed<Instrument | null>(() => {
     const loaded = this.instrumentState();
     return loaded ? (this.catalog.bySymbol().get(loaded.symbol) ?? loaded) : null;
+  });
+  protected readonly forexMidpoint = computed<number | null>(() => {
+    const item = this.instrument();
+    return item?.assetClass === 'FOREX'
+      ? calculateForexMidpoint(item.bidPrice, item.askPrice)
+      : null;
+  });
+  protected readonly forexRate = computed<string>(() => {
+    const item = this.instrument();
+    return item?.assetClass === 'FOREX' ? formatForexRate(this.forexMidpoint(), item.symbol) : '—';
   });
   protected readonly instrumentLoading = signal(true);
   protected readonly instrumentError = signal<string | null>(null);

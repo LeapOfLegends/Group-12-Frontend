@@ -10,6 +10,7 @@ import { AuthService } from '../../core/auth/auth.service';
 import { Instrument, InstrumentHistory } from '../../core/models/trading.models';
 import { AppVisibilityService } from '../../core/services/app-visibility.service';
 import { InstrumentCatalogService } from '../../core/services/instrument-catalog.service';
+import { formatDateTime } from '../../core/utils/dates';
 import { LineChartComponent } from '../../shared/charts/line-chart/line-chart';
 import {
   InstrumentHistoryPage,
@@ -65,7 +66,13 @@ describe('InstrumentHistoryPage', () => {
   const homeUrl = computed(() => (isClient() ? '/dashboard' : '/admin'));
   const params = new BehaviorSubject(convertToParamMap({ instrumentId: '7' }));
 
-  async function setup(options: { client?: boolean; tradable?: boolean } = {}): Promise<void> {
+  async function setup(
+    options: {
+      client?: boolean;
+      tradable?: boolean;
+      instrument?: Partial<Instrument>;
+    } = {},
+  ): Promise<void> {
     sessionStorage.clear();
     isClient.set(options.client ?? true);
     params.next(convertToParamMap({ instrumentId: '7' }));
@@ -84,7 +91,11 @@ describe('InstrumentHistoryPage', () => {
     navigate = vi.spyOn(router, 'navigateByUrl').mockResolvedValue(true);
     fixture = TestBed.createComponent(InstrumentHistoryPage);
     fixture.detectChanges();
-    http.expectOne(API).flush({ ...instrument, tradable: options.tradable ?? true });
+    http.expectOne(API).flush({
+      ...instrument,
+      ...options.instrument,
+      tradable: options.tradable ?? options.instrument?.tradable ?? true,
+    });
     fixture.detectChanges();
   }
 
@@ -235,6 +246,70 @@ describe('InstrumentHistoryPage', () => {
     expect(text()).not.toContain('Historical closing prices');
   });
 
+  it('shows a non-JPY forex midpoint with the quote timestamp and no trade label', async () => {
+    const quoteAsOf = '2026-10-22T14:05:00Z';
+    const lastTradeAsOf = '2024-01-03T09:15:00Z';
+    await setup({
+      instrument: {
+        symbol: 'EUR/USD',
+        instrumentName: 'Euro / US Dollar',
+        assetClass: 'FOREX',
+        bidPrice: 1.08542,
+        askPrice: 1.08558,
+        lastPrice: null,
+        quoteAsOf,
+        lastTradeAsOf,
+      },
+    });
+
+    expect(text()).toContain('1.08550');
+    expect(text()).toContain('Mid-market rate');
+    expect(text()).toContain(`As of ${formatDateTime(quoteAsOf)}`);
+    expect(text()).not.toContain(formatDateTime(lastTradeAsOf));
+    expect(text()).not.toContain('Last trade');
+    expect(fixture.nativeElement.querySelector('.stock-price')?.textContent).not.toContain('$');
+    load('1D', { ...history('1D'), symbol: 'EUR/USD' });
+  });
+
+  it('shows a three-decimal midpoint for a JPY-quoted forex pair', async () => {
+    await setup({
+      instrument: {
+        symbol: 'USD/JPY',
+        instrumentName: 'US Dollar / Japanese Yen',
+        assetClass: 'FOREX',
+        currency: 'JPY',
+        bidPrice: 150.12,
+        askPrice: 150.13,
+        lastPrice: null,
+      },
+    });
+
+    expect(fixture.nativeElement.querySelector('.stock-price')?.textContent.trim()).toBe('150.125');
+    load('1D', { ...history('1D'), symbol: 'USD/JPY', currency: 'JPY' });
+  });
+
+  it.each([
+    ['missing side', null, 1.08558],
+    ['non-positive side', 0, 1.08558],
+    ['crossed quote', 1.08558, 1.08542],
+  ])('shows the unavailable state for a forex quote with a %s', async (_, bidPrice, askPrice) => {
+    await setup({
+      instrument: {
+        symbol: 'EUR/USD',
+        instrumentName: 'Euro / US Dollar',
+        assetClass: 'FOREX',
+        bidPrice,
+        askPrice,
+        lastPrice: null,
+      },
+    });
+
+    expect(fixture.nativeElement.querySelector('.stock-price')?.textContent.trim()).toBe('—');
+    expect(text()).toContain('Mid-market rate unavailable.');
+    expect(text()).not.toContain('As of');
+    load('1D', { ...history('1D'), symbol: 'EUR/USD' });
+  });
+
   it('updates the header from the shared canonical quote without reloading history', async () => {
     await setup();
     load('1D', history('1D'));
@@ -252,6 +327,43 @@ describe('InstrumentHistoryPage', () => {
     await loading;
     fixture.detectChanges();
     expect(text()).toContain('$255.00');
+    http.expectNone(`${API}/history?range=1D`);
+  });
+
+  it('reactively updates the forex midpoint from the catalog without reloading history', async () => {
+    await setup({
+      instrument: {
+        symbol: 'EUR/USD',
+        instrumentName: 'Euro / US Dollar',
+        assetClass: 'FOREX',
+        bidPrice: 1.08542,
+        askPrice: 1.08558,
+        lastPrice: null,
+      },
+    });
+    load('1D', { ...history('1D'), symbol: 'EUR/USD' });
+    const catalog = TestBed.inject(InstrumentCatalogService);
+    const loading = catalog.load();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    http.expectOne(`${environment.tradingApiUrl}/instruments`).flush([
+      {
+        ...instrument,
+        instrumentId: 7,
+        symbol: 'EUR/USD',
+        instrumentName: 'Euro / US Dollar',
+        assetClass: 'FOREX',
+        bidPrice: 1.1001,
+        askPrice: 1.1003,
+        lastPrice: null,
+        quoteAsOf: '2026-10-22T14:05:00Z',
+        lastTradeAsOf: null,
+      },
+    ]);
+    await loading;
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.stock-price')?.textContent.trim()).toBe('1.10020');
+    expect(text()).toContain(`As of ${formatDateTime('2026-10-22T14:05:00Z')}`);
     http.expectNone(`${API}/history?range=1D`);
   });
 
@@ -277,6 +389,9 @@ describe('InstrumentHistoryPage', () => {
     fixture.detectChanges();
 
     expect(text()).toContain('BTC/USD');
+    expect(text()).toContain('$250.00');
+    expect(text()).toContain('Last trade');
+    expect(text()).not.toContain('Mid-market rate');
     expect(text()).toContain('Times shown in Coordinated Universal Time (UTC).');
     expect(fixture.nativeElement.querySelector('app-line-chart')).not.toBeNull();
   });

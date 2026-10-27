@@ -6,8 +6,13 @@
 const DEFAULT_LOCALE = 'en-US';
 
 const currencyFormatters = new Map<string, Intl.NumberFormat>();
+const decimalFormatters = new Map<number, Intl.NumberFormat>();
 
-function currencyFormatter(currency: string, minimumFractionDigits: number, maximumFractionDigits: number): Intl.NumberFormat {
+function currencyFormatter(
+  currency: string,
+  minimumFractionDigits: number,
+  maximumFractionDigits: number,
+): Intl.NumberFormat {
   const key = `${currency}:${minimumFractionDigits}:${maximumFractionDigits}`;
   let formatter = currencyFormatters.get(key);
   if (!formatter) {
@@ -36,7 +41,11 @@ export function isFiniteNumber(value: unknown): value is number {
 }
 
 /** Formats a currency amount, e.g. 1234.5 -> "$1,234.50". Non-numbers render as an em dash. */
-export function formatMoney(value: number | null | undefined, currency = 'USD', fractionDigits = 2): string {
+export function formatMoney(
+  value: number | null | undefined,
+  currency = 'USD',
+  fractionDigits = 2,
+): string {
   if (!isFiniteNumber(value)) {
     return '—';
   }
@@ -51,6 +60,52 @@ export function formatPrice(value: number | null | undefined, currency = 'USD'):
   const abs = Math.abs(value);
   const digits = abs >= 1 ? 2 : abs >= 0.01 ? 4 : 6;
   return currencyFormatter(currency, 2, digits).format(value);
+}
+
+/**
+ * Calculates the current mid-market rate for a valid two-sided forex quote.
+ * Incomplete, non-positive, non-finite, or crossed quotes have no midpoint.
+ */
+export function calculateForexMidpoint(
+  bidPrice: number | null | undefined,
+  askPrice: number | null | undefined,
+): number | null {
+  if (
+    !isFiniteNumber(bidPrice) ||
+    !isFiniteNumber(askPrice) ||
+    bidPrice <= 0 ||
+    askPrice <= 0 ||
+    askPrice < bidPrice
+  ) {
+    return null;
+  }
+  return bidPrice + (askPrice - bidPrice) / 2;
+}
+
+/**
+ * Formats a forex rate without a currency symbol. Pairs quoted in JPY use three
+ * decimal places; all other pairs use five.
+ */
+export function formatForexRate(value: number | null | undefined, symbol: string): string {
+  if (!isFiniteNumber(value)) {
+    return '—';
+  }
+  const quoteCurrency = symbol
+    .trim()
+    .toUpperCase()
+    .match(/([A-Z]{3})$/)?.[1];
+  const digits = quoteCurrency === 'JPY' ? 3 : 5;
+  let formatter = decimalFormatters.get(digits);
+  if (!formatter) {
+    formatter = new Intl.NumberFormat(DEFAULT_LOCALE, {
+      style: 'decimal',
+      minimumFractionDigits: digits,
+      maximumFractionDigits: digits,
+      useGrouping: false,
+    });
+    decimalFormatters.set(digits, formatter);
+  }
+  return formatter.format(value);
 }
 
 /** Signed money, e.g. +$120.00 / -$45.10. Zero is rendered without a sign. */
@@ -85,7 +140,10 @@ export function formatCompactMoney(value: number | null | undefined, currency = 
 }
 
 /** Percent from a ratio (0.0523 -> "5.23%"); signed when requested. */
-export function formatPercent(ratio: number | null | undefined, options: { signed?: boolean; digits?: number } = {}): string {
+export function formatPercent(
+  ratio: number | null | undefined,
+  options: { signed?: boolean; digits?: number } = {},
+): string {
   if (!isFiniteNumber(ratio)) {
     return '—';
   }

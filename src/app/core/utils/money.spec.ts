@@ -1,4 +1,17 @@
-import { decimalPlaces, formatCompactMoney, formatMoney, formatPercent, formatPrice, formatQuantity, formatSignedMoney, parseAmount, roundTo, toNumber } from './money';
+import {
+  calculateForexMidpoint,
+  decimalPlaces,
+  formatCompactMoney,
+  formatForexRate,
+  formatMoney,
+  formatPercent,
+  formatPrice,
+  formatQuantity,
+  formatSignedMoney,
+  parseAmount,
+  roundTo,
+  toNumber,
+} from './money';
 
 describe('money formatting', () => {
   it('formats currency with two decimals and grouping', () => {
@@ -20,6 +33,15 @@ describe('money formatting', () => {
     expect(formatPrice(0.0012345)).toBe('$0.001235');
   });
 
+  it('formats forex rates with fixed quote-currency precision and no currency symbol', () => {
+    expect(formatForexRate(1.0855, 'EUR/USD')).toBe('1.08550');
+    expect(formatForexRate(0.6523, 'AUD/USD')).toBe('0.65230');
+    expect(formatForexRate(83.4256, 'USD/INR')).toBe('83.42560');
+    expect(formatForexRate(150.125, 'USD/JPY')).toBe('150.125');
+    expect(formatForexRate(1.085505, 'EUR/USD')).toBe('1.08551');
+    expect(formatForexRate(null, 'EUR/USD')).toBe('—');
+  });
+
   it('compacts large values', () => {
     expect(formatCompactMoney(2500)).toBe('$2,500.00');
     expect(formatCompactMoney(1_250_000)).toMatch(/^\$1\.[23]M$/);
@@ -36,6 +58,28 @@ describe('money formatting', () => {
     expect(formatQuantity(80)).toBe('80');
     expect(formatQuantity(0.01)).toBe('0.01');
     expect(formatQuantity(0.123456789)).toBe('0.12345679');
+  });
+});
+
+describe('forex midpoint', () => {
+  it('calculates valid non-JPY and JPY mid-market rates', () => {
+    expect(calculateForexMidpoint(1.08542, 1.08558)).toBeCloseTo(1.0855, 10);
+    expect(calculateForexMidpoint(150.12, 150.13)).toBeCloseTo(150.125, 10);
+  });
+
+  it.each([
+    [null, 1.08558],
+    [1.08542, null],
+    [0, 1.08558],
+    [-1, 1.08558],
+    [1.08542, 0],
+    [1.08542, -1],
+    [1.2, 1.1],
+    [Number.NaN, 1.08558],
+    [1.08542, Number.POSITIVE_INFINITY],
+    [Number.NEGATIVE_INFINITY, 1.08558],
+  ])('rejects an invalid quote with bid %s and ask %s', (bid, ask) => {
+    expect(calculateForexMidpoint(bid, ask)).toBeNull();
   });
 });
 
