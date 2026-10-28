@@ -15,7 +15,7 @@ export interface TransferReceipt {
   /** Balance returned by the backend; null until the transfer is confirmed. */
   balanceAfter: number | null;
   /** Not issued by the current backend (AccountBalanceDTO has no id), hence nullable. */
-  transactionId: string | null;
+  transactionId: number | null;
   /** ISO timestamp taken when the backend's confirmation arrived. */
   confirmedAt: string;
 }
@@ -32,6 +32,7 @@ export function isTransferReceipt(value: unknown): value is TransferReceipt {
     (receipt['status'] === 'completed' || receipt['status'] === 'pending') &&
     typeof receipt['balanceBefore'] === 'number' &&
     (typeof receipt['balanceAfter'] === 'number' || receipt['balanceAfter'] === null) &&
+    (typeof receipt['transactionId'] === 'number' || receipt['transactionId'] === null) &&
     typeof receipt['confirmedAt'] === 'string'
   );
 }

@@ -63,6 +63,45 @@ describe('ClientApiService', () => {
     ]);
   });
 
+  it('requests and normalizes authenticated portfolio history without a client id', () => {
+    let result: any = null;
+    service.getMyPortfolioHistory('5D').subscribe((history) => (result = history));
+
+    const request = http.expectOne(`${BASE}/me/portfolio/history?range=5D`);
+    expect(request.request.method).toBe('GET');
+    request.flush({
+      range: '5D',
+      timeframe: '30Min',
+      currency: 'USD',
+      availableFrom: '2026-10-20T14:00:00Z',
+      availableTo: '2026-10-25T14:00:00Z',
+      partial: true,
+      returnMethod: 'ESTIMATED_TWR',
+      unavailablePointCount: '2',
+      limitations: ['Raw equity prices.'],
+      points: [
+        {
+          timestamp: '2026-10-25T14:00:00Z',
+          cashValue: '3000.00',
+          holdingsValue: '13000.00',
+          totalValue: '16000.00',
+          cumulativeReturnPercent: '6.67',
+          valuationStatus: 'CARRIED_FORWARD',
+        },
+      ],
+    });
+
+    expect(result.points[0]).toEqual({
+      timestamp: '2026-10-25T14:00:00Z',
+      cashValue: 3000,
+      holdingsValue: 13000,
+      totalValue: 16000,
+      cumulativeReturnPercent: 6.67,
+      valuationStatus: 'CARRIED_FORWARD',
+    });
+    expect(result.unavailablePointCount).toBe(2);
+  });
+
   it('sends a deposit to the unified transaction endpoint', () => {
     let result: unknown = null;
     service.deposit(250).subscribe((balance) => (result = balance));

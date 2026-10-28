@@ -25,8 +25,13 @@ export type DeltaTone = 'up' | 'down' | 'flat';
           }
         </div>
         <p class="summary-value" [attr.aria-label]="label() + ' ' + value()">{{ value() }}</p>
-        <div class="summary-bottom">
-          @if (delta()) {
+        @if (delta()) {
+          <div
+            class="summary-delta"
+            [attr.aria-label]="
+              deltaLabel() + ' ' + delta() + (deltaDetail() ? ' ' + deltaDetail() : '')
+            "
+          >
             <span class="delta" [class]="'delta delta-' + deltaTone()">
               @if (deltaTone() === 'up') {
                 <app-icon name="trend-up" [size]="14" />
@@ -36,8 +41,16 @@ export type DeltaTone = 'up' | 'down' | 'flat';
                 <app-icon name="minus" [size]="14" />
               }
               {{ delta() }}
+              @if (deltaDetail()) {
+                <span>({{ deltaDetail() }})</span>
+              }
             </span>
-          }
+            @if (deltaLabel()) {
+              <span class="summary-delta-label">{{ deltaLabel() }}</span>
+            }
+          </div>
+        }
+        <div class="summary-bottom">
           @if (hint()) {
             <span class="summary-hint">{{ hint() }}</span>
           }
@@ -108,6 +121,19 @@ export type DeltaTone = 'up' | 'down' | 'flat';
       min-height: 20px;
     }
 
+    .summary-delta {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 1px;
+      font-size: var(--text-sm);
+    }
+
+    .summary-delta-label {
+      color: var(--color-text-secondary);
+      font-size: var(--text-xs);
+    }
+
     .summary-hint {
       color: var(--color-text-secondary);
     }
@@ -137,6 +163,8 @@ export class FinancialSummaryCardComponent {
   readonly label = input.required<string>();
   readonly value = input.required<string>();
   readonly delta = input<string>('');
+  readonly deltaDetail = input<string>('');
+  readonly deltaLabel = input<string>('');
   readonly deltaTone = input<DeltaTone>('flat');
   readonly hint = input<string>('');
   readonly icon = input<string>('');

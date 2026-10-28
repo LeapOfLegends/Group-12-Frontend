@@ -9,12 +9,13 @@
 import { createRequire } from 'node:module';
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const require = createRequire(import.meta.url);
 const { chromium } = require('playwright');
 
 const BASE = process.env.E2E_BASE_URL ?? 'http://localhost:4200';
-const OUT = path.resolve(path.dirname(new URL(import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1')), 'shots');
+const OUT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), 'shots');
 fs.mkdirSync(OUT, { recursive: true });
 for (const file of fs.readdirSync(OUT)) {
   if (file.endsWith('.png')) fs.unlinkSync(path.join(OUT, file));
@@ -242,6 +243,17 @@ try {
   const searchBox = await (await page.$('app-instrument-search')).boundingBox();
   const dateBox = await (await page.$('.page-title .eyebrow')).boundingBox();
   check('search bar sits above the date, sharing its left edge', searchBox.y + searchBox.height <= dateBox.y && Math.abs(searchBox.x - dateBox.x) <= 1, `${searchBox.x},${searchBox.y} vs ${dateBox.x},${dateBox.y}`);
+  const stickyNavbar = await page.evaluate(() => {
+    const navbar = document.querySelector('app-navbar');
+    window.scrollTo(0, document.documentElement.scrollHeight);
+    return {
+      position: getComputedStyle(navbar).position,
+      top: Math.round(navbar.getBoundingClientRect().top),
+      scrollY: Math.round(window.scrollY),
+    };
+  });
+  check('navbar host stays at the viewport top while page content scrolls', stickyNavbar.position === 'sticky' && stickyNavbar.top === 0 && stickyNavbar.scrollY > 0, JSON.stringify(stickyNavbar));
+  await page.evaluate(() => window.scrollTo(0, 0));
   await shot(page, '07-dashboard-desktop');
 
   // --- Widget layout: edit mode, drag, persistence, reset --------------------------
@@ -316,6 +328,7 @@ try {
 
   await page.setViewportSize({ width: 390, height: 844 });
   await page.waitForTimeout(300);
+  await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
   const hasHorizontalScroll = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth + 1);
   check('no horizontal scroll on mobile dashboard', !hasHorizontalScroll);
   check('navbar links fold away on mobile', !(await page.isVisible('app-navbar nav.navbar-links')));
@@ -324,6 +337,7 @@ try {
   await page.waitForTimeout(400); // let the menu finish expanding
   const openDrawer = await page.$eval('#navbar-drawer', (drawer) => ({ height: drawer.getBoundingClientRect().height, expanded: drawer.getAttribute('aria-hidden') === 'false' }));
   check('mobile menu expands with the navigation links, Profile and Log out', openDrawer.expanded && openDrawer.height > 200 && (await page.isVisible('#navbar-drawer a[href="/trade"]')) && (await page.isVisible('#navbar-drawer button:has-text("Log out")')), JSON.stringify(openDrawer));
+  check('mobile menu remains attached to the sticky navbar after scrolling', await page.$eval('app-navbar', (navbar) => Math.round(navbar.getBoundingClientRect().top) === 0));
   await shot(page, '09-dashboard-mobile-menu');
   await page.click('button[aria-label="Close navigation"]');
   await page.waitForTimeout(400);
@@ -334,6 +348,23 @@ try {
   await page.reload();
   await page.waitForSelector('app-holdings-table table');
   check('refresh keeps the session on /dashboard', page.url().endsWith('/dashboard'));
+
+  // --- Activity order search ----------------------------------------------------
+  await page.goto(`${BASE}/activity`);
+  await page.waitForSelector('app-orders-table tbody tr');
+  const allOrderCount = await page.locator('app-orders-table tbody tr').count();
+  await page.fill('#activity-instrument-search', '  apple  ');
+  await page.waitForFunction(() => [...document.querySelectorAll('app-orders-table tbody tr')].every((row) => row.textContent.includes('AAPL')));
+  const appleOrderCount = await page.locator('app-orders-table tbody tr').count();
+  check('Activity search filters existing orders by a trimmed company-name fragment', appleOrderCount > 0 && appleOrderCount <= allOrderCount);
+  await page.click('button[aria-label="Clear instrument search"]');
+  await page.waitForFunction((expected) => document.querySelectorAll('app-orders-table tbody tr').length === expected, allOrderCount);
+  check('clearing Activity search restores eligible orders', true);
+  await page.fill('#activity-instrument-search', 'NO-SUCH-INSTRUMENT');
+  await page.waitForSelector('text=No orders match your filters.');
+  check('Activity search shows the filtered-empty guidance', (await page.textContent('app-orders-table')).includes('Try a different ticker or company name, or reset your filters.'));
+  await page.goto(`${BASE}/dashboard`);
+  await page.waitForSelector('app-holdings-table table');
 
   // --- Transfer -----------------------------------------------------------------
   await page.click('app-navbar nav.navbar-links a[href="/transfer"]');

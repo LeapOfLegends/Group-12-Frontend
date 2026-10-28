@@ -11,9 +11,8 @@ type Placed = [DashboardWidgetId, number, number, number, number];
 
 /** The default desktop layout in grid units: 8px rows, so a 200px tile is 28 rows. */
 const DEFAULT_LAYOUT: Placed[] = [
-  ['cash', 0, 0, 4, 28],
-  ['portfolio', 4, 0, 4, 28],
-  ['return', 8, 0, 4, 28],
+  ['cash', 0, 0, 6, 28],
+  ['portfolio', 6, 0, 6, 28],
   ['performance', 0, 28, 8, 75],
   ['allocation', 8, 28, 4, 75],
   ['holdings', 0, 103, 12, 40],
@@ -58,36 +57,28 @@ describe('WidgetGridEngine', () => {
   });
 
   it('puts a tile dropped on the left half of another tile before it, and the row shifts along', () => {
-    expect(drag('return', 150, 112)).toBe(true); // over the left half of "cash"
+    expect(drag('portfolio', 150, 112)).toBe(true); // over the left half of "cash"
     expect(readingOrder(engine.nodes)).toEqual([
-      'return',
-      'cash',
       'portfolio',
+      'cash',
       'performance',
       'allocation',
       'holdings',
       'orders',
       'transactions',
     ]);
-    expect(at('return')).toEqual([0, 0]);
-    expect(at('cash')).toEqual([4, 0]);
-    expect(at('portfolio')).toEqual([8, 0]);
+    expect(at('portfolio')).toEqual([0, 0]);
+    expect(at('cash')).toEqual([6, 0]);
   });
 
   it('puts a tile dropped on the right half of a wider widget beside it', () => {
-    expect(drag('return', 700, 28 * CELL_HEIGHT + 300)).toBe(true); // right half of the chart
-    expect(readingOrder(engine.nodes)).toEqual([
-      'cash',
-      'portfolio',
-      'performance',
-      'return',
-      'allocation',
-      'holdings',
-      'orders',
-      'transactions',
-    ]);
-    expect(at('return')).toEqual([8, 28]);
-    expect(at('allocation')).toEqual([8, 56]); // below the tile, still in the chart's spare column
+    expect(drag('allocation', 150, 112)).toBe(true); // first move it away from the chart
+    const chart = node('performance');
+    const chartRightHalf = ((chart.x ?? 0) + (chart.w ?? 1) * 0.75) * CELL_WIDTH;
+    const chartMiddle = ((chart.y ?? 0) + (chart.h ?? 1) / 2) * CELL_HEIGHT;
+    expect(drag('allocation', chartRightHalf, chartMiddle)).toBe(true);
+    expect(readingOrder(engine.nodes)).toEqual([...DEFAULT_WIDGET_ORDER]);
+    expect(at('allocation')).toEqual([8, 28]);
   });
 
   it('moves a full-width widget above the whole row it is dropped on the top half of', () => {
@@ -95,7 +86,6 @@ describe('WidgetGridEngine', () => {
     expect(readingOrder(engine.nodes)).toEqual([
       'cash',
       'portfolio',
-      'return',
       'holdings',
       'performance',
       'allocation',
@@ -123,12 +113,12 @@ describe('WidgetGridEngine', () => {
     [
       ['cash', 0, 0, 1, 28],
       ['portfolio', 0, 28, 1, 28],
-      ['return', 0, 56, 1, 28],
+      ['performance', 0, 56, 1, 28],
     ].forEach(([id, x, y, w, h]) =>
       engine.addNode({ id: id as string, x, y, w, h } as GridStackNode),
     );
-    expect(drag('return', 50, 40)).toBe(true); // upper half of "cash"
-    expect(readingOrder(engine.nodes)).toEqual(['return', 'cash', 'portfolio']);
+    expect(drag('performance', 50, 40)).toBe(true); // upper half of "cash"
+    expect(readingOrder(engine.nodes)).toEqual(['performance', 'cash', 'portfolio']);
   });
 
   it('still packs by position when nothing is being dragged', () => {
@@ -174,9 +164,9 @@ describe('WidgetGrid', () => {
     expect(container.classList.contains('grid-stack')).toBe(true);
     expect(grid.order()).toEqual(reversed);
     expect(items().map((item) => item.id)).toEqual(reversed);
-    // The last three (tiles) share the final row.
-    const tiles = items().slice(-3);
-    expect(tiles.map((item) => item.x)).toEqual([0, 4, 8]);
+    // The last two summary tiles share the final row.
+    const tiles = items().slice(-2);
+    expect(tiles.map((item) => item.x)).toEqual([0, 6]);
     expect(new Set(tiles.map((item) => item.y)).size).toBe(1);
     grid.destroy();
   });
@@ -188,10 +178,9 @@ describe('WidgetGrid', () => {
     grid.applyOrder(DEFAULT_WIDGET_ORDER);
     expect(grid.order()).toEqual([...DEFAULT_WIDGET_ORDER]);
     expect(items().map((item) => item.id)).toEqual([...DEFAULT_WIDGET_ORDER]);
-    expect(items().slice(0, 3)).toEqual([
-      { id: 'cash', x: 0, y: 0, w: 4 },
-      { id: 'portfolio', x: 4, y: 0, w: 4 },
-      { id: 'return', x: 8, y: 0, w: 4 },
+    expect(items().slice(0, 2)).toEqual([
+      { id: 'cash', x: 0, y: 0, w: 6 },
+      { id: 'portfolio', x: 6, y: 0, w: 6 },
     ]);
     grid.destroy();
   });
@@ -222,16 +211,15 @@ describe('WidgetGrid', () => {
     expect(grid.order()).toEqual([...DEFAULT_WIDGET_ORDER]);
     expect(
       items()
-        .slice(0, 5)
+        .slice(0, 4)
         .map((item) => [item.id, item.x, item.w]),
     ).toEqual([
-      ['cash', 0, 2],
-      ['portfolio', 2, 2],
-      ['return', 4, 2],
+      ['cash', 0, 3],
+      ['portfolio', 3, 3],
       ['performance', 0, 6],
       ['allocation', 0, 6],
     ]);
-    expect(items()[3].y).toBeLessThan(items()[4].y); // stacked, no longer side by side
+    expect(items()[2].y).toBeLessThan(items()[3].y); // stacked, no longer side by side
 
     grid.setColumns(1);
     expect(items().every((item) => item.x === 0 && item.w === 1)).toBe(true);
@@ -240,9 +228,9 @@ describe('WidgetGrid', () => {
     grid.setColumns(12);
     expect(
       items()
-        .slice(0, 3)
+        .slice(0, 2)
         .map((item) => item.x),
-    ).toEqual([0, 4, 8]);
+    ).toEqual([0, 6]);
     grid.destroy();
   });
 

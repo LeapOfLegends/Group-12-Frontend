@@ -111,6 +111,37 @@ export interface InstrumentHistory {
   points: InstrumentHistoryPoint[];
 }
 
+/** Portfolio history uses the same range vocabulary and server-side resolutions as instruments. */
+export type PortfolioPerformanceRange = InstrumentHistoryRange;
+
+export type PortfolioReturnMethod = 'TWR' | 'ESTIMATED_TWR' | 'UNAVAILABLE';
+
+export type PortfolioValuationStatus = 'COMPLETE' | 'CARRIED_FORWARD' | 'UNAVAILABLE';
+
+export interface PortfolioPerformancePoint {
+  timestamp: string;
+  cashValue: number;
+  holdingsValue: number;
+  totalValue: number;
+  /** Percentage points from the backend (6.67 means 6.67%, not 667%). */
+  cumulativeReturnPercent: number | null;
+  valuationStatus: PortfolioValuationStatus;
+}
+
+/** GET /api/clients/me/portfolio/history. */
+export interface PortfolioPerformanceHistory {
+  range: PortfolioPerformanceRange;
+  timeframe: string;
+  currency: string;
+  availableFrom: string | null;
+  availableTo: string | null;
+  partial: boolean;
+  returnMethod: PortfolioReturnMethod;
+  unavailablePointCount: number;
+  limitations: string[];
+  points: PortfolioPerformancePoint[];
+}
+
 /** An instrument whose database id has been resolved, so it can be traded. */
 export interface CatalogInstrument extends Instrument {
   instrumentId: number;
@@ -134,8 +165,8 @@ export type OrderStatus = 'SUBMITTED' | 'ACCEPTED' | 'REJECTED' | 'FILLED' | 'FA
 export const ORDER_STATUSES: readonly OrderStatus[] = [
   'SUBMITTED',
   'ACCEPTED',
-  'REJECTED',
   'FILLED',
+  'REJECTED',
   'FAILED',
 ];
 

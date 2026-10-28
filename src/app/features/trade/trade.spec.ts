@@ -3,6 +3,7 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
+import { of } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { OrdersApiService } from '../../core/api/orders-api.service';
 import { AuthService } from '../../core/auth/auth.service';
@@ -10,6 +11,7 @@ import {
   CatalogInstrument,
   InstrumentHistory,
   MarketAvailability,
+  Order,
 } from '../../core/models/trading.models';
 import { InstrumentCatalogService } from '../../core/services/instrument-catalog.service';
 import { NotificationService } from '../../core/services/notification.service';
@@ -194,6 +196,38 @@ describe('TradePage market availability', () => {
     expect(button('Place buy order').disabled).toBe(false);
   });
 
+  it('uses the standardized order ID in rejected results and notifications', () => {
+    const rejected: Order = {
+      orderId: 47,
+      clientId: 12,
+      instrumentId: 2,
+      orderType: 'BUY',
+      quantity: 1,
+      status: 'REJECTED',
+      reservedCash: null,
+      submittedAt: '2026-10-24T14:00:00Z',
+      acceptedAt: null,
+      rejectedAt: '2026-10-24T14:00:01Z',
+      failedAt: null,
+      filledAt: null,
+      executionPrice: null,
+      executionQuoteAsOf: null,
+      tradeValue: null,
+      rejectionReason: 'INSUFFICIENT_FUNDS',
+      failureReason: null,
+    };
+    submit.mockReturnValue(of(rejected));
+    flushStatus();
+
+    page['reviewOrder']();
+    page['confirmOrder']();
+    fixture.detectChanges();
+
+    const notifications = TestBed.inject(NotificationService);
+    expect(notifications.warning).toHaveBeenCalledWith(expect.any(String), 'Order ORD-47 rejected');
+    expect(fixture.nativeElement.textContent).toContain('Order ORD-47');
+  });
+
   it('keeps the selected instrument attached to canonical catalogue updates', () => {
     flushStatus();
     catalogInstruments.set([{ ...INSTRUMENT, lastPrice: 110, bidPrice: 109, askPrice: 111 }]);
@@ -237,6 +271,29 @@ describe('TradePage market availability', () => {
     );
   });
 
+  it('shows slash-containing crypto history in the trade page using its numeric ID', async () => {
+    flushStatus();
+    const bitcoin: CatalogInstrument = {
+      ...INSTRUMENT,
+      instrumentId: 73,
+      symbol: 'BTC/USD',
+      instrumentName: 'Bitcoin',
+      assetClass: 'CRYPTO',
+    };
+    catalogInstruments.set([INSTRUMENT, bitcoin]);
+    page['choose'](bitcoin);
+    fixture.detectChanges();
+    http.expectOne(historyUrl(73)).flush(history(bitcoin));
+    fixture.detectChanges();
+    await vi.advanceTimersByTimeAsync(0);
+    http.expectOne(statusUrl(73)).flush({ ...availability(), marketCode: 'CRYPTO' });
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('app-line-chart')).not.toBeNull();
+    expect(fixture.nativeElement.textContent).toContain('Times shown in Eastern Time (ET).');
+    http.expectNone((request) => request.url.includes('BTC%2FUSD'));
+  });
+
   it('cancels chart requests on instrument changes and clearing', () => {
     flushStatus();
     const microsoft: CatalogInstrument = {
@@ -263,15 +320,15 @@ describe('TradePage market availability', () => {
 
   it('keeps trading available when history is unsupported', async () => {
     flushStatus();
-    const bitcoin: CatalogInstrument = {
+    const option: CatalogInstrument = {
       ...INSTRUMENT,
       instrumentId: 9,
-      symbol: 'BTCUSD',
-      instrumentName: 'Bitcoin',
-      assetClass: 'CRYPTO',
+      symbol: 'AAPL-CALL',
+      instrumentName: 'Apple Call Option',
+      assetClass: 'OPTION',
     };
-    catalogInstruments.set([INSTRUMENT, bitcoin]);
-    page['choose'](bitcoin);
+    catalogInstruments.set([INSTRUMENT, option]);
+    page['choose'](option);
     fixture.detectChanges();
     http.expectNone(historyUrl(9));
     await vi.advanceTimersByTimeAsync(0);
@@ -279,7 +336,7 @@ describe('TradePage market availability', () => {
     fixture.detectChanges();
 
     expect(fixture.nativeElement.textContent).toContain(
-      'Price history is currently available only for supported U.S. equities',
+      'Price history is not available for this instrument type',
     );
     expect(button('Review order').disabled).toBe(false);
   });

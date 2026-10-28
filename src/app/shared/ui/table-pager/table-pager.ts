@@ -47,7 +47,8 @@ export function pagedRows<T>(
   template: `
     <div class="pager">
       <span class="text-secondary text-sm"
-        >Showing {{ first() }}–{{ last() }} of {{ total() }}</span
+        >Showing {{ first() }}–{{ last() }} of {{ total()
+        }}{{ itemLabel() ? ' ' + itemLabel() : '' }}</span
       >
       @if (pageCount() > 1) {
         <nav class="pager-controls" [attr.aria-label]="label()">
@@ -104,6 +105,7 @@ export class TablePagerComponent {
   readonly page = input.required<number>();
   readonly pageSize = input.required<number>();
   readonly total = input.required<number>();
+  readonly itemLabel = input('');
   /** Accessible name of the arrow group, e.g. "Client cash positions pages". */
   readonly label = input('Table pages');
   readonly pageChange = output<number>();

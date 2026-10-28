@@ -14,6 +14,7 @@ import {
  * | /login                  | Login                         | Public (signed-out only)  |
  * | /register               | Client registration           | Public (signed-out only)  |
  * | /dashboard              | Client dashboard              | Clients (admin -> /admin) |
+ * | /activity               | Order and transaction history | Authorised clients        |
  * | /admin                  | Administrator dashboard       | Authorised administrators |
  * | /transfer               | Transfer money                | Authorised clients        |
  * | /transfer/confirmation  | Transfer receipt              | Authorised clients        |
@@ -55,6 +56,12 @@ export const routes: Routes = [
         canActivate: [clientDashboardGuard],
         loadComponent: () => import('./features/dashboard/dashboard').then((m) => m.DashboardPage),
         title: 'Dashboard · JetZy Trading',
+      },
+      {
+        path: 'activity',
+        canActivate: [clientGuard],
+        loadComponent: () => import('./features/activity/activity').then((m) => m.ActivityPage),
+        title: 'Activity · JetZy Trading',
       },
       {
         path: 'instruments/:instrumentId',

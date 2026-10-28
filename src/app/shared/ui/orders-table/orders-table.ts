@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, input } from '@angular/core';
 import { OrderRow } from '../../../core/models/portfolio.models';
+import { formatOrderId } from '../../../core/utils/display-ids';
 import { describeOrderOutcome } from '../../../core/utils/order-reasons';
 import { DateTimePipe, MoneyPipe, PricePipe, QuantityPipe } from '../../pipes/format.pipes';
 import { EmptyStateComponent } from '../empty-state/empty-state';
@@ -11,7 +12,16 @@ import { TableScrollDirective } from '../table-scroll';
 @Component({
   selector: 'app-orders-table',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [MoneyPipe, PricePipe, QuantityPipe, DateTimePipe, EmptyStateComponent, LoadingSkeletonComponent, StatusBadgeComponent, TableScrollDirective],
+  imports: [
+    MoneyPipe,
+    PricePipe,
+    QuantityPipe,
+    DateTimePipe,
+    EmptyStateComponent,
+    LoadingSkeletonComponent,
+    StatusBadgeComponent,
+    TableScrollDirective,
+  ],
   template: `
     @if (loading()) {
       <app-loading-skeleton variant="table" [lines]="4" label="Loading orders" />
@@ -20,7 +30,11 @@ import { TableScrollDirective } from '../table-scroll';
     } @else {
       <div class="table-wrap" [appTableScroll]="visibleRows()" [tableScrollLabel]="caption()">
         <table class="table">
-          <caption class="visually-hidden">{{ caption() }}</caption>
+          <caption class="visually-hidden">
+            {{
+              caption()
+            }}
+          </caption>
           <thead>
             <tr>
               <th scope="col">Order</th>
@@ -36,9 +50,13 @@ import { TableScrollDirective } from '../table-scroll';
           <tbody>
             @for (row of rows(); track row.order.orderId) {
               <tr>
-                <td class="tabular">#{{ row.order.orderId }}</td>
+                <td class="tabular">{{ formatOrderId(row.order.orderId) }}</td>
                 <td>
-                  <span class="side" [class.side-buy]="row.order.orderType === 'BUY'" [class.side-sell]="row.order.orderType === 'SELL'">
+                  <span
+                    class="side"
+                    [class.side-buy]="row.order.orderType === 'BUY'"
+                    [class.side-sell]="row.order.orderType === 'SELL'"
+                  >
                     {{ row.order.orderType === 'BUY' ? 'Buy' : 'Sell' }}
                   </span>
                 </td>
@@ -95,12 +113,15 @@ import { TableScrollDirective } from '../table-scroll';
   `,
 })
 export class OrdersTableComponent {
-  readonly rows = input<OrderRow[]>([]);
+  readonly rows = input<readonly OrderRow[]>([]);
   readonly loading = input<boolean>(false);
   readonly visibleRows = input<number | null>(null);
   readonly caption = input<string>('Orders');
   readonly emptyTitle = input<string>('No orders yet');
-  readonly emptyMessage = input<string>('Orders you place will appear here with their status and outcome.');
+  readonly emptyMessage = input<string>(
+    'Orders you place will appear here with their status and outcome.',
+  );
+  protected readonly formatOrderId = formatOrderId;
 
   protected describe(row: OrderRow): string {
     return describeOrderOutcome(row.order);

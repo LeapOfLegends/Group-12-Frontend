@@ -14,6 +14,8 @@ import {
 } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { AuthService } from '../../core/auth/auth.service';
+import { PortfolioPerformanceRange } from '../../core/models/trading.models';
+import { PortfolioHistoryService } from '../../core/services/portfolio-history.service';
 import { PortfolioService } from '../../core/services/portfolio.service';
 import { formatDate, greetingForHour } from '../../core/utils/dates';
 import { formatMoney, formatPercent, formatSignedMoney } from '../../core/utils/money';
@@ -44,8 +46,8 @@ import {
 import { WidgetGrid } from './widget-grid';
 
 /**
- * Client home: price search, cash, portfolio value, return, performance chart, holdings, orders
- * and actions. The eight widgets can be rearranged in edit mode; the order is kept per client in
+ * Client home: price search, cash, portfolio value and return, performance chart, holdings, orders
+ * and actions. The seven widgets can be rearranged in edit mode; the order is kept per client in
  * localStorage (see dashboard-layout.ts).
  */
 @Component({
@@ -70,6 +72,7 @@ import { WidgetGrid } from './widget-grid';
 export class DashboardPage implements OnInit {
   protected readonly auth = inject(AuthService);
   protected readonly portfolio = inject(PortfolioService);
+  protected readonly portfolioHistory = inject(PortfolioHistoryService);
   private readonly document = inject(DOCUMENT);
   private readonly destroyRef = inject(DestroyRef);
   private readonly gridElement = viewChild.required<ElementRef<HTMLElement>>('widgetGrid');
@@ -93,21 +96,30 @@ export class DashboardPage implements OnInit {
   protected readonly summary = this.portfolio.summary;
   protected readonly positions = this.portfolio.positions;
   protected readonly recentOrders = this.portfolio.recentOrders;
-  protected readonly recentMoneyTransactions = this.portfolio.recentMoneyTransactions;
-  protected readonly moneyTransactionCount = this.portfolio.moneyTransactionCount;
+  protected readonly recentTransactions = this.portfolio.recentTransactions;
+  protected readonly transactionCount = this.portfolio.transactionCount;
   protected readonly transactionError = this.portfolio.transactionError;
   protected readonly allocation = this.portfolio.allocation;
-  protected readonly investedSeries = this.portfolio.investedSeries;
   protected readonly pendingCount = computed(() => this.portfolio.pendingOrders().length);
-
   protected readonly cashValue = computed(() => formatMoney(this.portfolio.cash()));
-  protected readonly holdingsValue = computed(() => formatMoney(this.summary().holdingsValue));
-  protected readonly returnValue = computed(() => formatSignedMoney(this.summary().totalReturn));
+  protected readonly portfolioValue = computed(() => formatMoney(this.summary().holdingsValue));
+  protected readonly returnAvailable = computed(() => {
+    const summary = this.summary();
+    return summary.totalReturnPct !== null && summary.unpricedHoldings === 0;
+  });
+  protected readonly returnValue = computed(() =>
+    this.returnAvailable() ? formatSignedMoney(this.summary().totalReturn) : '',
+  );
   protected readonly returnDelta = computed(() => {
-    const pct = this.summary().totalReturnPct;
-    return pct === null ? '' : formatPercent(pct, { signed: true });
+    if (!this.returnAvailable()) {
+      return 'Unavailable';
+    }
+    return formatPercent(this.summary().totalReturnPct, { signed: true });
   });
   protected readonly returnTone = computed<DeltaTone>(() => {
+    if (!this.returnAvailable()) {
+      return 'flat';
+    }
     const value = this.summary().totalReturn;
     return value > 0 ? 'up' : value < 0 ? 'down' : 'flat';
   });
@@ -120,16 +132,6 @@ export class DashboardPage implements OnInit {
       ? `${base} · ${summary.unpricedHoldings} without a quote`
       : base;
   });
-  protected readonly returnHint = computed(() => {
-    const summary = this.summary();
-    return summary.costBasis > 0
-      ? `vs. ${formatMoney(summary.costBasis)} cost basis`
-      : 'No priced holdings yet';
-  });
-  protected readonly chartSubtitle = 'Net capital invested through filled orders';
-  protected readonly chartCaption =
-    'Built from your executed orders at their execution prices. Historical portfolio valuations are not yet available from the platform, so market moves between fills are not shown.';
-
   protected readonly formatMoneyValue = (value: number): string => formatMoney(value);
 
   constructor() {
@@ -160,6 +162,11 @@ export class DashboardPage implements OnInit {
 
   ngOnInit(): void {
     void this.portfolio.load();
+    this.portfolioHistory.load();
+  }
+
+  protected selectHistoryRange(range: PortfolioPerformanceRange): void {
+    this.portfolioHistory.load(range);
   }
 
   protected widgetWidth(widget: DashboardWidget): number {

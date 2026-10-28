@@ -143,7 +143,7 @@ describe('TradeConfirmationPage', () => {
     expect(text).toContain('Total transaction amount');
     expect(text).toContain('$680.00');
     expect(text).toContain('No commission');
-    expect(text).toContain('#100');
+    expect(text).toContain('ORD-100');
     expect(text).toContain('Filled');
     expect(text).toContain('Place Another Trade');
     expect(text).toContain('Return to Dashboard');

@@ -47,7 +47,7 @@
           <dt>Transaction ID</dt>
           <dd>
             @if (receipt.transactionId) {
-              {{ receipt.transactionId }}
+              <span class="tabular">{{ formatTransactionId(receipt.transactionId) }}</span>
             } @else {
               <span class="text-secondary font-medium">Not provided</span>
               <span class="receipt-note">The platform does not issue transfer IDs yet.</span>

@@ -1,4 +1,12 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, computed, inject, output, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  DestroyRef,
+  computed,
+  inject,
+  output,
+  signal,
+} from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { NavigationEnd, Router, RouterLink, RouterLinkActive } from '@angular/router';
 import { filter } from 'rxjs';
@@ -61,7 +69,13 @@ interface NavItem {
             <app-icon [name]="theme.isDark() ? 'sun' : 'moon'" [size]="20" />
           </button>
           @if (signedIn()) {
-            <button type="button" class="navbar-account" (click)="openProfile()" aria-haspopup="dialog" aria-label="Open profile">
+            <button
+              type="button"
+              class="navbar-account"
+              (click)="openProfile()"
+              aria-haspopup="dialog"
+              aria-label="Open profile"
+            >
               <span class="avatar" aria-hidden="true">{{ initials() }}</span>
               <span class="navbar-account-meta">
                 <span class="navbar-account-name truncate">{{ auth.user()?.displayName }}</span>
@@ -97,7 +111,12 @@ interface NavItem {
           [attr.inert]="menuOpen() ? null : ''"
         >
           @for (item of items(); track item.route) {
-            <a class="navbar-drawer-link" [routerLink]="item.route" routerLinkActive="navbar-link-active" (click)="closeMenu()">
+            <a
+              class="navbar-drawer-link"
+              [routerLink]="item.route"
+              routerLinkActive="navbar-link-active"
+              (click)="closeMenu()"
+            >
               <app-icon [name]="item.icon" [size]="18" />
               <span>{{ item.label }}</span>
             </a>
@@ -116,10 +135,14 @@ interface NavItem {
     </header>
   `,
   styles: `
-    .navbar {
+    :host {
+      display: block;
       position: sticky;
       top: 0;
       z-index: 30;
+    }
+
+    .navbar {
       background: color-mix(in srgb, var(--color-bg) 88%, transparent);
       backdrop-filter: blur(10px);
       border-bottom: 1px solid var(--color-border);
@@ -350,9 +373,30 @@ export class NavbarComponent {
     const items: NavItem[] = [];
     if (this.auth.isClient()) {
       items.push(
-        { label: 'Dashboard', route: '/dashboard', icon: 'dashboard', description: 'Your portfolio at a glance' },
-        { label: 'Transfer Money', route: '/transfer', icon: 'transfer', description: 'Deposit or withdraw cash' },
-        { label: 'Place Trade', route: '/trade', icon: 'trade', description: 'Buy or sell an instrument' },
+        {
+          label: 'Dashboard',
+          route: '/dashboard',
+          icon: 'dashboard',
+          description: 'Your portfolio at a glance',
+        },
+        {
+          label: 'Activity',
+          route: '/activity',
+          icon: 'activity',
+          description: 'Your complete order and transaction history',
+        },
+        {
+          label: 'Transfer Money',
+          route: '/transfer',
+          icon: 'transfer',
+          description: 'Deposit or withdraw cash',
+        },
+        {
+          label: 'Place Trade',
+          route: '/trade',
+          icon: 'trade',
+          description: 'Buy or sell an instrument',
+        },
       );
     }
     if (this.auth.isAdmin()) {

@@ -99,36 +99,30 @@
               }
               @case ('portfolio') {
                 <app-financial-summary-card
-                  label="Total portfolio value"
-                  [value]="holdingsValue()"
+                  label="Holdings value"
+                  [value]="portfolioValue()"
+                  [delta]="returnDelta()"
+                  [deltaDetail]="returnValue()"
+                  deltaLabel="Total return"
+                  [deltaTone]="returnTone()"
                   [hint]="holdingsHint()"
                   icon="briefcase"
                   [loading]="initialLoading()"
                 />
               }
-              @case ('return') {
-                <app-financial-summary-card
-                  label="Total return"
-                  [value]="returnValue()"
-                  [delta]="returnDelta()"
-                  [deltaTone]="returnTone()"
-                  [hint]="returnHint()"
-                  [icon]="returnTone() === 'down' ? 'trend-down' : 'trend-up'"
-                  [loading]="initialLoading()"
-                />
-              }
               @case ('performance') {
                 <app-portfolio-chart
-                  title="Portfolio performance"
-                  [subtitle]="chartSubtitle"
-                  [series]="investedSeries()"
+                  [history]="portfolioHistory.history()"
+                  [range]="portfolioHistory.selectedRange()"
+                  [transactions]="portfolio.transactions()"
+                  [transactionHistoryAvailable]="
+                    portfolio.hasLoaded() && !portfolio.transactionError()
+                  "
                   [height]="300"
-                  [loading]="initialLoading()"
-                  [deltaColoring]="false"
-                  [caption]="chartCaption"
-                  emptyTitle="No filled orders yet"
-                  emptyMessage="Your invested capital over time appears here after your first order is executed."
-                  ariaLabel="Net invested capital over time"
+                  [loading]="portfolioHistory.loading()"
+                  [error]="portfolioHistory.error()"
+                  (rangeChange)="selectHistoryRange($event)"
+                  (retry)="portfolioHistory.retry()"
                 />
               }
               @case ('allocation') {
@@ -248,6 +242,13 @@
                         {{ portfolio.orders().length }} orders.
                       </p>
                     </div>
+                    <a
+                      class="btn btn-soft btn-sm"
+                      routerLink="/activity"
+                      [queryParams]="{ tab: 'orders' }"
+                    >
+                      View all
+                    </a>
                   </div>
                   <app-orders-table
                     [rows]="recentOrders()"
@@ -263,11 +264,20 @@
                     <div>
                       <h2 id="transactions-title">Recent transactions</h2>
                       <p class="card-subtitle">
-                        Showing your latest {{ recentMoneyTransactions().length }} of
-                        {{ moneyTransactionCount() }} deposits and withdrawals.
+                        Showing your latest {{ recentTransactions().length }} of
+                        {{ transactionCount() }} transactions.
                       </p>
                     </div>
-                    <a class="btn btn-soft btn-sm" routerLink="/transfer">Transfer money</a>
+                    <div class="card-header-actions">
+                      <a
+                        class="btn btn-ghost btn-sm"
+                        routerLink="/activity"
+                        [queryParams]="{ tab: 'transactions' }"
+                      >
+                        View all
+                      </a>
+                      <a class="btn btn-soft btn-sm" routerLink="/transfer">Transfer money</a>
+                    </div>
                   </div>
                   @if (transactionError(); as error) {
                     <div class="alert alert-error" role="alert">
@@ -276,7 +286,7 @@
                     </div>
                   } @else {
                     <app-transactions-table
-                      [rows]="recentMoneyTransactions()"
+                      [rows]="recentTransactions()"
                       [loading]="initialLoading()"
                       [visibleRows]="3"
                     />

@@ -3,12 +3,29 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { environment } from '../../../environments/environment';
+import { InstrumentCatalogService } from '../../core/services/instrument-catalog.service';
 import { makeToken } from '../../testing/jwt-fixtures';
 import { DashboardPage } from './dashboard';
 import { DEFAULT_WIDGET_ORDER, layoutStorageKey, serializeWidgetOrder } from './dashboard-layout';
 
 const FUTURE = Math.floor(Date.now() / 1000) + 3600;
 const API = environment.tradingApiUrl;
+const HISTORY_API = `${API}/api/clients/me/portfolio/history`;
+
+function portfolioHistory(range = '1M', points: unknown[] = []): Record<string, unknown> {
+  return {
+    range,
+    timeframe: range === '1D' ? '5Min' : '1Day',
+    currency: 'USD',
+    availableFrom: points.length ? '2026-10-01T00:00:00Z' : null,
+    availableTo: points.length ? '2026-10-26T00:00:00Z' : null,
+    partial: false,
+    returnMethod: 'TWR',
+    unavailablePointCount: 0,
+    limitations: [],
+    points,
+  };
+}
 
 function seedSession(kind: 'client' | 'admin'): void {
   const token =
@@ -51,6 +68,54 @@ describe('DashboardPage', () => {
     http = TestBed.inject(HttpTestingController);
     fixture = TestBed.createComponent(DashboardPage);
     await fixture.whenStable();
+  }
+
+  async function flushPortfolio(options: {
+    readonly price: number | null;
+    readonly averageCost?: number;
+    readonly cash?: number;
+  }): Promise<void> {
+    http
+      .expectOne(`${API}/api/clients/me/balance`)
+      .flush({ clientId: 12, accountBalance: options.cash ?? 1000 });
+    http.expectOne(`${API}/api/clients/me/holdings`).flush([
+      {
+        holdingId: 1,
+        clientId: 12,
+        instrumentId: 2,
+        quantity: 10,
+        averageCost: options.averageCost ?? 100,
+        updatedAt: null,
+      },
+    ]);
+    http.expectOne(`${API}/api/clients/me/orders`).flush([]);
+    http.expectOne(`${API}/api/clients/me/transactions`).flush([]);
+    http.expectOne(`${HISTORY_API}?range=1D`).flush(portfolioHistory('1D'));
+    await fixture.whenStable();
+    http.expectOne(`${API}/instruments/2`).flush({
+      symbol: 'AAPL',
+      instrumentName: 'Apple',
+      assetClass: 'EQUITY',
+      currency: 'USD',
+      tradable: true,
+      bidPrice: options.price,
+      askPrice: options.price,
+      lastPrice: options.price,
+      quoteAsOf: '2026-10-13T00:00:00Z',
+      lastTradeAsOf: '2026-10-13T00:00:00Z',
+    });
+    await fixture.whenStable();
+    fixture.detectChanges();
+  }
+
+  function portfolioCard(): HTMLElement {
+    const card = [
+      ...(fixture.nativeElement as HTMLElement).querySelectorAll<HTMLElement>(
+        'app-financial-summary-card',
+      ),
+    ].find((candidate) => candidate.textContent?.includes('Holdings value'));
+    if (!card) throw new Error('Holdings value card was not rendered');
+    return card;
   }
 
   afterEach(() => {
@@ -112,7 +177,45 @@ describe('DashboardPage', () => {
         balanceAfter: 500,
         createdAt: '2026-10-01T10:00:00Z',
       },
+      {
+        transactionId: 4,
+        clientId: 12,
+        orderId: 9,
+        transactionType: 'BUY',
+        amount: -1000,
+        balanceAfter: 0,
+        createdAt: '2026-10-01T10:00:05Z',
+      },
+      {
+        transactionId: 5,
+        clientId: 12,
+        orderId: 10,
+        transactionType: 'SELL',
+        amount: 120,
+        balanceAfter: 120,
+        createdAt: '2026-10-03T10:00:00Z',
+      },
     ]);
+    http.expectOne(`${HISTORY_API}?range=1D`).flush(
+      portfolioHistory('1D', [
+        {
+          timestamp: '2026-10-01T00:00:00Z',
+          cashValue: 1000,
+          holdingsValue: 1000,
+          totalValue: 2000,
+          cumulativeReturnPercent: 0,
+          valuationStatus: 'COMPLETE',
+        },
+        {
+          timestamp: '2026-10-26T00:00:00Z',
+          cashValue: 1000,
+          holdingsValue: 1200,
+          totalValue: 2200,
+          cumulativeReturnPercent: 6.67,
+          valuationStatus: 'COMPLETE',
+        },
+      ]),
+    );
     await fixture.whenStable();
     http.expectOne(`${API}/instruments/2`).flush({
       symbol: 'AAPL',
@@ -136,6 +239,14 @@ describe('DashboardPage', () => {
     expect(text).toContain('+$200.00'); // return vs 1,000 cost basis
     expect(text).toContain('+20.00%');
     expect(text).toContain('$2,200.00'); // total account value
+    expect(text).not.toContain('Unrealized P/L');
+    expect(text).toContain('+6.67%');
+    expect(text).toContain('-$250.00');
+    const valueCard = portfolioCard();
+    expect(valueCard.querySelector('.summary-value')?.textContent).toContain('$1,200.00');
+    expect(valueCard.querySelector('.summary-delta')?.textContent).toContain('+20.00% (+$200.00)');
+    expect(valueCard.querySelector('.summary-delta-label')?.textContent).toContain('Total return');
+    expect(valueCard.querySelector('.delta')?.classList.contains('delta-up')).toBe(true);
     expect(text).toContain('AAPL');
     expect(text).toContain('Filled');
     expect(text).toContain('Recent transactions');
@@ -143,6 +254,19 @@ describe('DashboardPage', () => {
     expect(text).toContain('Withdrawal');
     expect(text).toContain('+$500.00');
     expect(text).toContain('-$50.00');
+    const transactions = fixture.nativeElement.querySelector(
+      'app-transactions-table',
+    ) as HTMLElement;
+    expect(transactions.textContent).toContain('Buy');
+    expect(transactions.textContent).toContain('Sell');
+    expect(transactions.textContent).toContain('TXN-3');
+    expect(transactions.textContent).toContain('TXN-2');
+    expect(transactions.textContent).toContain('TXN-4');
+    expect(transactions.textContent).toContain('TXN-5');
+    expect(transactions.textContent).toContain('ORD-9');
+    expect(transactions.textContent).toContain('ORD-10');
+    expect(transactions.textContent).toContain('-$1,000.00');
+    expect(transactions.textContent).toContain('+$120.00');
     expect(text).toContain('Buying Power & Asset Allocation');
     expect(text).toContain('Buying power');
     expect(text).toContain('Asset allocation');
@@ -150,11 +274,82 @@ describe('DashboardPage', () => {
     expect(text).not.toContain('Quick actions');
     expect(text).toContain('Transfer Money');
     expect(text).toContain('Place Trade');
+    expect(
+      fixture.nativeElement.querySelector('a[href="/activity?tab=orders"]')?.textContent,
+    ).toContain('View all');
+    expect(
+      fixture.nativeElement.querySelector('a[href="/activity?tab=transactions"]')?.textContent,
+    ).toContain('View all');
+    expect(fixture.nativeElement.querySelector('a[href="/transfer"]')).not.toBeNull();
     expect(text).not.toContain('New Trade');
     // The price search sits in the header above the date, and is idle until used.
     const header = fixture.nativeElement.querySelector('.page-header .page-title') as HTMLElement;
     expect(header.firstElementChild?.tagName.toLowerCase()).toBe('app-instrument-search');
     http.expectNone(`${API}/instruments`);
+  });
+
+  it.each([
+    { label: 'negative', price: 80, expected: '-20.00% (-$200.00)', tone: 'delta-down' },
+    { label: 'zero', price: 100, expected: '0.00% ($0.00)', tone: 'delta-flat' },
+  ])(
+    'displays a $label total return beneath portfolio value',
+    async ({ price, expected, tone }) => {
+      await setup('client');
+      await flushPortfolio({ price });
+
+      const card = portfolioCard();
+      expect(card.querySelector('.summary-value')?.nextElementSibling?.classList).toContain(
+        'summary-delta',
+      );
+      expect(card.querySelector('.summary-delta')?.textContent).toContain(expected);
+      expect(card.querySelector('.delta')?.classList.contains(tone)).toBe(true);
+    },
+  );
+
+  it.each([
+    { label: 'missing cost basis', price: 100, averageCost: 0 },
+    { label: 'an unpriced holding', price: null, averageCost: 100 },
+  ])('uses a neutral unavailable return for $label', async ({ price, averageCost }) => {
+    await setup('client');
+    await flushPortfolio({ price, averageCost });
+
+    const card = portfolioCard();
+    expect(card.querySelector('.summary-delta')?.textContent).toContain('Unavailable');
+    expect(card.querySelector('.summary-delta')?.textContent).not.toContain('%');
+    expect(card.querySelector('.delta')?.classList.contains('delta-flat')).toBe(true);
+  });
+
+  it('reacts when the shared instrument catalog receives a newer stored price', async () => {
+    await setup('client');
+    await flushPortfolio({ price: 120 });
+    expect(portfolioCard().querySelector('.summary-delta')?.textContent).toContain(
+      '+20.00% (+$200.00)',
+    );
+
+    const catalog = TestBed.inject(InstrumentCatalogService);
+    const update = catalog.load(true);
+    http.expectOne(`${API}/instruments`).flush([
+      {
+        instrumentId: 2,
+        symbol: 'AAPL',
+        instrumentName: 'Apple',
+        assetClass: 'EQUITY',
+        currency: 'USD',
+        tradable: true,
+        bidPrice: 79,
+        askPrice: 81,
+        lastPrice: 80,
+        quoteAsOf: '2026-10-14T00:00:00Z',
+        lastTradeAsOf: '2026-10-14T00:00:00Z',
+      },
+    ]);
+    await update;
+    fixture.detectChanges();
+
+    const card = portfolioCard();
+    expect(card.querySelector('.summary-value')?.textContent).toContain('$800.00');
+    expect(card.querySelector('.summary-delta')?.textContent).toContain('-20.00% (-$200.00)');
+    expect(card.querySelector('.delta')?.classList.contains('delta-down')).toBe(true);
   });
 
   describe('widget layout', () => {
@@ -172,6 +367,7 @@ describe('DashboardPage', () => {
       http.expectOne(`${API}/api/clients/me/holdings`).flush([]);
       http.expectOne(`${API}/api/clients/me/orders`).flush([]);
       http.expectOne(`${API}/api/clients/me/transactions`).flush([]);
+      http.expectOne(`${HISTORY_API}?range=1D`).flush(portfolioHistory('1D'));
     }
 
     async function render(prepare?: () => void): Promise<void> {
@@ -187,7 +383,7 @@ describe('DashboardPage', () => {
       fixture.detectChanges();
     }
 
-    it('renders the eight widgets in the default order inside a live grid, locked', async () => {
+    it('renders the seven widgets in the default order inside a live grid, locked', async () => {
       await render();
       expect(widgetOrder()).toEqual([...DEFAULT_WIDGET_ORDER]);
       expect(element().querySelector('.dashboard-widgets')?.classList.contains('grid-stack')).toBe(
@@ -235,9 +431,45 @@ describe('DashboardPage', () => {
       expect(widgetOrder()).toEqual(reversed);
     });
 
+    it('migrates a saved eight-widget layout without changing the remaining relative order', async () => {
+      const legacy = [
+        'transactions',
+        'return',
+        'cash',
+        'orders',
+        'portfolio',
+        'holdings',
+        'allocation',
+        'performance',
+      ];
+      await render(() =>
+        localStorage.setItem(layoutKey, JSON.stringify({ version: 1, order: legacy })),
+      );
+      expect(widgetOrder()).toEqual([
+        'transactions',
+        'cash',
+        'orders',
+        'portfolio',
+        'holdings',
+        'allocation',
+        'performance',
+      ]);
+      expect(localStorage.getItem(layoutKey)).toBe(
+        serializeWidgetOrder([
+          'transactions',
+          'cash',
+          'orders',
+          'portfolio',
+          'holdings',
+          'allocation',
+          'performance',
+        ]),
+      );
+    });
+
     it('falls back to the default order when the saved layout is invalid or belongs to someone else', async () => {
       await render(() => {
-        localStorage.setItem(layoutKey, JSON.stringify({ version: 1, order: ['cash', 'cash'] }));
+        localStorage.setItem(layoutKey, JSON.stringify({ version: 2, order: ['cash', 'cash'] }));
         localStorage.setItem(layoutStorageKey(99), serializeWidgetOrder(reversed));
       });
       expect(widgetOrder()).toEqual([...DEFAULT_WIDGET_ORDER]);
@@ -252,6 +484,31 @@ describe('DashboardPage', () => {
       expect(localStorage.getItem(layoutKey)).toBe(serializeWidgetOrder(reversed)); // not saved yet
       await click('dashboard-edit-widgets');
       expect(localStorage.getItem(layoutKey)).toBe(serializeWidgetOrder(DEFAULT_WIDGET_ORDER));
+    });
+
+    it('requests and caches backend history for each range without a metric toggle', async () => {
+      await render();
+      expect(
+        element()
+          .querySelector<HTMLButtonElement>('button[data-range="1D"]')
+          ?.getAttribute('aria-pressed'),
+      ).toBe('true');
+      for (const range of ['5D', '1M', '1Y', '5Y']) {
+        element().querySelector<HTMLButtonElement>(`button[data-range="${range}"]`)!.click();
+        fixture.detectChanges();
+        http.expectOne(`${HISTORY_API}?range=${range}`).flush(portfolioHistory(range));
+        fixture.detectChanges();
+      }
+
+      expect(element().querySelector('[data-metric]')).toBeNull();
+      element().querySelector<HTMLButtonElement>('button[data-range="1D"]')!.click();
+      fixture.detectChanges();
+      http.expectNone((request) => request.url === HISTORY_API);
+      expect(
+        element()
+          .querySelector<HTMLButtonElement>('button[data-range="1D"]')
+          ?.getAttribute('aria-pressed'),
+      ).toBe('true');
     });
   });
 });

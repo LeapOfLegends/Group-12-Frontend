@@ -52,7 +52,7 @@
                 }
               </span>
               <div class="result-heading">
-                <h2 id="order-entry-title">Order #{{ order.orderId }}</h2>
+                <h2 id="order-entry-title">Order {{ formatOrderId(order.orderId) }}</h2>
                 <app-status-badge [status]="order.status" />
               </div>
               <p class="text-secondary result-description">{{ resultDescription() }}</p>

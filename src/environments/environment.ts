@@ -13,7 +13,7 @@ export const environment = {
   /** Local storage key that holds the signed-in session. */
   sessionStorageKey: 'jetzy.session',
   /** How long the backend considers a market quote fresh (order-lifecycle.quote.max-age). */
-  quoteMaxAgeSeconds: 30,
+  quoteMaxAgeSeconds: 60,
   /** Background reads use backend timestamps as truth; these only control request cadence. */
   quotePollIntervalMs: 5000,
   portfolioPollIntervalMs: 15000,

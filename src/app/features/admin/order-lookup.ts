@@ -13,6 +13,7 @@ import { OrdersApiService } from '../../core/api/orders-api.service';
 import { Instrument, Order } from '../../core/models/trading.models';
 import { InstrumentCatalogService } from '../../core/services/instrument-catalog.service';
 import { describeHttpError, httpStatusOf } from '../../core/utils/http-error';
+import { formatOrderId, parseOrderIdInput } from '../../core/utils/display-ids';
 import { describeOrderOutcome, isSettled } from '../../core/utils/order-reasons';
 import { DateTimePipe, MoneyPipe, PricePipe, QuantityPipe } from '../../shared/pipes/format.pipes';
 import { IconComponent } from '../../shared/ui/icon/icon';
@@ -46,8 +47,8 @@ import { StatusBadgeComponent } from '../../shared/ui/status-badge/status-badge'
           id="order-lookup-input"
           class="input"
           formControlName="orderId"
-          inputmode="numeric"
-          placeholder="Order ID, e.g. 47"
+          inputmode="text"
+          placeholder="Order ID, e.g. ORD-47"
           autocomplete="off"
         />
         <button type="submit" class="btn btn-primary" [disabled]="loading() || form.invalid">
@@ -68,7 +69,7 @@ import { StatusBadgeComponent } from '../../shared/ui/status-badge/status-badge'
       @if (order(); as found) {
         <div class="order-result">
           <div class="spread">
-            <strong>Order #{{ found.orderId }}</strong>
+            <strong>Order {{ formatOrderId(found.orderId) }}</strong>
             <app-status-badge [status]="found.status" />
           </div>
           <p class="text-secondary text-sm">{{ outcome(found) }}</p>
@@ -200,12 +201,13 @@ export class OrderLookupComponent {
   private orderPoll?: Subscription;
 
   protected readonly form = this.fb.nonNullable.group({
-    orderId: ['', [Validators.required, Validators.pattern(/^\d+$/)]],
+    orderId: ['', [Validators.required, Validators.pattern(/^\s*(?:ORD-)?[1-9]\d*\s*$/i)]],
   });
   protected readonly loading = signal(false);
   protected readonly error = signal<string | null>(null);
   protected readonly order = signal<Order | null>(null);
   private readonly instrumentState = signal<Instrument | null>(null);
+  protected readonly formatOrderId = formatOrderId;
   protected readonly instrument = computed(() => {
     const instrument = this.instrumentState();
     if (!instrument?.instrumentId) return instrument;
@@ -220,8 +222,14 @@ export class OrderLookupComponent {
   }
 
   protected async search(): Promise<void> {
-    const id = Number(this.form.controls.orderId.value);
-    if (!Number.isInteger(id) || this.loading()) {
+    if (this.loading()) {
+      return;
+    }
+    const id = parseOrderIdInput(this.form.controls.orderId.value);
+    if (id === null) {
+      this.form.controls.orderId.markAsTouched();
+      this.order.set(null);
+      this.error.set('Enter an order ID such as ORD-47 or 47.');
       return;
     }
     this.loading.set(true);
@@ -245,7 +253,7 @@ export class OrderLookupComponent {
     } catch (error: unknown) {
       this.error.set(
         httpStatusOf(error) === 404
-          ? `No order with ID ${id}.`
+          ? `No order with ID ${formatOrderId(id)}.`
           : describeHttpError(error, 'The order could not be loaded.'),
       );
     } finally {

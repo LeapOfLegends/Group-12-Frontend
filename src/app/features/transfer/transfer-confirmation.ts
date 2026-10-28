@@ -2,6 +2,7 @@ import { DOCUMENT } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../core/auth/auth.service';
+import { formatTransactionId } from '../../core/utils/display-ids';
 import { DateTimePipe, MoneyPipe } from '../../shared/pipes/format.pipes';
 import { EmptyStateComponent } from '../../shared/ui/empty-state/empty-state';
 import { IconComponent } from '../../shared/ui/icon/icon';
@@ -34,6 +35,7 @@ export class TransferConfirmationPage {
   private readonly auth = inject(AuthService);
 
   protected readonly receipt = signal<TransferReceipt | null>(this.readReceipt());
+  protected readonly formatTransactionId = formatTransactionId;
 
   protected readonly isDeposit = computed(() => this.receipt()?.mode === 'deposit');
   protected readonly completed = computed(() => this.receipt()?.status === 'completed');

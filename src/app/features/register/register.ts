@@ -195,6 +195,7 @@ export class RegisterPage {
   protected readonly submitted = signal(false);
   protected readonly formError = signal<string | null>(null);
   protected readonly showPassword = signal(false);
+  protected readonly showConfirmPassword = signal(false);
   protected readonly showSsn = signal(false);
   protected readonly year = new Date().getFullYear();
   protected readonly minAge = MIN_AGE_YEARS;
@@ -288,6 +289,10 @@ export class RegisterPage {
 
   protected togglePassword(): void {
     this.showPassword.update((value) => !value);
+  }
+
+  protected toggleConfirmPassword(): void {
+    this.showConfirmPassword.update((value) => !value);
   }
 
   protected toggleSsn(): void {

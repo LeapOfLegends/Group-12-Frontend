@@ -89,6 +89,11 @@ describe('TransferConfirmationPage', () => {
     expect(text).not.toContain('Completed');
   });
 
+  it('formats a real transaction ID when one is supplied', async () => {
+    const fixture = await setup({ transfer: { ...RECEIPT, transactionId: 7 } });
+    expect(fixture.nativeElement.textContent).toContain('TXN-7');
+  });
+
   it('explains when there is no transfer to show', async () => {
     const fixture = await setup(null);
     expect(fixture.nativeElement.textContent).toContain('No transfer to show');

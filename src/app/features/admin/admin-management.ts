@@ -156,7 +156,7 @@ const ROLE_TONES: Record<AdminRole, 'accent' | 'info' | 'brand'> = {
         @if (!editing()) {
           <div class="field">
             <label class="field-label" for="admin-password">Temporary password</label>
-            <div class="input-group input-group-password">
+            <div class="input-group input-group-password input-group-visibility">
               <input
                 id="admin-password"
                 class="input"
@@ -165,7 +165,7 @@ const ROLE_TONES: Record<AdminRole, 'accent' | 'info' | 'brand'> = {
                 autocomplete="new-password"
                 [attr.aria-invalid]="showError('password') ? 'true' : null"
               />
-              <button type="button" class="btn btn-ghost btn-icon input-suffix" (click)="showPassword.set(!showPassword())" [attr.aria-label]="showPassword() ? 'Hide password' : 'Show password'">
+              <button type="button" class="btn btn-ghost btn-icon input-suffix" (click)="showPassword.set(!showPassword())" [attr.aria-label]="showPassword() ? 'Hide password' : 'Show password'" [attr.aria-pressed]="showPassword()">
                 <app-icon [name]="showPassword() ? 'eye-off' : 'eye'" [size]="20" />
               </button>
             </div>
