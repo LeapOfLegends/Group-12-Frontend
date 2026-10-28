@@ -101,19 +101,12 @@
                 <app-financial-summary-card
                   label="Total portfolio value"
                   [value]="portfolioValue()"
+                  [delta]="returnDelta()"
+                  [deltaDetail]="returnValue()"
+                  deltaLabel="Total return"
+                  [deltaTone]="returnTone()"
                   [hint]="holdingsHint()"
                   icon="briefcase"
-                  [loading]="initialLoading()"
-                />
-              }
-              @case ('return') {
-                <app-financial-summary-card
-                  label="Unrealized P/L"
-                  [value]="returnValue()"
-                  [delta]="returnDelta()"
-                  [deltaTone]="returnTone()"
-                  [hint]="returnHint()"
-                  [icon]="returnTone() === 'down' ? 'trend-down' : 'trend-up'"
                   [loading]="initialLoading()"
                 />
               }

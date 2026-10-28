@@ -49,8 +49,8 @@ import {
 import { WidgetGrid } from './widget-grid';
 
 /**
- * Client home: price search, cash, portfolio value, return, performance chart, holdings, orders
- * and actions. The eight widgets can be rearranged in edit mode; the order is kept per client in
+ * Client home: price search, cash, portfolio value and return, performance chart, holdings, orders
+ * and actions. The seven widgets can be rearranged in edit mode; the order is kept per client in
  * localStorage (see dashboard-layout.ts).
  */
 @Component({
@@ -107,13 +107,24 @@ export class DashboardPage implements OnInit {
   protected readonly chartMetric = signal<PortfolioChartMetric>('VALUE');
 
   protected readonly cashValue = computed(() => formatMoney(this.portfolio.cash()));
-  protected readonly portfolioValue = computed(() => formatMoney(this.summary().totalAccountValue));
-  protected readonly returnValue = computed(() => formatSignedMoney(this.summary().totalReturn));
+  protected readonly portfolioValue = computed(() => formatMoney(this.summary().holdingsValue));
+  protected readonly returnAvailable = computed(() => {
+    const summary = this.summary();
+    return summary.totalReturnPct !== null && summary.unpricedHoldings === 0;
+  });
+  protected readonly returnValue = computed(() =>
+    this.returnAvailable() ? formatSignedMoney(this.summary().totalReturn) : '',
+  );
   protected readonly returnDelta = computed(() => {
-    const pct = this.summary().totalReturnPct;
-    return pct === null ? '' : formatPercent(pct, { signed: true });
+    if (!this.returnAvailable()) {
+      return 'Unavailable';
+    }
+    return formatPercent(this.summary().totalReturnPct, { signed: true });
   });
   protected readonly returnTone = computed<DeltaTone>(() => {
+    if (!this.returnAvailable()) {
+      return 'flat';
+    }
     const value = this.summary().totalReturn;
     return value > 0 ? 'up' : value < 0 ? 'down' : 'flat';
   });
@@ -123,14 +134,8 @@ export class DashboardPage implements OnInit {
     const base =
       count === 1 ? '1 holding at current prices' : `${count} holdings at current prices`;
     return summary.unpricedHoldings > 0
-      ? `Includes cash and ${base} · ${summary.unpricedHoldings} without a quote`
-      : `Includes cash and ${base}`;
-  });
-  protected readonly returnHint = computed(() => {
-    const summary = this.summary();
-    return summary.costBasis > 0
-      ? `vs. ${formatMoney(summary.costBasis)} cost basis`
-      : 'No priced holdings yet';
+      ? `${base} · ${summary.unpricedHoldings} without a quote`
+      : base;
   });
   protected readonly formatMoneyValue = (value: number): string => formatMoney(value);
 

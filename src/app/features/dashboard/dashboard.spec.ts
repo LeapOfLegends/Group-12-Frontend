@@ -3,6 +3,7 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { environment } from '../../../environments/environment';
+import { InstrumentCatalogService } from '../../core/services/instrument-catalog.service';
 import { makeToken } from '../../testing/jwt-fixtures';
 import { DashboardPage } from './dashboard';
 import { DEFAULT_WIDGET_ORDER, layoutStorageKey, serializeWidgetOrder } from './dashboard-layout';
@@ -67,6 +68,54 @@ describe('DashboardPage', () => {
     http = TestBed.inject(HttpTestingController);
     fixture = TestBed.createComponent(DashboardPage);
     await fixture.whenStable();
+  }
+
+  async function flushPortfolio(options: {
+    readonly price: number | null;
+    readonly averageCost?: number;
+    readonly cash?: number;
+  }): Promise<void> {
+    http
+      .expectOne(`${API}/api/clients/me/balance`)
+      .flush({ clientId: 12, accountBalance: options.cash ?? 1000 });
+    http.expectOne(`${API}/api/clients/me/holdings`).flush([
+      {
+        holdingId: 1,
+        clientId: 12,
+        instrumentId: 2,
+        quantity: 10,
+        averageCost: options.averageCost ?? 100,
+        updatedAt: null,
+      },
+    ]);
+    http.expectOne(`${API}/api/clients/me/orders`).flush([]);
+    http.expectOne(`${API}/api/clients/me/transactions`).flush([]);
+    http.expectOne(`${HISTORY_API}?range=1D`).flush(portfolioHistory('1D'));
+    await fixture.whenStable();
+    http.expectOne(`${API}/instruments/2`).flush({
+      symbol: 'AAPL',
+      instrumentName: 'Apple',
+      assetClass: 'EQUITY',
+      currency: 'USD',
+      tradable: true,
+      bidPrice: options.price,
+      askPrice: options.price,
+      lastPrice: options.price,
+      quoteAsOf: '2026-10-13T00:00:00Z',
+      lastTradeAsOf: '2026-10-13T00:00:00Z',
+    });
+    await fixture.whenStable();
+    fixture.detectChanges();
+  }
+
+  function portfolioCard(): HTMLElement {
+    const card = [
+      ...(fixture.nativeElement as HTMLElement).querySelectorAll<HTMLElement>(
+        'app-financial-summary-card',
+      ),
+    ].find((candidate) => candidate.textContent?.includes('Total portfolio value'));
+    if (!card) throw new Error('Total portfolio value card was not rendered');
+    return card;
   }
 
   afterEach(() => {
@@ -190,12 +239,13 @@ describe('DashboardPage', () => {
     expect(text).toContain('+$200.00'); // return vs 1,000 cost basis
     expect(text).toContain('+20.00%');
     expect(text).toContain('$2,200.00'); // total account value
-    expect(text).toContain('Unrealized P/L');
+    expect(text).not.toContain('Unrealized P/L');
     expect(text).toContain('Latest historical value');
-    const portfolioCard = [
-      ...(fixture.nativeElement as HTMLElement).querySelectorAll('app-financial-summary-card'),
-    ].find((card) => card.textContent?.includes('Total portfolio value'));
-    expect(portfolioCard?.textContent).toContain('$2,200.00');
+    const valueCard = portfolioCard();
+    expect(valueCard.querySelector('.summary-value')?.textContent).toContain('$1,200.00');
+    expect(valueCard.querySelector('.summary-delta')?.textContent).toContain('+20.00% (+$200.00)');
+    expect(valueCard.querySelector('.summary-delta-label')?.textContent).toContain('Total return');
+    expect(valueCard.querySelector('.delta')?.classList.contains('delta-up')).toBe(true);
     expect(text).toContain('AAPL');
     expect(text).toContain('Filled');
     expect(text).toContain('Recent transactions');
@@ -230,6 +280,70 @@ describe('DashboardPage', () => {
     http.expectNone(`${API}/instruments`);
   });
 
+  it.each([
+    { label: 'negative', price: 80, expected: '-20.00% (-$200.00)', tone: 'delta-down' },
+    { label: 'zero', price: 100, expected: '0.00% ($0.00)', tone: 'delta-flat' },
+  ])(
+    'displays a $label total return beneath portfolio value',
+    async ({ price, expected, tone }) => {
+      await setup('client');
+      await flushPortfolio({ price });
+
+      const card = portfolioCard();
+      expect(card.querySelector('.summary-value')?.nextElementSibling?.classList).toContain(
+        'summary-delta',
+      );
+      expect(card.querySelector('.summary-delta')?.textContent).toContain(expected);
+      expect(card.querySelector('.delta')?.classList.contains(tone)).toBe(true);
+    },
+  );
+
+  it.each([
+    { label: 'missing cost basis', price: 100, averageCost: 0 },
+    { label: 'an unpriced holding', price: null, averageCost: 100 },
+  ])('uses a neutral unavailable return for $label', async ({ price, averageCost }) => {
+    await setup('client');
+    await flushPortfolio({ price, averageCost });
+
+    const card = portfolioCard();
+    expect(card.querySelector('.summary-delta')?.textContent).toContain('Unavailable');
+    expect(card.querySelector('.summary-delta')?.textContent).not.toContain('%');
+    expect(card.querySelector('.delta')?.classList.contains('delta-flat')).toBe(true);
+  });
+
+  it('reacts when the shared instrument catalog receives a newer stored price', async () => {
+    await setup('client');
+    await flushPortfolio({ price: 120 });
+    expect(portfolioCard().querySelector('.summary-delta')?.textContent).toContain(
+      '+20.00% (+$200.00)',
+    );
+
+    const catalog = TestBed.inject(InstrumentCatalogService);
+    const update = catalog.load(true);
+    http.expectOne(`${API}/instruments`).flush([
+      {
+        instrumentId: 2,
+        symbol: 'AAPL',
+        instrumentName: 'Apple',
+        assetClass: 'EQUITY',
+        currency: 'USD',
+        tradable: true,
+        bidPrice: 79,
+        askPrice: 81,
+        lastPrice: 80,
+        quoteAsOf: '2026-10-14T00:00:00Z',
+        lastTradeAsOf: '2026-10-14T00:00:00Z',
+      },
+    ]);
+    await update;
+    fixture.detectChanges();
+
+    const card = portfolioCard();
+    expect(card.querySelector('.summary-value')?.textContent).toContain('$800.00');
+    expect(card.querySelector('.summary-delta')?.textContent).toContain('-20.00% (-$200.00)');
+    expect(card.querySelector('.delta')?.classList.contains('delta-down')).toBe(true);
+  });
+
   describe('widget layout', () => {
     const layoutKey = layoutStorageKey(12);
     const reversed = [...DEFAULT_WIDGET_ORDER].reverse();
@@ -261,7 +375,7 @@ describe('DashboardPage', () => {
       fixture.detectChanges();
     }
 
-    it('renders the eight widgets in the default order inside a live grid, locked', async () => {
+    it('renders the seven widgets in the default order inside a live grid, locked', async () => {
       await render();
       expect(widgetOrder()).toEqual([...DEFAULT_WIDGET_ORDER]);
       expect(element().querySelector('.dashboard-widgets')?.classList.contains('grid-stack')).toBe(
@@ -309,9 +423,45 @@ describe('DashboardPage', () => {
       expect(widgetOrder()).toEqual(reversed);
     });
 
+    it('migrates a saved eight-widget layout without changing the remaining relative order', async () => {
+      const legacy = [
+        'transactions',
+        'return',
+        'cash',
+        'orders',
+        'portfolio',
+        'holdings',
+        'allocation',
+        'performance',
+      ];
+      await render(() =>
+        localStorage.setItem(layoutKey, JSON.stringify({ version: 1, order: legacy })),
+      );
+      expect(widgetOrder()).toEqual([
+        'transactions',
+        'cash',
+        'orders',
+        'portfolio',
+        'holdings',
+        'allocation',
+        'performance',
+      ]);
+      expect(localStorage.getItem(layoutKey)).toBe(
+        serializeWidgetOrder([
+          'transactions',
+          'cash',
+          'orders',
+          'portfolio',
+          'holdings',
+          'allocation',
+          'performance',
+        ]),
+      );
+    });
+
     it('falls back to the default order when the saved layout is invalid or belongs to someone else', async () => {
       await render(() => {
-        localStorage.setItem(layoutKey, JSON.stringify({ version: 1, order: ['cash', 'cash'] }));
+        localStorage.setItem(layoutKey, JSON.stringify({ version: 2, order: ['cash', 'cash'] }));
         localStorage.setItem(layoutStorageKey(99), serializeWidgetOrder(reversed));
       });
       expect(widgetOrder()).toEqual([...DEFAULT_WIDGET_ORDER]);

@@ -6,14 +6,7 @@
  * its data and when the grid switches column counts.
  */
 export type DashboardWidgetId =
-  | 'cash'
-  | 'portfolio'
-  | 'return'
-  | 'performance'
-  | 'allocation'
-  | 'holdings'
-  | 'orders'
-  | 'transactions';
+  'cash' | 'portfolio' | 'performance' | 'allocation' | 'holdings' | 'orders' | 'transactions';
 
 /** Column counts the grid switches between. */
 export type GridColumns = 12 | 6 | 1;
@@ -31,17 +24,16 @@ export interface DashboardWidget {
   readonly heightGroup?: HeightGroup;
 }
 
-/** The default layout, in order: three summary tiles, the chart beside the allocation card, then the tables. */
+/** The default layout, in order: two summary tiles, the chart beside the allocation card, then the tables. */
 export const DASHBOARD_WIDGETS: readonly DashboardWidget[] = [
-  { id: 'cash', title: 'Account cash balance', desktop: 4, tablet: 2, heightGroup: 'summary' },
+  { id: 'cash', title: 'Account cash balance', desktop: 6, tablet: 3, heightGroup: 'summary' },
   {
     id: 'portfolio',
     title: 'Total portfolio value',
-    desktop: 4,
-    tablet: 2,
+    desktop: 6,
+    tablet: 3,
     heightGroup: 'summary',
   },
-  { id: 'return', title: 'Total return', desktop: 4, tablet: 2, heightGroup: 'summary' },
   {
     id: 'performance',
     title: 'Portfolio performance',
@@ -67,7 +59,7 @@ export const DEFAULT_WIDGET_ORDER: readonly DashboardWidgetId[] = DASHBOARD_WIDG
 
 /**
  * A height group only applies while its members can still share a row: the summary tiles stay
- * three across down to the 6-column grid, the chart and the allocation card only share a row on
+ * two across down to the 6-column grid, the chart and the allocation card only share a row on
  * the 12-column grid. Below that they take their natural heights, as the old layout did.
  */
 export const HEIGHT_GROUP_MIN_COLUMNS: Readonly<Record<HeightGroup, GridColumns>> = {
@@ -108,7 +100,18 @@ export function orderWidgets(order: readonly DashboardWidgetId[]): DashboardWidg
   return order.flatMap((id) => byId.get(id) ?? []);
 }
 
-const LAYOUT_VERSION = 1;
+const LAYOUT_VERSION = 2;
+const LEGACY_LAYOUT_VERSION = 1;
+const LEGACY_WIDGET_ORDER = [
+  'cash',
+  'portfolio',
+  'return',
+  'performance',
+  'allocation',
+  'holdings',
+  'orders',
+  'transactions',
+] as const;
 const STORAGE_KEY = 'jetzy.dashboardLayout';
 
 /** One layout per account, keyed by the client id the session already holds; nothing sensitive is stored. */
@@ -120,7 +123,10 @@ export function serializeWidgetOrder(order: readonly DashboardWidgetId[]): strin
   return JSON.stringify({ version: LAYOUT_VERSION, order });
 }
 
-/** The saved order, or null when there is none or it is not a permutation of the current widgets. */
+/**
+ * The saved order, or null when there is none or it is not a valid widget permutation.
+ * Version 1 layouts are migrated by removing the retired standalone return widget.
+ */
 export function parseWidgetOrder(raw: string | null | undefined): DashboardWidgetId[] | null {
   if (!raw) {
     return null;
@@ -135,24 +141,38 @@ export function parseWidgetOrder(raw: string | null | undefined): DashboardWidge
     return null;
   }
   const { version, order } = data as { version?: unknown; order?: unknown };
-  if (
-    version !== LAYOUT_VERSION ||
-    !Array.isArray(order) ||
-    order.length !== DEFAULT_WIDGET_ORDER.length
-  ) {
+  if (!Array.isArray(order)) {
     return null;
   }
-  const known = new Set<unknown>(DEFAULT_WIDGET_ORDER);
+  const expected =
+    version === LAYOUT_VERSION
+      ? DEFAULT_WIDGET_ORDER
+      : version === LEGACY_LAYOUT_VERSION
+        ? LEGACY_WIDGET_ORDER
+        : null;
+  if (!expected || order.length !== expected.length) {
+    return null;
+  }
+  const known = new Set<unknown>(expected);
   if (new Set(order).size !== order.length || !order.every((id) => known.has(id))) {
     return null;
   }
-  return order as DashboardWidgetId[];
+  return order.filter((id): id is DashboardWidgetId => id !== 'return');
 }
 
 /** The saved order for the key; storage can be unavailable (private windows), which counts as none. */
 export function loadWidgetOrder(key: string): DashboardWidgetId[] | null {
   try {
-    return parseWidgetOrder(localStorage.getItem(key));
+    const raw = localStorage.getItem(key);
+    const order = parseWidgetOrder(raw);
+    if (
+      order &&
+      raw &&
+      (JSON.parse(raw) as { version?: unknown }).version === LEGACY_LAYOUT_VERSION
+    ) {
+      saveWidgetOrder(key, order);
+    }
+    return order;
   } catch {
     return null;
   }
