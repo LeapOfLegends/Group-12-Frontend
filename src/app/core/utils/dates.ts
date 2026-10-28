@@ -26,6 +26,13 @@ const timeFormatter = new Intl.DateTimeFormat(LOCALE, {
   timeZoneName: 'short',
 });
 
+const easternDateKeyFormatter = new Intl.DateTimeFormat('en-US', {
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+  timeZone: EASTERN_TIME_ZONE,
+});
+
 export function toDate(value: string | number | Date | null | undefined): Date | null {
   if (value === null || value === undefined || value === '') {
     return null;
@@ -47,6 +54,19 @@ export function formatDate(value: string | number | Date | null | undefined): st
 export function formatTime(value: string | number | Date | null | undefined): string {
   const date = toDate(value);
   return date ? timeFormatter.format(date) : '—';
+}
+
+/** YYYY-MM-DD for the calendar day in Eastern Time, including daylight-saving changes. */
+export function easternDateKey(value: string | number | Date | null | undefined): string | null {
+  const date = toDate(value);
+  if (!date) {
+    return null;
+  }
+  const parts = easternDateKeyFormatter.formatToParts(date);
+  const year = parts.find((part) => part.type === 'year')?.value;
+  const month = parts.find((part) => part.type === 'month')?.value;
+  const day = parts.find((part) => part.type === 'day')?.value;
+  return year && month && day ? `${year}-${month}-${day}` : null;
 }
 
 /** Age of a timestamp in whole seconds, or null when the value is missing. */

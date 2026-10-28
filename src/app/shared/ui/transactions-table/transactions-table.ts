@@ -10,21 +10,26 @@ import { TableScrollDirective } from '../table-scroll';
 @Component({
   selector: 'app-transactions-table',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DateTimePipe, MoneyPipe, SignedMoneyPipe, EmptyStateComponent, LoadingSkeletonComponent, TableScrollDirective],
+  imports: [
+    DateTimePipe,
+    MoneyPipe,
+    SignedMoneyPipe,
+    EmptyStateComponent,
+    LoadingSkeletonComponent,
+    TableScrollDirective,
+  ],
   template: `
     @if (loading()) {
       <app-loading-skeleton variant="table" [lines]="4" label="Loading transactions" />
     } @else if (rows().length === 0) {
-      <app-empty-state
-        icon="transfer"
-        title="No transactions yet"
-        message="Funding and completed trade activity will appear here."
-      />
+      <app-empty-state icon="transfer" [title]="emptyTitle()" [message]="emptyMessage()" />
     } @else {
-      <div class="table-wrap" [appTableScroll]="visibleRows()" tableScrollLabel="Recent transactions">
+      <div class="table-wrap" [appTableScroll]="visibleRows()" [tableScrollLabel]="caption()">
         <table class="table">
           <caption class="visually-hidden">
-            Recent account transactions
+            {{
+              caption()
+            }}
           </caption>
           <thead>
             <tr>
@@ -50,9 +55,7 @@ import { TableScrollDirective } from '../table-scroll';
                     {{ typeLabel(transaction) }}
                   </span>
                   @if (transaction.orderId !== null) {
-                    <span class="order-reference"
-                      >{{ formatOrderId(transaction.orderId) }}</span
-                    >
+                    <span class="order-reference">{{ formatOrderId(transaction.orderId) }}</span>
                   }
                 </td>
                 <td
@@ -112,9 +115,12 @@ import { TableScrollDirective } from '../table-scroll';
   `,
 })
 export class TransactionsTableComponent {
-  readonly rows = input<AccountTransaction[]>([]);
+  readonly rows = input<readonly AccountTransaction[]>([]);
   readonly loading = input<boolean>(false);
   readonly visibleRows = input<number | null>(null);
+  readonly caption = input<string>('Recent account transactions');
+  readonly emptyTitle = input<string>('No transactions yet');
+  readonly emptyMessage = input<string>('Funding and completed trade activity will appear here.');
   protected readonly formatOrderId = formatOrderId;
   protected readonly formatTransactionId = formatTransactionId;
 

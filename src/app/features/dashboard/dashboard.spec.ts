@@ -113,8 +113,8 @@ describe('DashboardPage', () => {
       ...(fixture.nativeElement as HTMLElement).querySelectorAll<HTMLElement>(
         'app-financial-summary-card',
       ),
-    ].find((candidate) => candidate.textContent?.includes('Total portfolio value'));
-    if (!card) throw new Error('Total portfolio value card was not rendered');
+    ].find((candidate) => candidate.textContent?.includes('Holdings value'));
+    if (!card) throw new Error('Holdings value card was not rendered');
     return card;
   }
 
@@ -240,8 +240,8 @@ describe('DashboardPage', () => {
     expect(text).toContain('+20.00%');
     expect(text).toContain('$2,200.00'); // total account value
     expect(text).not.toContain('Unrealized P/L');
-    expect(text).toContain('+6.67% TWR');
-    expect(text).toContain('-$250.00 period gain/loss');
+    expect(text).toContain('+6.67%');
+    expect(text).toContain('-$250.00');
     const valueCard = portfolioCard();
     expect(valueCard.querySelector('.summary-value')?.textContent).toContain('$1,200.00');
     expect(valueCard.querySelector('.summary-delta')?.textContent).toContain('+20.00% (+$200.00)');
@@ -274,6 +274,13 @@ describe('DashboardPage', () => {
     expect(text).not.toContain('Quick actions');
     expect(text).toContain('Transfer Money');
     expect(text).toContain('Place Trade');
+    expect(
+      fixture.nativeElement.querySelector('a[href="/activity?tab=orders"]')?.textContent,
+    ).toContain('View all');
+    expect(
+      fixture.nativeElement.querySelector('a[href="/activity?tab=transactions"]')?.textContent,
+    ).toContain('View all');
+    expect(fixture.nativeElement.querySelector('a[href="/transfer"]')).not.toBeNull();
     expect(text).not.toContain('New Trade');
     // The price search sits in the header above the date, and is idle until used.
     const header = fixture.nativeElement.querySelector('.page-header .page-title') as HTMLElement;

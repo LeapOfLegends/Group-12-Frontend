@@ -12,7 +12,16 @@ import { TableScrollDirective } from '../table-scroll';
 @Component({
   selector: 'app-orders-table',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [MoneyPipe, PricePipe, QuantityPipe, DateTimePipe, EmptyStateComponent, LoadingSkeletonComponent, StatusBadgeComponent, TableScrollDirective],
+  imports: [
+    MoneyPipe,
+    PricePipe,
+    QuantityPipe,
+    DateTimePipe,
+    EmptyStateComponent,
+    LoadingSkeletonComponent,
+    StatusBadgeComponent,
+    TableScrollDirective,
+  ],
   template: `
     @if (loading()) {
       <app-loading-skeleton variant="table" [lines]="4" label="Loading orders" />
@@ -104,7 +113,7 @@ import { TableScrollDirective } from '../table-scroll';
   `,
 })
 export class OrdersTableComponent {
-  readonly rows = input<OrderRow[]>([]);
+  readonly rows = input<readonly OrderRow[]>([]);
   readonly loading = input<boolean>(false);
   readonly visibleRows = input<number | null>(null);
   readonly caption = input<string>('Orders');

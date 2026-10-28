@@ -242,6 +242,13 @@
                         {{ portfolio.orders().length }} orders.
                       </p>
                     </div>
+                    <a
+                      class="btn btn-soft btn-sm"
+                      routerLink="/activity"
+                      [queryParams]="{ tab: 'orders' }"
+                    >
+                      View all
+                    </a>
                   </div>
                   <app-orders-table
                     [rows]="recentOrders()"
@@ -261,7 +268,16 @@
                         {{ transactionCount() }} transactions.
                       </p>
                     </div>
-                    <a class="btn btn-soft btn-sm" routerLink="/transfer">Transfer money</a>
+                    <div class="card-header-actions">
+                      <a
+                        class="btn btn-ghost btn-sm"
+                        routerLink="/activity"
+                        [queryParams]="{ tab: 'transactions' }"
+                      >
+                        View all
+                      </a>
+                      <a class="btn btn-soft btn-sm" routerLink="/transfer">Transfer money</a>
+                    </div>
                   </div>
                   @if (transactionError(); as error) {
                     <div class="alert alert-error" role="alert">

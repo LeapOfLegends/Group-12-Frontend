@@ -1,4 +1,4 @@
-import { EASTERN_TIME_ZONE, formatDate, formatDateTime, formatTime } from './dates';
+import { EASTERN_TIME_ZONE, easternDateKey, formatDate, formatDateTime, formatTime } from './dates';
 
 describe('Eastern Time formatting', () => {
   it('uses the America/New_York IANA timezone', () => {
@@ -13,5 +13,11 @@ describe('Eastern Time formatting', () => {
   it('uses Eastern Time for date-only and time-only displays', () => {
     expect(formatDate('2026-01-01T02:00:00Z')).toBe('Dec 31, 2025');
     expect(formatTime('2026-07-15T14:30:15Z')).toMatch(/10:30:15 AM.*EDT/);
+  });
+
+  it('returns sortable Eastern calendar keys across standard and daylight time', () => {
+    expect(easternDateKey('2026-01-01T02:00:00Z')).toBe('2025-12-31');
+    expect(easternDateKey('2026-07-15T03:30:00Z')).toBe('2026-07-14');
+    expect(easternDateKey('not-a-date')).toBeNull();
   });
 });

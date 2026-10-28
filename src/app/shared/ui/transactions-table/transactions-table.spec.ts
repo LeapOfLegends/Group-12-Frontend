@@ -63,4 +63,18 @@ describe('TransactionsTableComponent', () => {
     ).toBe('Loading transactions');
     expect(fixture.nativeElement.textContent).not.toContain('TXN-');
   });
+
+  it('allows a full-history caption and filtered empty copy without changing defaults', () => {
+    fixture.componentRef.setInput('caption', 'Transaction history');
+    fixture.componentRef.setInput('emptyTitle', 'No transactions match your filters.');
+    fixture.componentRef.setInput('emptyMessage', 'Reset the filters.');
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.textContent).toContain('No transactions match your filters.');
+    fixture.componentRef.setInput('rows', TRANSACTIONS);
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('caption')?.textContent.trim()).toBe(
+      'Transaction history',
+    );
+  });
 });

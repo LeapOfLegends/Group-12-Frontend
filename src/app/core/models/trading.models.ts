@@ -165,8 +165,8 @@ export type OrderStatus = 'SUBMITTED' | 'ACCEPTED' | 'REJECTED' | 'FILLED' | 'FA
 export const ORDER_STATUSES: readonly OrderStatus[] = [
   'SUBMITTED',
   'ACCEPTED',
-  'REJECTED',
   'FILLED',
+  'REJECTED',
   'FAILED',
 ];
 

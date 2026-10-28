@@ -1,0 +1,175 @@
+<div class="page activity-page">
+  <header class="page-header">
+    <div class="page-title">
+      <h1>Activity</h1>
+      <p class="page-subtitle">Review your complete order and transaction history.</p>
+    </div>
+  </header>
+
+  <div class="segmented activity-tabs" role="tablist" aria-label="Activity history">
+    <button
+      id="orders-tab"
+      type="button"
+      role="tab"
+      aria-controls="orders-panel"
+      [attr.aria-selected]="activeTab() === 'orders'"
+      [attr.tabindex]="activeTab() === 'orders' ? 0 : -1"
+      (click)="selectTab('orders')"
+      (keydown)="onTabKeydown($event)"
+    >
+      Orders
+    </button>
+    <button
+      id="transactions-tab"
+      type="button"
+      role="tab"
+      aria-controls="transactions-panel"
+      [attr.aria-selected]="activeTab() === 'transactions'"
+      [attr.tabindex]="activeTab() === 'transactions' ? 0 : -1"
+      (click)="selectTab('transactions')"
+      (keydown)="onTabKeydown($event)"
+    >
+      Transactions
+    </button>
+  </div>
+
+  @if (portfolio.error(); as error) {
+    <div class="alert alert-error" role="alert">
+      <app-icon name="alert-circle" />
+      <span>{{ error }}</span>
+      <button
+        type="button"
+        class="btn btn-sm btn-secondary alert-action"
+        (click)="portfolio.refresh()"
+      >
+        Try again
+      </button>
+    </div>
+  }
+
+  <section
+    class="card activity-card"
+    [id]="activeTab() + '-panel'"
+    role="tabpanel"
+    [attr.aria-labelledby]="activeTab() + '-tab'"
+  >
+    <div class="filter-toolbar" aria-label="Activity filters">
+      <label class="field">
+        <span class="field-label">Start date</span>
+        <input
+          id="activity-start-date"
+          class="input"
+          type="date"
+          [value]="startDate()"
+          [attr.aria-invalid]="invalidDateRange()"
+          (input)="updateStartDate($event)"
+        />
+      </label>
+      <label class="field">
+        <span class="field-label">End date</span>
+        <input
+          id="activity-end-date"
+          class="input"
+          type="date"
+          [value]="endDate()"
+          [attr.aria-invalid]="invalidDateRange()"
+          (input)="updateEndDate($event)"
+        />
+      </label>
+      @if (activeTab() === 'orders') {
+        <label class="field">
+          <span class="field-label">Status</span>
+          <select class="select" [value]="orderStatus()" (change)="updateOrderStatus($event)">
+            <option value="">All statuses</option>
+            @for (status of orderStatuses; track status) {
+              <option [value]="status">{{ statusLabel(status) }}</option>
+            }
+          </select>
+        </label>
+      } @else {
+        <label class="field">
+          <span class="field-label">Type</span>
+          <select
+            class="select"
+            [value]="transactionType()"
+            (change)="updateTransactionType($event)"
+          >
+            <option value="">All types</option>
+            @for (type of transactionTypes; track type) {
+              <option [value]="type">{{ typeLabel(type) }}</option>
+            }
+          </select>
+        </label>
+      }
+      <button
+        type="button"
+        class="btn btn-secondary filter-reset"
+        [disabled]="activeTab() === 'orders' ? !hasOrderFilters() : !hasTransactionFilters()"
+        (click)="resetFilters()"
+      >
+        Reset filters
+      </button>
+    </div>
+
+    @if (invalidDateRange()) {
+      <p class="field-error date-error" role="alert">
+        <app-icon name="alert-circle" [size]="16" />
+        Start date must be on or before end date.
+      </p>
+    }
+
+    @if (portfolio.error() && !portfolio.hasLoaded()) {
+      <!-- The page-level alert owns the initial load failure; do not mislabel it as no history. -->
+    } @else if (activeTab() === 'orders') {
+      <app-orders-table
+        [rows]="orderPaging.rows()"
+        [loading]="initialLoading()"
+        caption="Order history"
+        [emptyTitle]="orderEmptyTitle()"
+        [emptyMessage]="orderEmptyMessage()"
+      />
+      @if (!initialLoading() && !portfolio.error()) {
+        <app-table-pager
+          [page]="orderPaging.page()"
+          [pageSize]="pageSize"
+          [total]="filteredOrders().length"
+          itemLabel="orders"
+          label="Order history pages"
+          (pageChange)="orderPaging.goTo($event)"
+        />
+      }
+    } @else {
+      @if (portfolio.transactionError(); as error) {
+        <div class="alert alert-error" role="alert">
+          <app-icon name="alert-circle" />
+          <span>{{ error }}</span>
+          <button
+            type="button"
+            class="btn btn-sm btn-secondary alert-action"
+            (click)="portfolio.refresh()"
+          >
+            Try again
+          </button>
+        </div>
+      } @else {
+        <app-transactions-table
+          [rows]="transactionPaging.rows()"
+          [loading]="initialLoading()"
+          caption="Transaction history"
+          [emptyTitle]="transactionEmptyTitle()"
+          [emptyMessage]="transactionEmptyMessage()"
+        />
+        @if (!initialLoading() && !portfolio.error()) {
+          <app-table-pager
+            [page]="transactionPaging.page()"
+            [pageSize]="pageSize"
+            [total]="filteredTransactions().length"
+            itemLabel="transactions"
+            label="Transaction history pages"
+            (pageChange)="transactionPaging.goTo($event)"
+          />
+        }
+      }
+    }
+  </section>
+</div>
