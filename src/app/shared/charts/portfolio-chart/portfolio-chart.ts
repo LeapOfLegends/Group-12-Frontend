@@ -1,21 +1,25 @@
 import { ChangeDetectionStrategy, Component, computed, input, output, signal } from '@angular/core';
 import { SeriesPoint } from '../../../core/models/portfolio.models';
 import {
+  AccountTransaction,
   INSTRUMENT_HISTORY_RANGES,
   PortfolioPerformanceHistory,
   PortfolioPerformancePoint,
   PortfolioPerformanceRange,
 } from '../../../core/models/trading.models';
 import { formatDateTime } from '../../../core/utils/dates';
-import { formatCompactMoney, formatMoney, formatPercentagePoints } from '../../../core/utils/money';
+import {
+  formatCompactMoney,
+  formatMoney,
+  formatPercentagePoints,
+  formatSignedMoney,
+} from '../../../core/utils/money';
 import { DateTimePipe } from '../../pipes/format.pipes';
 import { EmptyStateComponent } from '../../ui/empty-state/empty-state';
 import { IconComponent } from '../../ui/icon/icon';
 import { LoadingSkeletonComponent } from '../../ui/loading-skeleton/loading-skeleton';
 import { ChartTone, LineChartComponent } from '../line-chart/line-chart';
 import { buildChartXAxis } from '../chart-axis';
-
-export type PortfolioChartMetric = 'VALUE' | 'TWR';
 
 /** Controlled dashboard presentation for backend-provided portfolio performance. */
 @Component({
@@ -33,13 +37,7 @@ export type PortfolioChartMetric = 'VALUE' | 'TWR';
       <div class="card-header">
         <div>
           <h2 id="portfolio-chart-title">{{ title() }}</h2>
-          <p class="card-subtitle">
-            {{
-              metric() === 'VALUE'
-                ? 'Cash plus the market value of your investments'
-                : 'Time-weighted return'
-            }}
-          </p>
+          <p class="card-subtitle">Cash plus the market value of your investments</p>
         </div>
         <div class="chart-controls">
           <div class="segmented" role="group" aria-label="Time range">
@@ -65,25 +63,6 @@ export type PortfolioChartMetric = 'VALUE' | 'TWR';
             {{ showTable() ? 'Hide table' : 'Show table' }}
           </button>
         </div>
-      </div>
-
-      <div class="metric-selector segmented" role="group" aria-label="Performance metric">
-        <button
-          type="button"
-          data-metric="VALUE"
-          [attr.aria-pressed]="metric() === 'VALUE'"
-          (click)="selectMetric('VALUE')"
-        >
-          Portfolio Value
-        </button>
-        <button
-          type="button"
-          data-metric="TWR"
-          [attr.aria-pressed]="metric() === 'TWR'"
-          (click)="selectMetric('TWR')"
-        >
-          Time-Weighted Return
-        </button>
       </div>
 
       @if (loading()) {
@@ -118,27 +97,39 @@ export type PortfolioChartMetric = 'VALUE' | 'TWR';
         <div class="chart-fill chart-fill-center" [style.min-height.px]="height()">
           <app-empty-state
             icon="chart-line"
-            [title]="
-              metric() === 'TWR' ? 'Time-weighted return unavailable' : 'No reliable valuations'
-            "
-            [message]="
-              metric() === 'TWR'
-                ? 'A reliable return could not be calculated for this range.'
-                : 'No reliable portfolio valuations are available for this range.'
-            "
+            title="No reliable valuations"
+            message="No reliable portfolio valuations are available for this range."
           />
         </div>
       } @else {
         <div class="chart-summary">
           <span class="chart-current">{{ formatValue(latestValue()) }}</span>
-          <span
-            class="delta"
-            [class.delta-up]="tone() === 'positive'"
-            [class.delta-down]="tone() === 'negative'"
-            [class.delta-flat]="tone() === 'neutral'"
-          >
-            {{ metric() === 'TWR' ? 'Cumulative return' : 'Latest historical value' }}
-          </span>
+          <div class="return-summary" aria-label="Selected range gain or loss and return">
+            <span
+              class="delta"
+              [class.delta-up]="periodGainTone() === 'positive'"
+              [class.delta-down]="periodGainTone() === 'negative'"
+              [class.delta-flat]="periodGainTone() === 'neutral'"
+            >
+              @if (formattedPeriodGain(); as gainText) {
+                {{ gainText }}
+              } @else {
+                Period gain/loss unavailable
+              }
+            </span>
+            <span
+              class="delta"
+              [class.delta-up]="twrTone() === 'positive'"
+              [class.delta-down]="twrTone() === 'negative'"
+              [class.delta-flat]="twrTone() === 'neutral'"
+            >
+              @if (formattedTwr(); as returnText) {
+                ({{ returnText }})
+              } @else {
+                (TWR unavailable)
+              }
+            </span>
+          </div>
         </div>
 
         @if (series().length >= 2) {
@@ -156,11 +147,7 @@ export type PortfolioChartMetric = 'VALUE' | 'TWR';
             [tooltipTimeFormatter]="xAxis().tooltipFormatter"
             [valueFormatter]="formatValue"
             [compactFormatter]="formatCompactValue"
-            [ariaLabel]="
-              metric() === 'VALUE'
-                ? 'Historical portfolio value including cash and holdings'
-                : 'Historical time-weighted portfolio return'
-            "
+            ariaLabel="Historical portfolio value including cash and holdings"
           />
         } @else {
           <p class="single-point text-secondary" role="status">
@@ -180,12 +167,12 @@ export type PortfolioChartMetric = 'VALUE' | 'TWR';
             }
           </p>
         }
-        @if (metric() === 'TWR' && history()!.returnMethod === 'ESTIMATED_TWR') {
+        @if (history()!.returnMethod === 'ESTIMATED_TWR') {
           <p class="chart-notice text-secondary text-xs" role="status">
             Estimated using available historical closing prices.
           </p>
         }
-        @if (metric() === 'TWR' && history()!.returnMethod === 'UNAVAILABLE') {
+        @if (history()!.returnMethod === 'UNAVAILABLE') {
           <p class="chart-notice text-secondary text-xs" role="status">
             The backend could not calculate a reliable time-weighted return for this range.
           </p>
@@ -206,9 +193,7 @@ export type PortfolioChartMetric = 'VALUE' | 'TWR';
               <thead>
                 <tr>
                   <th scope="col">Date</th>
-                  <th scope="col" class="num">
-                    {{ metric() === 'VALUE' ? 'Portfolio value' : 'Time-weighted return' }}
-                  </th>
+                  <th scope="col" class="num">Portfolio value</th>
                   <th scope="col">Valuation details</th>
                 </tr>
               </thead>
@@ -247,20 +232,24 @@ export type PortfolioChartMetric = 'VALUE' | 'TWR';
       display: grid;
       place-items: center;
     }
-    .chart-controls,
-    .chart-summary {
+    .chart-controls {
       display: flex;
       align-items: center;
       gap: 8px;
       flex-wrap: wrap;
     }
-    .metric-selector {
-      align-self: flex-start;
-    }
     .chart-summary {
-      align-items: baseline;
-      gap: 14px;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 2px;
       margin-bottom: 6px;
+    }
+    .return-summary {
+      display: flex;
+      align-items: baseline;
+      gap: 6px;
+      flex-wrap: wrap;
     }
     .chart-current {
       font-size: var(--text-2xl);
@@ -283,18 +272,27 @@ export type PortfolioChartMetric = 'VALUE' | 'TWR';
       overflow: auto;
       border: 1px solid var(--color-border);
     }
+    @media (max-width: 480px) {
+      .return-separator {
+        display: none;
+      }
+      .return-summary {
+        flex-direction: column;
+        gap: 2px;
+      }
+    }
   `,
 })
 export class PortfolioChartComponent {
   readonly title = input('Portfolio performance');
   readonly history = input<PortfolioPerformanceHistory | null>(null);
   readonly range = input.required<PortfolioPerformanceRange>();
-  readonly metric = input.required<PortfolioChartMetric>();
+  readonly transactions = input<readonly AccountTransaction[]>([]);
+  readonly transactionHistoryAvailable = input(false);
   readonly loading = input(false);
   readonly error = input<string | null>(null);
   readonly height = input(280);
   readonly rangeChange = output<PortfolioPerformanceRange>();
-  readonly metricChange = output<PortfolioChartMetric>();
   readonly retry = output<void>();
 
   protected readonly ranges = INSTRUMENT_HISTORY_RANGES;
@@ -310,7 +308,7 @@ export class PortfolioChartComponent {
     );
     for (const point of sorted) {
       const time = Date.parse(point.timestamp);
-      const value = this.metric() === 'VALUE' ? point.totalValue : point.cumulativeReturnPercent;
+      const value = point.totalValue;
       if (
         !Number.isFinite(time) ||
         value === null ||
@@ -332,19 +330,67 @@ export class PortfolioChartComponent {
   });
 
   protected readonly latestValue = computed(() => this.series().at(-1)?.value ?? 0);
+  protected readonly latestTwr = computed(() => {
+    const history = this.history();
+    if (!history || history.returnMethod === 'UNAVAILABLE') return null;
+    return (
+      [...history.points]
+        .sort((a, b) => Date.parse(b.timestamp) - Date.parse(a.timestamp))
+        .find(
+          (point) =>
+            Number.isFinite(Date.parse(point.timestamp)) &&
+            point.valuationStatus !== 'UNAVAILABLE' &&
+            point.cumulativeReturnPercent !== null &&
+            Number.isFinite(point.cumulativeReturnPercent),
+        )?.cumulativeReturnPercent ?? null
+    );
+  });
+  protected readonly periodGain = computed(() => {
+    if (!this.transactionHistoryAvailable()) return null;
+    const points = this.series();
+    if (points.length < 2) return null;
+    const start = points[0];
+    const end = points.at(-1)!;
+    if (start.time >= end.time) return null;
+
+    const externalFlows = this.transactions().filter((transaction) => {
+      const type = transaction.transactionType.toUpperCase();
+      return type === 'DEPOSIT' || type === 'WITHDRAWAL';
+    });
+    if (
+      externalFlows.some(
+        (transaction) =>
+          !Number.isFinite(Date.parse(transaction.createdAt)) ||
+          !Number.isFinite(transaction.amount),
+      )
+    ) {
+      return null;
+    }
+    const netExternalFlows = externalFlows.reduce((total, transaction) => {
+      const time = Date.parse(transaction.createdAt);
+      return time > start.time && time <= end.time ? total + transaction.amount : total;
+    }, 0);
+    const result = end.value - start.value - netExternalFlows;
+    return Number.isFinite(result) ? result : null;
+  });
+  protected readonly formattedTwr = computed(() => {
+    const value = this.latestTwr();
+    return value === null ? '' : formatPercentagePoints(value, { signed: true });
+  });
+  protected readonly formattedPeriodGain = computed(() => {
+    const value = this.periodGain();
+    return value === null ? '' : formatSignedMoney(value, this.history()?.currency || 'USD');
+  });
   protected readonly xAxis = computed(() =>
     buildChartXAxis(this.series(), this.range(), { assetClass: 'PORTFOLIO' }),
   );
   protected readonly tone = computed<ChartTone>(() => {
     const points = this.series();
-    const change =
-      this.metric() === 'TWR'
-        ? (points.at(-1)?.value ?? 0)
-        : points.length >= 2
-          ? points[points.length - 1].value - points[0].value
-          : 0;
+    const change = points.length >= 2 ? points[points.length - 1].value - points[0].value : 0;
     return change > 0 ? 'positive' : change < 0 ? 'negative' : 'neutral';
   });
+  protected readonly twrTone = computed<ChartTone>(() => toneOf(this.latestTwr()));
+  protected readonly periodGainTone = computed<ChartTone>(() => toneOf(this.periodGain()));
   protected readonly coverage = computed(() => {
     const history = this.history();
     if (!history?.availableFrom || !history.availableTo) return '';
@@ -355,29 +401,25 @@ export class PortfolioChartComponent {
   });
 
   protected readonly formatValue = (value: number): string =>
-    this.metric() === 'VALUE'
-      ? formatMoney(value, this.history()?.currency || 'USD')
-      : formatPercentagePoints(value, { signed: true });
+    formatMoney(value, this.history()?.currency || 'USD');
 
   protected readonly formatCompactValue = (value: number): string =>
-    this.metric() === 'VALUE'
-      ? formatCompactMoney(value, this.history()?.currency || 'USD')
-      : formatPercentagePoints(value);
+    formatCompactMoney(value, this.history()?.currency || 'USD');
 
   protected selectRange(range: PortfolioPerformanceRange): void {
     if (range !== this.range()) this.rangeChange.emit(range);
   }
+}
 
-  protected selectMetric(metric: PortfolioChartMetric): void {
-    if (metric !== this.metric()) this.metricChange.emit(metric);
-  }
+function toneOf(value: number | null): ChartTone {
+  return value === null || value === 0 ? 'neutral' : value > 0 ? 'positive' : 'negative';
 }
 
 function pointNote(point: PortfolioPerformancePoint, currency: string): string {
   const values = `Cash ${formatMoney(point.cashValue, currency)}; holdings ${formatMoney(point.holdingsValue, currency)}.`;
   const status =
     point.valuationStatus === 'CARRIED_FORWARD'
-      ? ' Carried forward using the last available completed market price.'
+      ? ' '
       : '';
   return `${values}${status}`;
 }

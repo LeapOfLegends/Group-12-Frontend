@@ -19,10 +19,7 @@ import { PortfolioHistoryService } from '../../core/services/portfolio-history.s
 import { PortfolioService } from '../../core/services/portfolio.service';
 import { formatDate, greetingForHour } from '../../core/utils/dates';
 import { formatMoney, formatPercent, formatSignedMoney } from '../../core/utils/money';
-import {
-  PortfolioChartComponent,
-  PortfolioChartMetric,
-} from '../../shared/charts/portfolio-chart/portfolio-chart';
+import { PortfolioChartComponent } from '../../shared/charts/portfolio-chart/portfolio-chart';
 import { BarListComponent } from '../../shared/charts/bar-list/bar-list';
 import { MoneyPipe } from '../../shared/pipes/format.pipes';
 import {
@@ -104,8 +101,6 @@ export class DashboardPage implements OnInit {
   protected readonly transactionError = this.portfolio.transactionError;
   protected readonly allocation = this.portfolio.allocation;
   protected readonly pendingCount = computed(() => this.portfolio.pendingOrders().length);
-  protected readonly chartMetric = signal<PortfolioChartMetric>('VALUE');
-
   protected readonly cashValue = computed(() => formatMoney(this.portfolio.cash()));
   protected readonly portfolioValue = computed(() => formatMoney(this.summary().holdingsValue));
   protected readonly returnAvailable = computed(() => {

@@ -99,7 +99,7 @@
               }
               @case ('portfolio') {
                 <app-financial-summary-card
-                  label="Total portfolio value"
+                  label="Holdings value"
                   [value]="portfolioValue()"
                   [delta]="returnDelta()"
                   [deltaDetail]="returnValue()"
@@ -114,12 +114,14 @@
                 <app-portfolio-chart
                   [history]="portfolioHistory.history()"
                   [range]="portfolioHistory.selectedRange()"
-                  [metric]="chartMetric()"
+                  [transactions]="portfolio.transactions()"
+                  [transactionHistoryAvailable]="
+                    portfolio.hasLoaded() && !portfolio.transactionError()
+                  "
                   [height]="300"
                   [loading]="portfolioHistory.loading()"
                   [error]="portfolioHistory.error()"
                   (rangeChange)="selectHistoryRange($event)"
-                  (metricChange)="chartMetric.set($event)"
                   (retry)="portfolioHistory.retry()"
                 />
               }

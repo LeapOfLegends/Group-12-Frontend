@@ -240,7 +240,8 @@ describe('DashboardPage', () => {
     expect(text).toContain('+20.00%');
     expect(text).toContain('$2,200.00'); // total account value
     expect(text).not.toContain('Unrealized P/L');
-    expect(text).toContain('Latest historical value');
+    expect(text).toContain('+6.67% TWR');
+    expect(text).toContain('-$250.00 period gain/loss');
     const valueCard = portfolioCard();
     expect(valueCard.querySelector('.summary-value')?.textContent).toContain('$1,200.00');
     expect(valueCard.querySelector('.summary-delta')?.textContent).toContain('+20.00% (+$200.00)');
@@ -478,7 +479,7 @@ describe('DashboardPage', () => {
       expect(localStorage.getItem(layoutKey)).toBe(serializeWidgetOrder(DEFAULT_WIDGET_ORDER));
     });
 
-    it('requests backend history for each range without refetching when the metric changes', async () => {
+    it('requests and caches backend history for each range without a metric toggle', async () => {
       await render();
       expect(
         element()
@@ -492,12 +493,13 @@ describe('DashboardPage', () => {
         fixture.detectChanges();
       }
 
-      element().querySelector<HTMLButtonElement>('button[data-metric="TWR"]')!.click();
+      expect(element().querySelector('[data-metric]')).toBeNull();
+      element().querySelector<HTMLButtonElement>('button[data-range="1D"]')!.click();
       fixture.detectChanges();
       http.expectNone((request) => request.url === HISTORY_API);
       expect(
         element()
-          .querySelector<HTMLButtonElement>('button[data-metric="TWR"]')
+          .querySelector<HTMLButtonElement>('button[data-range="1D"]')
           ?.getAttribute('aria-pressed'),
       ).toBe('true');
     });
