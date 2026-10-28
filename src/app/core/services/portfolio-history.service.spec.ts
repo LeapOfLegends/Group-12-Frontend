@@ -52,11 +52,11 @@ describe('PortfolioHistoryService', () => {
 
   it('loads the default range once and caches it for the current session', () => {
     service.load();
-    expect(getMyPortfolioHistory).toHaveBeenCalledWith('1M');
-    requests.get('1M')!.next(history('1M'));
-    expect(service.history()?.range).toBe('1M');
+    expect(getMyPortfolioHistory).toHaveBeenCalledWith('1D');
+    requests.get('1D')!.next(history('1D'));
+    expect(service.history()?.range).toBe('1D');
 
-    service.load('1M');
+    service.load('1D');
     expect(getMyPortfolioHistory).toHaveBeenCalledTimes(1);
   });
 
@@ -81,7 +81,7 @@ describe('PortfolioHistoryService', () => {
     token.set('token-b');
     TestBed.flushEffects();
     expect(service.history()).toBeNull();
-    expect(service.selectedRange()).toBe('1M');
+    expect(service.selectedRange()).toBe('1D');
 
     service.load('1M');
     expect(getMyPortfolioHistory).toHaveBeenCalledTimes(2);

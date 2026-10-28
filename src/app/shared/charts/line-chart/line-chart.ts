@@ -11,6 +11,7 @@ import {
 } from '@angular/core';
 import { SeriesPoint } from '../../../core/models/portfolio.models';
 import { EASTERN_TIME_ZONE, formatDate, formatDateTime } from '../../../core/utils/dates';
+import { ChartXDomain } from '../chart-axis';
 
 export type ChartTone = 'positive' | 'negative' | 'neutral';
 export type ChartXScale = 'time' | 'index';
@@ -267,6 +268,10 @@ export class LineChartComponent {
   readonly tone = input<ChartTone>('neutral');
   /** `index` gives every real observation equal space; useful for exchange-session data. */
   readonly xScale = input<ChartXScale>('time');
+  /** Optional real timestamps to use as tick candidates. The chart responsively samples them. */
+  readonly xTickValues = input<readonly number[] | null>(null);
+  /** Optional visible time domain, used for session boundaries without fabricating observations. */
+  readonly xDomain = input<ChartXDomain | null>(null);
   readonly xTickFormatter = input<ChartTimeFormatter | null>(null);
   readonly tooltipTimeFormatter = input<ChartTimeFormatter | null>(null);
   readonly valueFormatter = input<(value: number) => string>((value) => String(value));
@@ -305,8 +310,15 @@ export class LineChartComponent {
     }
     const times = points.map((point) => point.time);
     const values = points.map((point) => point.value);
-    let minTime = Math.min(...times);
-    let maxTime = Math.max(...times);
+    const requestedDomain = this.xDomain();
+    let minTime =
+      requestedDomain && requestedDomain.max > requestedDomain.min
+        ? requestedDomain.min
+        : Math.min(...times);
+    let maxTime =
+      requestedDomain && requestedDomain.max > requestedDomain.min
+        ? requestedDomain.max
+        : Math.max(...times);
     if (minTime === maxTime) {
       minTime -= 86_400_000;
       maxTime += 86_400_000;
@@ -406,11 +418,29 @@ export class LineChartComponent {
     }
     const width = this.width();
     const innerWidth = Math.max(1, width - PADDING.left - PADDING.right);
-    const count = Math.max(
-      2,
-      Math.min(6, Math.floor(innerWidth / (this.xTickFormatter() ? 150 : 120))),
-    );
+    const requestedTicks = this.xTickValues();
+    const tickSpacing = requestedTicks ? 110 : this.xTickFormatter() ? 150 : 120;
+    const count = Math.max(2, Math.min(6, Math.floor(innerWidth / tickSpacing)));
     const span = domain.maxTime - domain.minTime;
+    const candidates = requestedTicks?.filter(
+      (time) => Number.isFinite(time) && time >= domain.minTime && time <= domain.maxTime,
+    );
+    if (candidates?.length) {
+      const values = sampleEvenly([...new Set(candidates)], count);
+      return values.map((time, index) => {
+        const pointIndex = nearestTimeIndex(this.points(), time);
+        return {
+          position:
+            PADDING.left +
+            (this.xScale() === 'index'
+              ? pointIndex / Math.max(1, this.points().length - 1)
+              : (time - domain.minTime) / span) *
+              innerWidth,
+          label: this.xTickFormatter()?.(time) ?? formatAxisDate(time, span),
+          anchor: index === 0 ? 'start' : index === values.length - 1 ? 'end' : 'middle',
+        };
+      });
+    }
     const ticks: Tick[] = [];
     for (let index = 0; index < count; index++) {
       const pointIndex = Math.round(((this.points().length - 1) * index) / (count - 1));
@@ -596,4 +626,26 @@ function formatAxisDate(time: number, spanMs: number): string {
     year: 'numeric',
     timeZone: EASTERN_TIME_ZONE,
   }).format(date);
+}
+
+function sampleEvenly<T>(values: readonly T[], limit: number): T[] {
+  if (values.length <= limit) return [...values];
+  const sampled: T[] = [];
+  for (let index = 0; index < limit; index++) {
+    sampled.push(values[Math.round(((values.length - 1) * index) / (limit - 1))]);
+  }
+  return sampled;
+}
+
+function nearestTimeIndex(points: readonly SeriesPoint[], time: number): number {
+  let nearest = 0;
+  let distance = Number.POSITIVE_INFINITY;
+  points.forEach((point, index) => {
+    const nextDistance = Math.abs(point.time - time);
+    if (nextDistance < distance) {
+      distance = nextDistance;
+      nearest = index;
+    }
+  });
+  return nearest;
 }

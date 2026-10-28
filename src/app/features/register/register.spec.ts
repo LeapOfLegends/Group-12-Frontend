@@ -112,6 +112,42 @@ describe('RegisterPage', () => {
     expect(element<HTMLInputElement>('#register-ssn').type).toBe('text');
   });
 
+  it('provides one independent, non-submitting visibility control per sensitive field', async () => {
+    const fields = [
+      ['#register-ssn', 'Show Social Security number'],
+      ['#register-password', 'Show password'],
+      ['#register-confirm-password', 'Show confirm password'],
+    ] as const;
+
+    for (const [selector, label] of fields) {
+      const input = element<HTMLInputElement>(selector);
+      const wrapper = input.closest('.input-group-visibility')!;
+      expect(input.type).toBe('password');
+      expect(wrapper.querySelectorAll('button.input-suffix')).toHaveLength(1);
+      const button = wrapper.querySelector<HTMLButtonElement>(`button[aria-label="${label}"]`)!;
+      expect(button.type).toBe('button');
+      expect(button.getAttribute('aria-pressed')).toBe('false');
+    }
+    expect(element<HTMLInputElement>('#register-password').autocomplete).toBe('new-password');
+    expect(element<HTMLInputElement>('#register-confirm-password').autocomplete).toBe('new-password');
+
+    element<HTMLButtonElement>('button[aria-label="Show password"]').click();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect(element<HTMLInputElement>('#register-password').type).toBe('text');
+    expect(element<HTMLInputElement>('#register-confirm-password').type).toBe('password');
+    expect(element<HTMLInputElement>('#register-ssn').type).toBe('password');
+    expect(element<HTMLButtonElement>('button[aria-label="Hide password"]').getAttribute('aria-pressed')).toBe('true');
+
+    element<HTMLButtonElement>('button[aria-label="Show confirm password"]').click();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect(element<HTMLInputElement>('#register-password').type).toBe('text');
+    expect(element<HTMLInputElement>('#register-confirm-password').type).toBe('text');
+    expect(element<HTMLInputElement>('#register-ssn').type).toBe('password');
+    http.expectNone(REGISTER_URL);
+  });
+
   it('flags a mismatched confirmation before anything is sent', async () => {
     await fillValidForm();
     type('#register-confirm-password', 'Different123!');

@@ -13,6 +13,7 @@ import { EmptyStateComponent } from '../../ui/empty-state/empty-state';
 import { IconComponent } from '../../ui/icon/icon';
 import { LoadingSkeletonComponent } from '../../ui/loading-skeleton/loading-skeleton';
 import { ChartTone, LineChartComponent } from '../line-chart/line-chart';
+import { buildChartXAxis } from '../chart-axis';
 
 export type PortfolioChartMetric = 'VALUE' | 'TWR';
 
@@ -148,6 +149,11 @@ export type PortfolioChartMetric = 'VALUE' | 'TWR';
             [tone]="tone()"
             [height]="height()"
             [fill]="true"
+            [xScale]="xAxis().scale"
+            [xTickValues]="xAxis().tickValues"
+            [xDomain]="xAxis().domain"
+            [xTickFormatter]="xAxis().tickFormatter"
+            [tooltipTimeFormatter]="xAxis().tooltipFormatter"
             [valueFormatter]="formatValue"
             [compactFormatter]="formatCompactValue"
             [ariaLabel]="
@@ -326,6 +332,9 @@ export class PortfolioChartComponent {
   });
 
   protected readonly latestValue = computed(() => this.series().at(-1)?.value ?? 0);
+  protected readonly xAxis = computed(() =>
+    buildChartXAxis(this.series(), this.range(), { assetClass: 'PORTFOLIO' }),
+  );
   protected readonly tone = computed<ChartTone>(() => {
     const points = this.series();
     const change =

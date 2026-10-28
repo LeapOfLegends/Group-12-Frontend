@@ -117,4 +117,22 @@ describe('LineChartComponent', () => {
     expect(labels[0]).toBe('10:30 AM');
     expect(labels.at(-1)).toBe('11:30 AM');
   });
+
+  it('responsively samples explicit ticks while preserving the first and last labels', () => {
+    const points = Array.from({ length: 10 }, (_, index) => ({
+      time: Date.parse('2026-10-01T14:00:00Z') + index * 86_400_000,
+      value: 100 + index,
+    }));
+    fixture.componentRef.setInput('points', points);
+    fixture.componentRef.setInput('xScale', 'index');
+    fixture.componentRef.setInput('xTickValues', points.map((point) => point.time));
+    fixture.componentRef.setInput('xTickFormatter', (time: number) => String(time));
+    (fixture.componentInstance as any).width.set(360);
+    fixture.detectChanges();
+
+    const ticks = (fixture.componentInstance as any).xTicks();
+    expect(ticks).toHaveLength(2);
+    expect(ticks[0].label).toBe(String(points[0].time));
+    expect(ticks[1].label).toBe(String(points.at(-1)!.time));
+  });
 });

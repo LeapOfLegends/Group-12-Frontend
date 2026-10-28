@@ -135,7 +135,7 @@
 
           <div class="field">
             <label class="field-label" for="register-ssn">Social Security number</label>
-            <div class="input-group input-group-secret">
+            <div class="input-group input-group-secret input-group-visibility">
               <input
                 id="register-ssn"
                 class="input"
@@ -173,7 +173,7 @@
         <fieldset class="form-section">
           <div class="field">
             <label class="field-label" for="register-password">Password</label>
-            <div class="input-group input-group-secret">
+            <div class="input-group input-group-secret input-group-visibility">
               <input
                 id="register-password"
                 class="input"
@@ -210,17 +210,26 @@
 
           <div class="field">
             <label class="field-label" for="register-confirm-password">Confirm password</label>
-            <div class="input-group input-group-secret">
+            <div class="input-group input-group-secret input-group-visibility">
               <input
                 id="register-confirm-password"
                 class="input"
-                [type]="showPassword() ? 'text' : 'password'"
+                [type]="showConfirmPassword() ? 'text' : 'password'"
                 formControlName="confirmPassword"
                 autocomplete="new-password"
                 maxlength="72"
                 [attr.aria-invalid]="fieldError('confirmPassword') ? 'true' : null"
                 [attr.aria-describedby]="fieldError('confirmPassword') ? 'register-confirm-password-error' : null"
               />
+              <button
+                type="button"
+                class="btn btn-ghost btn-icon input-suffix"
+                (click)="toggleConfirmPassword()"
+                [attr.aria-label]="showConfirmPassword() ? 'Hide confirm password' : 'Show confirm password'"
+                [attr.aria-pressed]="showConfirmPassword()"
+              >
+                <app-icon [name]="showConfirmPassword() ? 'eye-off' : 'eye'" [size]="20" />
+              </button>
             </div>
             @if (fieldError('confirmPassword'); as error) {
               <p id="register-confirm-password-error" class="field-error"><app-icon name="alert-circle" [size]="16" />{{ error }}</p>

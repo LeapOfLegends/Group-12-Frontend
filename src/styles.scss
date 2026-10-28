@@ -753,6 +753,30 @@ svg {
   }
 }
 
+/* Custom visibility buttons are the sole reveal control for these sensitive inputs. */
+.input-group-visibility {
+  .input {
+    padding-left: var(--space-4);
+    padding-right: 52px;
+  }
+
+  .input-suffix {
+    top: 50%;
+    transform: translateY(-50%);
+
+    &:active {
+      transform: translateY(-50%);
+    }
+  }
+
+  input[type='password']::-ms-reveal,
+  input[type='password']::-ms-clear {
+    display: none;
+    width: 0;
+    height: 0;
+  }
+}
+
 .input-money {
   font-size: var(--text-xl);
   font-weight: 600;

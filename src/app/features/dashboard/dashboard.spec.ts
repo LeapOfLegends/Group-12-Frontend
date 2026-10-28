@@ -147,8 +147,8 @@ describe('DashboardPage', () => {
         createdAt: '2026-10-03T10:00:00Z',
       },
     ]);
-    http.expectOne(`${HISTORY_API}?range=1M`).flush(
-      portfolioHistory('1M', [
+    http.expectOne(`${HISTORY_API}?range=1D`).flush(
+      portfolioHistory('1D', [
         {
           timestamp: '2026-10-01T00:00:00Z',
           cashValue: 1000,
@@ -245,7 +245,7 @@ describe('DashboardPage', () => {
       http.expectOne(`${API}/api/clients/me/holdings`).flush([]);
       http.expectOne(`${API}/api/clients/me/orders`).flush([]);
       http.expectOne(`${API}/api/clients/me/transactions`).flush([]);
-      http.expectOne(`${HISTORY_API}?range=1M`).flush(portfolioHistory());
+      http.expectOne(`${HISTORY_API}?range=1D`).flush(portfolioHistory('1D'));
     }
 
     async function render(prepare?: () => void): Promise<void> {
@@ -330,7 +330,12 @@ describe('DashboardPage', () => {
 
     it('requests backend history for each range without refetching when the metric changes', async () => {
       await render();
-      for (const range of ['1D', '5D', '1Y', '5Y']) {
+      expect(
+        element()
+          .querySelector<HTMLButtonElement>('button[data-range="1D"]')
+          ?.getAttribute('aria-pressed'),
+      ).toBe('true');
+      for (const range of ['5D', '1M', '1Y', '5Y']) {
         element().querySelector<HTMLButtonElement>(`button[data-range="${range}"]`)!.click();
         fixture.detectChanges();
         http.expectOne(`${HISTORY_API}?range=${range}`).flush(portfolioHistory(range));

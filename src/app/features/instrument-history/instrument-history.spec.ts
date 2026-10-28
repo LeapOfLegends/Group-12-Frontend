@@ -398,9 +398,9 @@ describe('InstrumentHistoryPage', () => {
 });
 
 describe('US equity history time formatting', () => {
-  it('shows date and actual exchange time for 5D ticks and tooltips', () => {
+  it('shows session dates for 5D ticks and actual exchange time in tooltips', () => {
     const time = Date.parse('2026-10-21T14:30:00Z');
-    expect(formatEquityAxisTime(time, '5D')).toMatch(/Oct 21.*10:30 AM/);
+    expect(formatEquityAxisTime(time, '5D')).toBe('Oct 21');
     expect(formatEquityTooltipTime(time, '5D')).toMatch(/Oct 21, 2026.*10:30 AM.*EDT/);
   });
 
@@ -598,9 +598,9 @@ describe('InstrumentHistoryChartComponent multi-asset history', () => {
 });
 
 describe('crypto and FX history time formatting', () => {
-  it('formats timestamps in Eastern Time', () => {
+  it('formats date ticks and tooltip timestamps in Eastern Time', () => {
     const time = Date.parse('2026-10-21T14:30:00Z');
-    expect(formatHistoryAxisTime(time, '5D')).toMatch(/Oct 21.*10:30 AM/);
+    expect(formatHistoryAxisTime(time, '5D')).toBe('Oct 21');
     expect(formatHistoryTooltipTime(time, '5D')).toMatch(/Oct 21, 2026.*10:30 AM.*EDT/);
   });
 });

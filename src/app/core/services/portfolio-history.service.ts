@@ -5,7 +5,7 @@ import { ClientApiService } from '../api/client-api.service';
 import { AuthService } from '../auth/auth.service';
 import { PortfolioPerformanceHistory, PortfolioPerformanceRange } from '../models/trading.models';
 
-export const DEFAULT_PORTFOLIO_HISTORY_RANGE: PortfolioPerformanceRange = '1M';
+export const DEFAULT_PORTFOLIO_HISTORY_RANGE: PortfolioPerformanceRange = '1D';
 
 /**
  * Session-scoped owner of dashboard portfolio history. Range responses are cached only for the

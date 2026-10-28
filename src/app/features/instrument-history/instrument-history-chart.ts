@@ -26,6 +26,11 @@ import { EASTERN_TIME_ZONE } from '../../core/utils/dates';
 import { describeHttpError } from '../../core/utils/http-error';
 import { formatCompactMoney, formatPrice } from '../../core/utils/money';
 import { LineChartComponent } from '../../shared/charts/line-chart/line-chart';
+import {
+  buildChartXAxis,
+  formatChartTooltipTime,
+  formatRangeTick,
+} from '../../shared/charts/chart-axis';
 import { DateTimePipe, PricePipe } from '../../shared/pipes/format.pipes';
 import { IconComponent } from '../../shared/ui/icon/icon';
 import { LoadingSkeletonComponent } from '../../shared/ui/loading-skeleton/loading-skeleton';
@@ -86,10 +91,12 @@ export class InstrumentHistoryChartComponent {
     formatPrice(value, this.instrument().currency || this.history()?.currency || 'USD');
   protected readonly formatCompact = (value: number): string =>
     formatCompactMoney(value, this.instrument().currency || this.history()?.currency || 'USD');
-  protected readonly formatAxisTime = (time: number): string =>
-    formatHistoryAxisTime(time, this.selectedRange());
-  protected readonly formatTooltipTime = (time: number): string =>
-    formatHistoryTooltipTime(time, this.selectedRange());
+  protected readonly xAxis = computed(() =>
+    buildChartXAxis(this.points(), this.selectedRange(), {
+      assetClass: this.instrument().assetClass,
+      compressGaps: true,
+    }),
+  );
 
   constructor() {
     effect(() => {
@@ -232,33 +239,11 @@ export class InstrumentHistoryChartComponent {
 }
 
 export function formatHistoryAxisTime(time: number, range: InstrumentHistoryRange): string {
-  const options: Intl.DateTimeFormatOptions =
-    range === '1D'
-      ? { hour: 'numeric', minute: '2-digit', timeZone: EASTERN_TIME_ZONE }
-      : range === '5D'
-        ? {
-            month: 'short',
-            day: 'numeric',
-            hour: 'numeric',
-            minute: '2-digit',
-            timeZone: EASTERN_TIME_ZONE,
-          }
-        : range === '5Y'
-          ? { month: 'short', year: '2-digit', timeZone: EASTERN_TIME_ZONE }
-          : { month: 'short', day: 'numeric', timeZone: EASTERN_TIME_ZONE };
-  return new Intl.DateTimeFormat('en-US', options).format(new Date(time));
+  return formatRangeTick(time, range, EASTERN_TIME_ZONE);
 }
 
 export function formatHistoryTooltipTime(time: number, range: InstrumentHistoryRange): string {
-  const intraday = range === '1D' || range === '5D';
-  return new Intl.DateTimeFormat('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-    ...(intraday ? { hour: 'numeric', minute: '2-digit' } : {}),
-    timeZone: EASTERN_TIME_ZONE,
-    timeZoneName: 'short',
-  }).format(new Date(time));
+  return formatChartTooltipTime(time, range, EASTERN_TIME_ZONE);
 }
 
 /** @deprecated Use the asset-aware history formatter instead. */
