@@ -135,10 +135,14 @@ interface NavItem {
     </header>
   `,
   styles: `
-    .navbar {
+    :host {
+      display: block;
       position: sticky;
       top: 0;
       z-index: 30;
+    }
+
+    .navbar {
       background: color-mix(in srgb, var(--color-bg) 88%, transparent);
       backdrop-filter: blur(10px);
       border-bottom: 1px solid var(--color-border);

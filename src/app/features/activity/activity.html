@@ -53,7 +53,41 @@
     role="tabpanel"
     [attr.aria-labelledby]="activeTab() + '-tab'"
   >
-    <div class="filter-toolbar" aria-label="Activity filters">
+    <div
+      class="filter-toolbar"
+      [class.orders-toolbar]="activeTab() === 'orders'"
+      aria-label="Activity filters"
+    >
+      @if (activeTab() === 'orders') {
+        <label class="field instrument-filter">
+          <span class="field-label">Instrument</span>
+          <span class="instrument-search-control">
+            <span class="instrument-search-icon" aria-hidden="true">
+              <app-icon name="search" [size]="18" />
+            </span>
+            <input
+              id="activity-instrument-search"
+              class="input"
+              type="search"
+              autocomplete="off"
+              spellcheck="false"
+              placeholder="Search ticker or company name"
+              [value]="instrumentSearch()"
+              (input)="updateInstrumentSearch($event)"
+            />
+            @if (instrumentSearch()) {
+              <button
+                type="button"
+                class="btn btn-ghost btn-icon instrument-search-clear"
+                aria-label="Clear instrument search"
+                (click)="clearInstrumentSearch()"
+              >
+                <app-icon name="close" [size]="16" />
+              </button>
+            }
+          </span>
+        </label>
+      }
       <label class="field">
         <span class="field-label">Start date</span>
         <input

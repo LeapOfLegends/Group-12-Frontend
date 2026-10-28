@@ -10,7 +10,6 @@ import {
 import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router } from '@angular/router';
 import { map } from 'rxjs';
-import { OrderRow } from '../../core/models/portfolio.models';
 import { AccountTransaction, ORDER_STATUSES, OrderStatus } from '../../core/models/trading.models';
 import { PortfolioService } from '../../core/services/portfolio.service';
 import { easternDateKey } from '../../core/utils/dates';
@@ -48,6 +47,7 @@ export class ActivityPage implements OnInit {
 
   protected readonly startDate = signal('');
   protected readonly endDate = signal('');
+  protected readonly instrumentSearch = signal('');
   protected readonly orderStatus = signal<'' | OrderStatus>('');
   protected readonly transactionType = signal<TransactionTypeFilter>('');
 
@@ -69,17 +69,30 @@ export class ActivityPage implements OnInit {
     if (this.invalidDateRange()) {
       return [];
     }
-    return this.portfolio
-      .orderRows()
-      .filter((row) => this.orderMatches(row))
-      .sort((left, right) =>
-        descendingByTimeAndId(
-          left.order.submittedAt,
-          right.order.submittedAt,
-          left.order.orderId,
-          right.order.orderId,
-        ),
+
+    const search = this.instrumentSearch().trim().toLowerCase();
+    let rows = this.portfolio.orderRows();
+    if (search) {
+      rows = rows.filter(
+        (row) =>
+          row.symbol.toLowerCase().includes(search) || row.name.toLowerCase().includes(search),
       );
+    }
+    rows = rows.filter((row) =>
+      isWithinDateRange(row.order.submittedAt, this.startDate(), this.endDate()),
+    );
+    if (this.orderStatus()) {
+      rows = rows.filter((row) => row.order.status === this.orderStatus());
+    }
+
+    return rows.sort((left, right) =>
+      descendingByTimeAndId(
+        left.order.submittedAt,
+        right.order.submittedAt,
+        left.order.orderId,
+        right.order.orderId,
+      ),
+    );
   });
 
   protected readonly filteredTransactions = computed(() => {
@@ -102,7 +115,8 @@ export class ActivityPage implements OnInit {
   protected readonly orderPaging = pagedRows(
     this.filteredOrders,
     PAGE_SIZE,
-    () => `${this.activeTab()}|${this.startDate()}|${this.endDate()}|${this.orderStatus()}`,
+    () =>
+      `${this.activeTab()}|${this.instrumentSearch()}|${this.startDate()}|${this.endDate()}|${this.orderStatus()}`,
   );
   protected readonly transactionPaging = pagedRows(
     this.filteredTransactions,
@@ -112,7 +126,10 @@ export class ActivityPage implements OnInit {
 
   protected readonly hasDateFilters = computed(() => Boolean(this.startDate() || this.endDate()));
   protected readonly hasOrderFilters = computed(
-    () => this.hasDateFilters() || Boolean(this.orderStatus()),
+    () =>
+      Boolean(this.instrumentSearch().trim()) ||
+      this.hasDateFilters() ||
+      Boolean(this.orderStatus()),
   );
   protected readonly hasTransactionFilters = computed(
     () => this.hasDateFilters() || Boolean(this.transactionType()),
@@ -126,9 +143,13 @@ export class ActivityPage implements OnInit {
   protected readonly orderEmptyMessage = computed(() =>
     this.invalidDateRange()
       ? 'Choose a start date on or before the end date.'
-      : this.hasOrderFilters()
-        ? 'Adjust or reset the filters to see more orders.'
-        : 'Orders you place will appear here with their status and outcome.',
+      : this.portfolio.orderRows().length === 0
+        ? 'Orders you place will appear here with their status and outcome.'
+        : this.instrumentSearch().trim()
+          ? 'Try a different ticker or company name, or reset your filters.'
+          : this.hasOrderFilters()
+            ? 'Adjust or reset the filters to see more orders.'
+            : 'Orders you place will appear here with their status and outcome.',
   );
   protected readonly transactionEmptyTitle = computed(() => {
     if (this.invalidDateRange()) return 'Invalid date range';
@@ -180,6 +201,14 @@ export class ActivityPage implements OnInit {
     this.endDate.set((event.target as HTMLInputElement).value);
   }
 
+  protected updateInstrumentSearch(event: Event): void {
+    this.instrumentSearch.set((event.target as HTMLInputElement).value);
+  }
+
+  protected clearInstrumentSearch(): void {
+    this.instrumentSearch.set('');
+  }
+
   protected updateOrderStatus(event: Event): void {
     this.orderStatus.set((event.target as HTMLSelectElement).value as '' | OrderStatus);
   }
@@ -192,6 +221,7 @@ export class ActivityPage implements OnInit {
     this.startDate.set('');
     this.endDate.set('');
     if (this.activeTab() === 'orders') {
+      this.instrumentSearch.set('');
       this.orderStatus.set('');
     } else {
       this.transactionType.set('');
@@ -204,13 +234,6 @@ export class ActivityPage implements OnInit {
 
   protected typeLabel(type: TransactionTypeFilter): string {
     return titleCase(type);
-  }
-
-  private orderMatches(row: OrderRow): boolean {
-    return (
-      (!this.orderStatus() || row.order.status === this.orderStatus()) &&
-      isWithinDateRange(row.order.submittedAt, this.startDate(), this.endDate())
-    );
   }
 
   private transactionMatches(transaction: AccountTransaction): boolean {

@@ -61,6 +61,18 @@ describe('NavbarComponent', () => {
 
   afterEach(() => localStorage.clear());
 
+  it('applies sticky positioning to the Angular host so page content can scroll beneath it', async () => {
+    await setup('client');
+    const host = fixture.nativeElement as HTMLElement;
+    const styles = getComputedStyle(host);
+
+    expect(styles.display).toBe('block');
+    expect(styles.position).toBe('sticky');
+    expect(styles.top).toBe('0px');
+    expect(styles.zIndex).toBe('30');
+    expect(getComputedStyle(element<HTMLElement>('.navbar')!).position).not.toBe('sticky');
+  });
+
   it('offers Log in and Sign up, and no profile card, when nobody is signed in', async () => {
     await setup('none');
     expect(element('nav.navbar-links')).toBeNull();
